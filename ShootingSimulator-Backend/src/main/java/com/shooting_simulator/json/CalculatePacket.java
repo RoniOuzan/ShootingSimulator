@@ -1,10 +1,9 @@
 package com.shooting_simulator.json;
 
 import com.shooting_simulator.SimulatorServer;
-import com.shooting_simulator.json.DataPacket;
+import com.shooting_simulator.simulation.PhysicalValues;
 import com.shooting_simulator.simulation.TrajectoryChooser;
 import com.shooting_simulator.simulation.Trajectory;
-import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
@@ -12,17 +11,17 @@ import java.util.List;
 
 public class CalculatePacket implements DataPacket {
 
-    // Fields match the JSON coming from React
+    public double initialX;
+    public double initialY;
+    
     public double targetX;
     public double targetY;
+    
     public double tolX;
     public double tolY;
-    
+
     // Limits
-    public double minAngle;
-    public double maxAngle;
-    public double minVel;
-    public double maxVel;
+    public PhysicalValues physicalValues;
 
     public double minHitAngle;
     public double maxHitAngle;
@@ -30,22 +29,26 @@ public class CalculatePacket implements DataPacket {
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
         // Setup target and tolerances based on React's request
-        Translation2d initialPos = new Translation2d(0, 0);
-        Translation2d target = new Translation2d(targetX, targetY);
-        Translation2d targetTolerance = new Translation2d(tolX, tolY);
-
-        // Run the math
-        TrajectoryChooser chooser = new TrajectoryChooser(initialPos, target, targetTolerance, minHitAngle, maxHitAngle);
-        List<Trajectory> validTrajectories = chooser.getTrajectories();
-        Trajectory bestTrajectory = chooser.getBestTrajectory();
-
-        // Create a payload object to hold the results
-        ResultsPayload payload = new ResultsPayload(validTrajectories, bestTrajectory);
+        Translation2d initialPos = new Translation2d(this.initialX, this.initialY);
+        Translation2d target = new Translation2d(this.targetX, this.targetY);
+        ResultsPayload payload = getResultsPayload(initialPos, target);
 
         // Send the results back to the React client that requested it!
         server.sendPacket(conn, "results", payload);
     }
-    
+
+    private ResultsPayload getResultsPayload(Translation2d initialPos, Translation2d target) {
+        Translation2d targetTolerance = new Translation2d(this.tolX, this.tolY);
+
+        // Run the math
+        TrajectoryChooser chooser = new TrajectoryChooser(this.physicalValues, initialPos, target, targetTolerance, this.minHitAngle, this.maxHitAngle);
+        List<Trajectory> validTrajectories = chooser.getTrajectories();
+        Trajectory bestTrajectory = chooser.getBestTrajectory();
+
+        // Create a payload object to hold the results
+        return new ResultsPayload(validTrajectories, bestTrajectory);
+    }
+
     // Inner class representing the JSON structure React expects back
     private static class ResultsPayload {
         public List<Trajectory> trajectories;

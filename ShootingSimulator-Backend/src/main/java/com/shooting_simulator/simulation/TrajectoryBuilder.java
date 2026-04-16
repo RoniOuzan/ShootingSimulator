@@ -26,19 +26,10 @@ public class TrajectoryBuilder {
         this.maxHitAngle = maxHitAngle;
     }
 
-    private boolean isInsideTarget(Translation2d position, Translation2d velocity) {
-        boolean withinXBounds = Math.abs(position.getX() - this.target.getX()) <= this.targetTolerance.getX();
-        boolean withinYBounds = Math.abs(position.getY() - this.target.getY()) <= this.targetTolerance.getY();
-        return withinXBounds && withinYBounds && isInHitAngleRange(velocity.getAngle());
-    }
-
-    public boolean hasHitTarget(Trajectory trajectory) {
-        for (Sample sample : trajectory.getSamples()) {
-            if (isInsideTarget(sample.getPosition(), sample.getVelocity())) {
-                return true;
-            }
-        }
-        return false;
+    public boolean isInsideTarget(Sample sample) {
+        boolean withinXBounds = Math.abs(sample.getPosition().getX() - this.target.getX()) <= this.targetTolerance.getX();
+        boolean withinYBounds = Math.abs(sample.getPosition().getY() - this.target.getY()) <= this.targetTolerance.getY();
+        return withinXBounds && withinYBounds && isInHitAngleRange(sample.getVelocity().getAngle());
     }
 
     public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle) {

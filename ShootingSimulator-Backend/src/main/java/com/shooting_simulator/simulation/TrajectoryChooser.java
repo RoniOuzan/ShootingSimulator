@@ -12,16 +12,10 @@ import java.util.List;
 @Getter
 public class TrajectoryChooser {
 
-    private static final double MAX_EXIT_VELOCITY = 12;
-    private static final double MIN_EXIT_VELOCITY = 6;
     private static final double EXIT_VELOCITY_DT = 0.01;
-
-    private static final double MIN_ANGLE = 50;
-    private static final double MAX_ANGLE = 80;
     private static final double ANGLE_DT = 0.5;
 
-    private static final double EXIT_VELOCITY_ESTIMATED_ERROR = 0.2;
-    private static final Rotation2d ANGLE_ESTIMATED_ERROR = Rotation2d.fromDegrees(0.3);
+    private final PhysicalValues physicalLimits;
 
     private final TrajectoryBuilder builder;
     private final Translation2d target;
@@ -29,7 +23,9 @@ public class TrajectoryChooser {
     private final List<Trajectory> trajectories;
     private final Trajectory bestTrajectory;
 
-    public TrajectoryChooser(Translation2d initialPosition, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle) {
+    public TrajectoryChooser(PhysicalValues physicalLimits, Translation2d initialPosition, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle) {
+        this.physicalLimits = physicalLimits;
+
         this.builder = new TrajectoryBuilder(initialPosition, target, targetTolerance, minHitAngle, maxHitAngle);
         this.target = target;
 
@@ -47,29 +43,30 @@ public class TrajectoryChooser {
 
     private double calculateMaxErrorForExitVelocity(Trajectory trajectory) {
         Translation2d velocity = trajectory.getInitialSample().getVelocity();
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - EXIT_VELOCITY_ESTIMATED_ERROR, velocity.getAngle());
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + EXIT_VELOCITY_ESTIMATED_ERROR, velocity.getAngle());
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalLimits.estimatedVelocityError, velocity.getAngle());
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalLimits.estimatedVelocityError, velocity.getAngle());
 
-        return Math.abs(after.getErrorFromTarget(this.target) - before.getErrorFromTarget(this.target));
+        return Math.abs(after.getFinalSample().getPosition().getX() - before.getFinalSample().getPosition().getX());
     }
 
     private double calculateMaxErrorForAngle(Trajectory trajectory) {
         Translation2d velocity = trajectory.getInitialSample().getVelocity();
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(ANGLE_ESTIMATED_ERROR));
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(ANGLE_ESTIMATED_ERROR));
+        Rotation2d estimatedAngleError = Rotation2d.fromDegrees(this.physicalLimits.estimatedAngleError);
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError));
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError));
 
-        return Math.abs(after.getErrorFromTarget(this.target) - before.getErrorFromTarget(this.target));
+        return Math.abs(after.getFinalSample().getPosition().getX() - before.getFinalSample().getPosition().getX());
     }
 
     private List<Trajectory> calculateTrajectories() {
         List<Trajectory> trajectories = new ArrayList<>();
 
-        double minAngle = Math.max(this.calculateMinAngle(), MIN_ANGLE);
+        double minAngle = Math.max(this.calculateMinAngle(), this.physicalLimits.minAngle);
 
-        for (double angle = minAngle; angle <= MAX_ANGLE; angle += ANGLE_DT) {
+        for (double angle = minAngle; angle <= this.physicalLimits.maxAngle; angle += ANGLE_DT) {
             Trajectory trajectory = binarySearchBestVelocityForAngle(angle);
 
-            if (this.builder.hasHitTarget(trajectory)) {
+            if (this.builder.isInsideTarget(trajectory.getFinalSample())) {
                 trajectories.add(trajectory);
             }
         }
@@ -78,8 +75,8 @@ public class TrajectoryChooser {
     }
 
     private Trajectory binarySearchBestVelocityForAngle(double angle) {
-        double min = Math.max(this.calculateMinExitVelocity(angle), MIN_EXIT_VELOCITY);
-        double max = MAX_EXIT_VELOCITY;
+        double min = Math.max(this.calculateMinExitVelocity(angle), this.physicalLimits.minVel);
+        double max = this.physicalLimits.maxVel;
 
         while (max - min > EXIT_VELOCITY_DT) {
             double mid = (max + min) / 2;
