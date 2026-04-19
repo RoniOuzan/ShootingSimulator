@@ -37,7 +37,7 @@ public class TrajectoryChooser {
         return this.trajectories.stream().min(Comparator.comparing(this::calculateTrajectoryCost)).orElse(null);
     }
 
-    private double calculateTrajectoryCost(Trajectory trajectory) {
+    public double calculateTrajectoryCost(Trajectory trajectory) {
         return Math.hypot(calculateMaxErrorForExitVelocity(trajectory), calculateMaxErrorForAngle(trajectory));
     }
 

@@ -4,6 +4,7 @@ import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.simulation.PhysicalValues;
 import com.shooting_simulator.simulation.TrajectoryChooser;
 import com.shooting_simulator.simulation.Trajectory;
+import com.shooting_simulator.simulation.TrajectoryInfo;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
@@ -70,16 +71,6 @@ public class CalculatePacket implements DataPacket {
                     initialVel.getNorm()
                 );
             }
-        }
-    }
-
-    private static class TrajectoryInfo {
-        public double angle;
-        public double velocity;
-
-        public TrajectoryInfo(double angle, double velocity) {
-            this.angle = angle;
-            this.velocity = velocity;
         }
     }
 }
