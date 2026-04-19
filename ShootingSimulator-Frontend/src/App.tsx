@@ -17,17 +17,32 @@ export default function App() {
   });
   const [sweepResults, setSweepResults] = useState<any[]>([]);
 
+  const [isCalculating, setIsCalculating] = useState<boolean>(false);
+  const [calcTime, setCalcTime] = useState<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+
   // --- Centralized WebSocket Management ---
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
-    ws.onopen = () => setIsConnected(true);
+    ws.onopen = () => {
+      if (wsRef.current?.readyState == WebSocket.OPEN)
+        setIsConnected(true);
+    };
     
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const data = JSON.parse(event.data);       
         
+        const duration = Math.round(performance.now() - startTimeRef.current);
+        setIsCalculating((prev) => {
+          if (prev) {
+            setCalcTime(duration);
+          }
+          return false; // Always set to false once a message arrives
+        });
+
         // Route the incoming data to the correct state based on its type
         if (data.type === 'results') {
           setSimulatorResults({
@@ -52,9 +67,14 @@ export default function App() {
   }, []); // Only runs once when the app loads
 
   // Generic function to allow children to send data through the shared socket
-  const sendMessage = useCallback((payload: any) => {
+  const sendMessage = useCallback((payload: any, showTime: boolean = false) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(payload));
+
+      if (showTime) {
+        setIsCalculating(true); // Start loading state
+        startTimeRef.current = performance.now(); // Record start time
+      }
     }
   }, []);
 
@@ -83,12 +103,28 @@ export default function App() {
       </header>
       
       <main className="main-content">
-        {activeTab === 'simulator' ? (
-          <TrajectoryVisualizer isConnected={isConnected} results={simulatorResults} sendMessage={sendMessage} />
-        ) : (
-          <DistanceSweepView isConnected={isConnected} sweepData={sweepResults} sendMessage={sendMessage} />
-        )}
+        <div className="content-wrapper">
+          {!isCalculating && calcTime !== null && (
+            <div className="calc-stats">
+            Finished in <strong>{calcTime}ms</strong>
+            </div>
+          )}
+          {activeTab === 'simulator' ? (
+            <TrajectoryVisualizer isConnected={isConnected} results={simulatorResults} sendMessage={sendMessage} />
+          ) : (
+            <DistanceSweepView isConnected={isConnected} sweepData={sweepResults} sendMessage={sendMessage} />
+          )}
+        </div>
       </main>
     </div>
   );
 }
+
+// {/* Absolute-positioned components */}
+// {isCalculating && (
+// <div className="calc-overlay">
+// <div className="spinner"></div>
+// <p>Calculating optimized trajectory...</p>
+// </div>
+// )}
+

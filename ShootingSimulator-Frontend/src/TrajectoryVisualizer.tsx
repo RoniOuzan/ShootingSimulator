@@ -20,7 +20,7 @@ export interface SimulationResults {
 interface TrajectoryVisualizerProps {
   isConnected: boolean;
   results: SimulationResults;
-  sendMessage: (payload: any) => void;
+  sendMessage: (payload: any, showTime?: boolean) => void;
 }
 
 export default function TrajectoryVisualizer({
@@ -44,7 +44,7 @@ export default function TrajectoryVisualizer({
 
   // --- Error Estimations ---
   const [estimatedAngleError, setEstimatedAngleError] = useState<number>(0.5);
-  const [estimatedVelocityError, setEstimatedVelocityError] = useState<number>(0.05);
+  const [estimatedVelocityError, setEstimatedVelocityError] = useState<number>(0.08);
 
   // --- Aerodynamic Parameters ---
   const [mass, setMass] = useState<number>(0.22); // kg
@@ -118,14 +118,14 @@ export default function TrajectoryVisualizer({
     const COOLDOWN_MS = 100;
 
     if (now - lastSendTime.current > COOLDOWN_MS) {
-      sendMessage(payload);
+      sendMessage(payload, true);
       lastSendTime.current = now;
       if (sendTimeout.current) clearTimeout(sendTimeout.current);
     } else {
       if (sendTimeout.current) clearTimeout(sendTimeout.current);
       sendTimeout.current = setTimeout(
         () => {
-          sendMessage(payload);
+          sendMessage(payload, true);
           lastSendTime.current = Date.now();
         },
         COOLDOWN_MS - (now - lastSendTime.current),
@@ -638,7 +638,7 @@ export default function TrajectoryVisualizer({
                 </span>
                 <br />
                 <strong style={{ fontSize: "1.2rem" }}>
-                  {results.bestInfo.angle.toFixed(1)}°
+                  {results.bestInfo.angle.toFixed(4)}°
                 </strong>
               </div>
               <div>

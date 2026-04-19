@@ -30,11 +30,12 @@ public class SweepPacket implements DataPacket {
 
         List<DistancePoint> sweepData = new ArrayList<>();
 
-        // Field bounds setup (1.0m to 16.0m covers roughly the full FRC field length)
         double minDistance = 1.0;
         double maxDistance = 8.0;
-        double distanceStep = 0.1;
+        double distanceStep = 0.05;
 
+        Double prevAngle = null;
+        Double prevVel = null;
         for (double x = minDistance; x <= maxDistance; x += distanceStep) {
             Translation2d targetPos = new Translation2d(x, this.targetY);
 
@@ -44,32 +45,53 @@ public class SweepPacket implements DataPacket {
                     targetPos,
                     tolerance,
                     this.minHitAngle,
-                    this.maxHitAngle
+                    this.maxHitAngle,
+                    prevAngle
             );
 
             Trajectory best = chooser.getBestTrajectory();
 
             if (best != null) {
+
                 double vReq = best.getInitialSample().getVelocity().getNorm();
                 double angle = best.getInitialSample().getVelocity().getAngle().getDegrees();
                 double rssError = chooser.calculateTrajectoryCost(best);
+                Double angleDerive = (prevAngle != null) ? (angle - prevAngle) / distanceStep : null;
+                Double velDerive = (prevVel != null) ? (vReq - prevVel) / distanceStep : null;
+
+                double a = Math.round(x * 100) / 100.0;
+                if (a == 5.85 || a == 5.8) {
+                    System.out.println(x + ": " + angle + " | " + vReq);
+                }
 
                 sweepData.add(new DistancePoint(
                         Math.round(x * 100.0) / 100.0,
                         Math.round(angle * 10.0) / 10.0,
                         Math.round(vReq * 100.0) / 100.0,
-                        Math.round(rssError * 1000.0) / 1000.0
+                        Math.round(rssError * 1000.0) / 1000.0,
+                        angleDerive,
+                        velDerive
                 ));
+
+                prevAngle = angle;
+                prevVel = vReq;
             } else {
                 // If the shot is impossible at this distance, return nulls.
                 // Recharts will automatically break the line on the graph to show a "dead zone".
-                sweepData.add(new DistancePoint(Math.round(x * 100.0) / 100.0, null, null, null));
+                sweepData.add(new DistancePoint(Math.round(x * 100.0) / 100.0, null, null, null, null, null));
             }
         }
 
         server.sendPacket(conn, "sweepResults", new SweepPayload(sweepData));
     }
 
-    public record DistancePoint(double distanceX, Double optimalAngle, Double optimalVelocity, Double rssError) {}
+    public record DistancePoint(
+            double distanceX,
+            Double optimalAngle,
+            Double optimalVelocity,
+            Double rssError,
+            Double angleDerivative,
+            Double velocityDerivative
+    ) {}
     public record SweepPayload(List<DistancePoint> data) {}
 }

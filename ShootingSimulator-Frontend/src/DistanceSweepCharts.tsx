@@ -21,7 +21,7 @@ export default function DistanceSweepCharts({ data }: DistanceSweepChartsProps) 
           </p>
           {payload.map((entry: any, index: number) => (
             <div key={index} style={{ color: entry.color, margin: '4px 0' }}>
-              {entry.name}: {entry.value ? `${entry.value}` : 'No Valid Shot'}
+              {entry.name}: {entry.value != null ? `${entry.value}` : 'No Valid Shot'}
             </div>
           ))}
         </div>
@@ -41,10 +41,22 @@ export default function DistanceSweepCharts({ data }: DistanceSweepChartsProps) 
             <LineChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} syncId="distanceSweep">
               <CartesianGrid strokeDasharray="3 3" stroke="#2a2a35" vertical={false} />
               <XAxis dataKey="distanceX" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} type="number" domain={['dataMin', 'dataMax']} />
-              <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={['auto', 'auto']} unit="°" />
+              <YAxis yAxisId="left" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={['auto', 'auto']} unit="°" />
+              <YAxis yAxisId="right" orientation="right" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={['auto', 'auto']} unit="°" />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
-              <Line type="monotone" dataKey="optimalAngle" name="Required Angle (°)" stroke="#00ff88" strokeWidth={3} dot={false} connectNulls={false} isAnimationActive={false} />
+              <Line type="monotone" yAxisId="left" dataKey="optimalAngle" name="Required Angle (°)" stroke="#00ff88" strokeWidth={3} dot={false} connectNulls={false} isAnimationActive={false} />
+              <Line 
+                type="monotone"
+                yAxisId="right" 
+                dataKey="angleDerivative" 
+                name="Angle Derivative (°/m)" 
+                stroke="#00fff2" 
+                strokeWidth={2} 
+                strokeDasharray="5 5"
+                dot={false} 
+                isAnimationActive={false} 
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -58,10 +70,22 @@ export default function DistanceSweepCharts({ data }: DistanceSweepChartsProps) 
             <LineChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} syncId="distanceSweep">
               <CartesianGrid strokeDasharray="3 3" stroke="#2a2a35" vertical={false} />
               <XAxis dataKey="distanceX" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} type="number" domain={['dataMin', 'dataMax']} />
-              <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={['auto', 'auto']} unit=" m/s" />
+              <YAxis yAxisId="left" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={['auto', 'auto']} unit=" m/s" />
+              <YAxis yAxisId="right" orientation="right" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={['auto', 'auto']} unit="°" />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
-              <Line type="monotone" dataKey="optimalVelocity" name="Required Velocity (m/s)" stroke="#4488ff" strokeWidth={3} dot={false} connectNulls={false} isAnimationActive={false} />
+              <Line type="monotone" yAxisId="left" dataKey="optimalVelocity" name="Required Velocity (m/s)" stroke="#4488ff" strokeWidth={3} dot={false} connectNulls={false} isAnimationActive={false} />
+              <Line 
+                type="monotone" 
+                yAxisId="right"
+                dataKey="velocityDerivative" 
+                name="Velocity Derivative (°/m)" 
+                stroke="#00fff2" 
+                strokeWidth={2} 
+                strokeDasharray="5 5"
+                dot={false} 
+                isAnimationActive={false} 
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>

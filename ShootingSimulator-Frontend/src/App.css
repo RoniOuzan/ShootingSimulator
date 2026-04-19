@@ -1,48 +1,329 @@
-/* App.css */
+/* =========================================
+   REBUILT DESIGN SYSTEM - CSS VARIABLES
+   ========================================= */
+:root {
+  /* Backgrounds */
+  --bg-base: #0a0a0c;       
+  --bg-panel: #141418;      
+  --bg-card: #1c1c22;       
+  --bg-input: #2a2a35;      
 
-.App {
-  min-height: 100vh;
+  /* Borders */
+  --border-subtle: #222;
+  --border-strong: #333;
+
+  /* Text */
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --text-value: #aaaaaa;
+
+  /* Accents */
+  --accent-blue: #4488ff;
+  --accent-orange: #F5D409;
+  --status-good: #00ff88;
+  --status-bad: #ff4444;
+
+  /* Sizing */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+/* =========================================
+   GLOBAL RESET
+   ========================================= */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  overflow: hidden; /* Prevents whole-page scroll, we handle scrolling in panels */
+}
+
+/* =========================================
+   LAYOUT UTILITIES
+   ========================================= */
+.app-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 2rem;
+  height: 100vh;
+  width: 100vw;
 }
 
-.App-header {
+.main-content {
+  display: flex;
+  flex-grow: 1;
   width: 100%;
-  max-width: 1150px; /* Matches the visualizer width (800 + 300 + gaps) */
-  margin-bottom: 1.5rem;
-  border-bottom: 2px solid var(--accent-border);
-  padding-bottom: 1rem;
+  overflow: hidden;
 }
 
-.App-header h1 {
-  font-size: 2.2rem;
-  margin: 0 0 0.5rem 0;
-  letter-spacing: 1px;
+/* =========================================
+   HEADER
+   ========================================= */
+.app-header {
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.App-header p {
-  color: var(--text-secondary);
-  font-size: 1.1rem;
+.app-title {
   margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
 }
 
-/* Optional: Scrollbar styling to keep the dark theme consistent */
+.app-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.tab-container {
+  display: flex;
+  gap: 10px;
+  background-color: var(--bg-base);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+/* =========================================
+   BUTTONS
+   ========================================= */
+.btn {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.btn.active-blue {
+  background-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.btn.active-orange {
+  background-color: var(--accent-orange);
+  color: #111; /* Dark text on bright orange for contrast */
+}
+
+/* =========================================
+   PANELS & CARDS (For Settings & Charts)
+   ========================================= */
+.sidebar {
+  width: 400px;
+  flex-shrink: 0;
+  background-color: var(--bg-panel);
+  border-left: 1px solid var(--border-subtle);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.charts-area {
+  flex-grow: 1;
+  padding: 20px 40px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+  gap: 20px; /* Adds space between stacked graphs */
+}
+
+/* Add this new class for your Canvas and Graphs */
+.view-panel {
+  flex-shrink: 0; /* Prevents the browser from squishing it */
+  background-color: var(--bg-panel);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  padding: 15px;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.card {
+  background-color: var(--bg-card);
+  padding: 15px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--bg-input);
+  margin-bottom: 20px;
+}
+
+.card-title {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.card-row {
+  display: flex;
+  gap: 15px;
+}
+
+.card-divider {
+  border-top: 1px solid var(--border-strong);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+/* =========================================
+   CONTROLS & STATUS
+   ========================================= */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-dot.connected { background-color: var(--status-good); }
+.status-dot.disconnected { background-color: var(--status-bad); }
+
+.status-text {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+/* Custom Slider Styling */
+.slider-wrapper {
+  flex: 1;
+  margin-bottom: 12px;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: var(--text-value);
+}
+
+.slider-value {
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+/* Disabled Slider States */
+.slider-wrapper.disabled {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+.slider-wrapper.disabled input[type="range"] {
+  cursor: not-allowed;
+}
+
+input[type=range] {
+  width: 100%;
+  cursor: pointer;
+  accent-color: var(--accent-orange);
+}
+
+/* =========================================
+   CUSTOM SCROLLBARS (Overflow)
+   ========================================= */
+
+/* Firefox (Uses properties on the element itself) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* Chrome, Edge, and Safari */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 8px;  /* Width of the vertical scrollbar */
+  height: 8px; /* Height of the horizontal scrollbar */
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-panel);
+  background: transparent; /* Keeps the background flush with your panels */
+  border-radius: var(--radius-sm);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-panel-lighter);
-  border-radius: 4px;
+  background: var(--border-strong); 
+  border-radius: var(--radius-sm);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: var(--text-secondary); /* Brightens up slightly when hovered */
+}
+
+/* Optional: Make the scrollbar thumb bright orange when actively clicking/dragging it */
+::-webkit-scrollbar-thumb:active {
+  background: var(--accent-orange);
+}
+
+/* Overlay while calculating */
+.calc-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 12, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+}
+
+/* A simple CSS spinner */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-strong);
+  border-top: 4px solid var(--accent-orange);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.content-wrapper {
+  position: relative; /* Essential for absolute overlay positioning */
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Floating Stats Badge */
+.calc-stats {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: monospace;
+  font-size: 0.85rem;
+  z-index: 5;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
 }

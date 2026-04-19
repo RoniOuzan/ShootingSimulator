@@ -5,7 +5,7 @@ import DistanceSweepCharts from './DistanceSweepCharts';
 interface DistanceSweepViewProps {
   isConnected: boolean;
   sweepData: any[];
-  sendMessage: (payload: any) => void;
+  sendMessage: (payload: any, showTime?: boolean) => void;
 }
 
 export default function DistanceSweepView({ isConnected, sweepData, sendMessage }: DistanceSweepViewProps) {
@@ -23,7 +23,7 @@ export default function DistanceSweepView({ isConnected, sweepData, sendMessage 
   const [minVel, setMinVel] = useState<number>(6);
   const [maxVel, setMaxVel] = useState<number>(12);
   const [estimatedAngleError, setEstimatedAngleError] = useState<number>(0.5);
-  const [estimatedVelocityError, setEstimatedVelocityError] = useState<number>(0.05);
+  const [estimatedVelocityError, setEstimatedVelocityError] = useState<number>(0.08);
 
   // --- Aerodynamic Parameters State ---
   const [mass, setMass] = useState<number>(0.22); // kg
@@ -55,13 +55,13 @@ export default function DistanceSweepView({ isConnected, sweepData, sendMessage 
     const COOLDOWN_MS = 200; // 5Hz update rate prevents overwhelming the charts
 
     if (now - lastSendTime.current > COOLDOWN_MS) {
-      sendMessage(payload);
+      sendMessage(payload, true);
       lastSendTime.current = now;
       if (sendTimeout.current) clearTimeout(sendTimeout.current);
     } else {
       if (sendTimeout.current) clearTimeout(sendTimeout.current);
       sendTimeout.current = setTimeout(() => {
-        sendMessage(payload);
+        sendMessage(payload, true);
         lastSendTime.current = Date.now();
       }, COOLDOWN_MS - (now - lastSendTime.current));
     }
