@@ -1,6 +1,7 @@
 package com.shooting_simulator.simulation;
 
 import com.shooting_simulator.Constants;
+import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;
@@ -40,27 +41,45 @@ public class TrajectoryBuilder {
         samples.add(new Sample(position, velocity));
 
         while (shouldCalculateTrajectory(position, velocity)) {
-            Translation2d nextPosition = position.plus(velocity.times(PERIOD));
-            Translation2d nextVelocity = velocity.plus(new Translation2d(0, Constants.GRAVITY).times(PERIOD));
+            Translation2d acceleration = new Translation2d(0, Constants.GRAVITY);
 
+            // Calculate next position using exact kinematics (matches your quadratic solver)
+            Translation2d nextPosition = position
+                    .plus(velocity.times(PERIOD))
+                    .plus(acceleration.times(0.5 * PERIOD * PERIOD));
+
+            Translation2d nextVelocity = velocity.plus(acceleration.times(PERIOD));
+
+            // Check for crossing
             if (position.getY() >= this.target.getY() && nextPosition.getY() < this.target.getY() && velocity.getY() < 0) {
-                // Calculate the exact fractional time it took to cross the line during this 0.005s tick
-                double fraction = (this.target.getY() - position.getY()) / (nextPosition.getY() - position.getY());
+                double deltaY = this.target.getY() - position.getY();
 
-                // Apply that fraction to X to get the exact crossing coordinate
-                double exactX = position.getX() + fraction * (nextPosition.getX() - position.getX());
-                Translation2d exactPosition = new Translation2d(exactX, this.target.getY());
+                // Solve: 0.5*a*t^2 + v*t - deltaY = 0
+                double[] roots = MathUtil.quadraticSolver(0.5 * acceleration.getY(), velocity.getY(), -deltaY);
 
-                // Apply that fraction to the velocity
-                double exactVx = velocity.getX() + fraction * (nextVelocity.getX() - velocity.getX());
-                double exactVy = velocity.getY() + fraction * (nextVelocity.getY() - velocity.getY());
-                Translation2d exactVelocity = new Translation2d(exactVx, exactVy);
+                double exactT = PERIOD; // fallback
+                if (roots.length == 1) {
+                    exactT = roots[0];
+                } else if (roots.length == 2) {
+                    // Pick the smallest positive root
+                    double t1 = roots[0], t2 = roots[1];
+                    if (t1 > 0 && t2 > 0) exactT = Math.min(t1, t2);
+                    else exactT = Math.max(t1, t2);
+                }
 
-                // Add the perfect sample and STOP simulating
+                // Recalculate exactly AT the crossing time
+                Translation2d exactPosition = position
+                        .plus(velocity.times(exactT))
+                        .plus(acceleration.times(0.5 * exactT * exactT));
+
+                Translation2d exactVelocity = velocity.plus(acceleration.times(exactT));
+
+                // Add the perfect sample and STOP
                 samples.add(new Sample(exactPosition, exactVelocity));
                 break;
             }
 
+            // Standard update if no crossing
             position = nextPosition;
             velocity = nextVelocity;
             samples.add(new Sample(position, velocity));
@@ -72,11 +91,6 @@ public class TrajectoryBuilder {
     private boolean shouldCalculateTrajectory(Translation2d position, Translation2d velocity) {
         // Simulation ends if the projectile hits the floor
         if (position.getY() < 0) {
-            return false;
-        }
-
-        // Simulation ends if it has flown completely past the back edge of the target
-        if (position.getX() > this.target.getX() + this.targetTolerance.getX()) {
             return false;
         }
 

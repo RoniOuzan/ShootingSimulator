@@ -12,7 +12,7 @@ import java.util.List;
 @Getter
 public class TrajectoryChooser {
 
-    private static final double EXIT_VELOCITY_DT = 0.01;
+    private static final double EXIT_VELOCITY_DT = 0.0005;
     private static final double ANGLE_DT = 0.5;
 
     private final PhysicalValues physicalLimits;
@@ -38,7 +38,7 @@ public class TrajectoryChooser {
     }
 
     private double calculateTrajectoryCost(Trajectory trajectory) {
-        return calculateMaxErrorForExitVelocity(trajectory) + calculateMaxErrorForAngle(trajectory);
+        return Math.hypot(calculateMaxErrorForExitVelocity(trajectory), calculateMaxErrorForAngle(trajectory));
     }
 
     private double calculateMaxErrorForExitVelocity(Trajectory trajectory) {
@@ -103,5 +103,37 @@ public class TrajectoryChooser {
         double vy = Math.sqrt(-2 * Constants.GRAVITY * (this.target.getY() - this.builder.getInitialPosition().getY()));
 
         return vy / Math.sin(Math.toRadians(angle));
+    }
+
+    public record RobustnessPoint(double angle, double vReq, Double velError, Double angleError, Double rssError) {}
+
+    public List<RobustnessPoint> generateRobustnessSweep() {
+        List<RobustnessPoint> sweepData = new ArrayList<>();
+        double minAngle = Math.max(this.calculateMinAngle(), this.physicalLimits.minAngle);
+
+        for (double angle = minAngle; angle <= this.physicalLimits.maxAngle; angle += ANGLE_DT) {
+            // 1. Find required velocity for this angle (your existing binary search)
+            Trajectory baseTrajectory = binarySearchBestVelocityForAngle(angle);
+
+            if (!this.builder.isInsideTarget(baseTrajectory.getFinalSample())) {
+                continue; // Skip if it can't reach the target
+            }
+
+            double vReq = baseTrajectory.getInitialSample().getVelocity().getNorm();
+
+            // 2. Calculate the errors using your existing simulation logic (which handles drag later)
+            double velErr = calculateMaxErrorForExitVelocity(baseTrajectory);
+            double angErr = calculateMaxErrorForAngle(baseTrajectory);
+            double rss = Math.hypot(velErr, angErr);
+
+            sweepData.add(new RobustnessPoint(
+                    angle,
+                    Math.round(vReq * 100.0) / 100.0,
+                    Math.round(velErr * 1000.0) / 1000.0,
+                    Math.round(angErr * 1000.0) / 1000.0,
+                    Math.round(rss * 1000.0) / 1000.0
+            ));
+        }
+        return sweepData;
     }
 }

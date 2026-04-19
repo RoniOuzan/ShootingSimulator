@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
+import RobustnessChart from './RobustnessChart';
+import { angle, type Translation2d } from './util';
 
 // --- Interfaces ---
-interface Translation2d { x: number; y: number; }
 interface Sample { position: Translation2d, velocity: Translation2d }
 interface Trajectory { samples: Sample[]; }
 interface SimulationResults {
   trajectories: Trajectory[];
   bestTrajectory: Trajectory | null;
   bestInfo: { angle: number; velocity: number } | null;
+  robustnessData: any[];
 }
 
 export default function TrajectoryVisualizer() {
@@ -18,7 +20,8 @@ export default function TrajectoryVisualizer() {
   const [results, setResults] = useState<SimulationResults>({
     trajectories: [],
     bestTrajectory: null,
-    bestInfo: null
+    bestInfo: null,
+    robustnessData: []
   });
 
   // --- Simulation Parameters ---
@@ -84,7 +87,8 @@ export default function TrajectoryVisualizer() {
           setResults({
             trajectories: data.data.trajectories || [],
             bestTrajectory: data.data.bestTrajectory || null,
-            bestInfo: data.data.bestInfo || null
+            bestInfo: data.data.bestInfo || null,
+            robustnessData: data.data.robustnessData || []
           });
         }
       } catch (e) {
@@ -419,9 +423,11 @@ export default function TrajectoryVisualizer() {
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: 'system-ui, sans-serif', background: '#0a0a0c', color: '#e0e0e0' }}>
       
-      {/* Canvas Area */}
-      <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', padding: '20px', minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
+      {/* Main Content Area (Canvas + Graph) */}
+      <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', padding: '20px', minWidth: 0, gap: '20px' }}>
+        
+        {/* Top Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
              <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', background: isConnected ? '#00ff88' : '#ff4444', marginRight: '8px' }}></span>
              <span style={{ fontWeight: '600', fontSize: '1.1rem' }}>
@@ -432,20 +438,18 @@ export default function TrajectoryVisualizer() {
              <span style={{ fontSize: '0.9rem', color: '#888' }}>
                Scroll: Zoom • Drag: Pan • Click/Drag: Target/Origin
              </span>
-             <button 
-               onClick={resetView}
-               style={{ background: '#2a2a35', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
-             >
+             <button onClick={resetView} style={{ background: '#2a2a35', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
                Reset View
              </button>
           </div>
         </div>
         
-        <div style={{ flexGrow: 1, borderRadius: '12px', overflow: 'hidden', border: '1px solid #333', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+        {/* Canvas Section */}
+        <div style={{ flex: 2, borderRadius: '12px', overflow: 'hidden', border: '1px solid #333', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', position: 'relative' }}>
           <canvas 
             ref={canvasRef} 
             width={1200}
-            height={800} 
+            height={600} 
             style={{ width: '100%', height: '100%', display: 'block', cursor: cursorStyle, touchAction: 'none' }}
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
@@ -454,6 +458,13 @@ export default function TrajectoryVisualizer() {
             onMouseLeave={handleMouseUp}
           />
         </div>
+
+        {/* Robustness Chart Section */}
+        <div style={{ flex: 1, background: '#141418', borderRadius: '12px', border: '1px solid #333', padding: '15px', display: 'flex', flexDirection: 'column' }}>
+           <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#fff' }}>Trajectory Robustness (Lower is better)</h3>
+           <RobustnessChart data={results.robustnessData} bestAngle={angle(results.bestTrajectory?.samples[0].velocity)} />
+        </div>
+
       </div>
 
       {/* Settings Sidebar */}

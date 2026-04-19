@@ -45,8 +45,10 @@ public class CalculatePacket implements DataPacket {
         List<Trajectory> validTrajectories = chooser.getTrajectories();
         Trajectory bestTrajectory = chooser.getBestTrajectory();
 
+        List<TrajectoryChooser.RobustnessPoint> robustnessData = chooser.generateRobustnessSweep();
+
         // Create a payload object to hold the results
-        return new ResultsPayload(validTrajectories, bestTrajectory);
+        return new ResultsPayload(validTrajectories, bestTrajectory, robustnessData);
     }
 
     // Inner class representing the JSON structure React expects back
@@ -54,10 +56,12 @@ public class CalculatePacket implements DataPacket {
         public List<Trajectory> trajectories;
         public Trajectory bestTrajectory;
         public TrajectoryInfo bestInfo;
+        public List<TrajectoryChooser.RobustnessPoint> robustnessData;
 
-        public ResultsPayload(List<Trajectory> valid, Trajectory best) {
+        public ResultsPayload(List<Trajectory> valid, Trajectory best, List<TrajectoryChooser.RobustnessPoint> robustnessData) {
             this.trajectories = valid;
             this.bestTrajectory = best;
+            this.robustnessData = robustnessData;
             
             if (best != null && !best.getSamples().isEmpty()) {
                 Translation2d initialVel = best.getSamples().get(0).getVelocity();
