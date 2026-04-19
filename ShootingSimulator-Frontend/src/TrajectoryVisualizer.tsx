@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import RobustnessChart from './RobustnessChart';
-import { angle, type Translation2d } from './util';
+import { type Translation2d } from './util';
 
 // --- Interfaces ---
 interface Sample { position: Translation2d, velocity: Translation2d }
@@ -40,7 +40,14 @@ export default function TrajectoryVisualizer() {
   
   // --- Error Estimations ---
   const [estimatedAngleError, setEstimatedAngleError] = useState<number>(0.5);
-  const [estimatedVelocityError, setEstimatedVelocityError] = useState<number>(0.2);
+  const [estimatedVelocityError, setEstimatedVelocityError] = useState<number>(0.1);
+
+  // --- Aerodynamic Parameters ---
+  const [mass, setMass] = useState<number>(0.22); // kg
+  const [diameter, setDiameter] = useState<number>(0.075); // meters
+  const [dragCoeff, setDragCoeff] = useState<number>(0.5);
+  const [spinRPS, setSpinRPS] = useState<number>(30); // Positive = Backspin, Negative = Topspin
+  const [magnusCoeff, setMagnusCoeff] = useState<number>(0.2); // Tuning variable (similar to lift coefficient slope)
 
   // --- Locks ---
   const [isLockedOriginX, setIsLockedOriginX] = useState<boolean>(false);
@@ -112,7 +119,10 @@ export default function TrajectoryVisualizer() {
       data: { 
         initialX, initialY,
         targetX, targetY, tolX, tolY, minHitAngle, maxHitAngle, 
-        physicalValues: {minAngle, maxAngle, minVel, maxVel, estimatedAngleError, estimatedVelocityError} 
+        physicalValues: {
+           minAngle, maxAngle, minVel, maxVel, estimatedAngleError, estimatedVelocityError,
+           mass, diameter, dragCoeff, spinRPS, magnusCoeff
+        }
       }
     };
 
@@ -462,7 +472,12 @@ export default function TrajectoryVisualizer() {
         {/* Robustness Chart Section */}
         <div style={{ flex: 1, background: '#141418', borderRadius: '12px', border: '1px solid #333', padding: '15px', display: 'flex', flexDirection: 'column' }}>
            <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#fff' }}>Trajectory Robustness (Lower is better)</h3>
-           <RobustnessChart data={results.robustnessData} bestAngle={angle(results.bestTrajectory?.samples[0].velocity)} />
+           <RobustnessChart 
+             data={results.robustnessData}
+             bestAngle={results.bestInfo?.angle}
+             minAngle={minAngle}
+             maxAngle={maxAngle}
+           />
         </div>
 
       </div>
@@ -528,7 +543,7 @@ export default function TrajectoryVisualizer() {
           </div>
           <div style={{ display: 'flex', gap: '15px' }}>
              <ControlSlider label="Min Hit Angle" value={minHitAngle} min={-90} max={maxHitAngle} step={1} unit="°" onChange={setMinHitAngle} />
-             <ControlSlider label="Max Hit Angle" value={maxHitAngle} min={minHitAngle} max={0} step={1} unit="°" onChange={setMaxHitAngle} />
+             <ControlSlider label="Max Hit Angle" value={maxHitAngle} min={minHitAngle} max={90} step={1} unit="°" onChange={setMaxHitAngle} />
           </div>
         </div>
 
@@ -548,6 +563,20 @@ export default function TrajectoryVisualizer() {
               <ControlSlider label="Angle Error" value={estimatedAngleError} min={0} max={0.5} step={0.02} unit="°" onChange={setEstimatedAngleError} />
               <ControlSlider label="Velocity Error" value={estimatedVelocityError} min={0} max={0.5} step={0.02} unit="m/s" onChange={setEstimatedVelocityError} />
             </div>
+          </div>
+        </div>
+
+        {/* Aerodynamics Constraints */}
+        <div style={{ background: '#1c1c22', padding: '15px', borderRadius: '8px', border: '1px solid #2a2a35', marginTop: '15px' }}>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#fff' }}>Aerodynamics</h3>
+          <div style={{ display: 'flex', gap: '15px' }}>
+            <ControlSlider label="Mass" value={mass} min={0.05} max={1.0} step={0.01} unit="kg" onChange={setMass} />
+            <ControlSlider label="Diameter" value={diameter} min={0.02} max={0.3} step={0.005} unit="m" onChange={setDiameter} />
+          </div>
+          <ControlSlider label="Drag Coeff" value={dragCoeff} min={0.1} max={1} step={0.01} unit=" Cd" onChange={setDragCoeff} />
+          <div style={{ display: 'flex', gap: '15px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #333' }}>
+            <ControlSlider label="Spin (RPS)" value={spinRPS} min={-2} max={2} step={0.1} unit=" rps" onChange={setSpinRPS} />
+            <ControlSlider label="Magnus Coeff" value={magnusCoeff} min={0.0} max={1.0} step={0.01} unit=" Cm" onChange={setMagnusCoeff} />
           </div>
         </div>
       </div>

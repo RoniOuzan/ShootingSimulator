@@ -19,12 +19,15 @@ public class TrajectoryBuilder {
     private final double minHitAngle;
     private final double maxHitAngle;
 
-    public TrajectoryBuilder(Translation2d initialPosition, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle) {
+    private final PhysicalValues physicalValues;
+
+    public TrajectoryBuilder(Translation2d initialPosition, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues) {
         this.initialPosition = initialPosition;
         this.target = target;
         this.targetTolerance = targetTolerance;
         this.minHitAngle = minHitAngle;
         this.maxHitAngle = maxHitAngle;
+        this.physicalValues = physicalValues;
     }
 
     public boolean isInsideTarget(Sample sample) {
@@ -41,7 +44,7 @@ public class TrajectoryBuilder {
         samples.add(new Sample(position, velocity));
 
         while (shouldCalculateTrajectory(position, velocity)) {
-            Translation2d acceleration = new Translation2d(0, Constants.GRAVITY);
+            Translation2d acceleration = calculateAcceleration(velocity);
 
             // Calculate next position using exact kinematics (matches your quadratic solver)
             Translation2d nextPosition = position
@@ -104,5 +107,44 @@ public class TrajectoryBuilder {
 
     private boolean isInHitAngleRange(Rotation2d angle) {
         return angle.getDegrees() >= this.minHitAngle && angle.getDegrees() <= this.maxHitAngle;
+    }
+
+    private Translation2d calculateAcceleration(Translation2d velocity) {
+        Translation2d totalAcceleration = new Translation2d(0, Constants.GRAVITY); // gravity
+        double vMag = velocity.getNorm();
+
+        if (vMag > 0.001) { // Prevent division by zero
+            double radius = this.physicalValues.diameter;
+            double area = Math.PI * Math.pow(radius, 2);
+
+            Translation2d dragAcceleration = calculateDrag(velocity, area);
+            Translation2d magnusAcceleration = calculateMagnus(velocity, radius, area);
+
+            totalAcceleration = totalAcceleration.plus(dragAcceleration).plus(magnusAcceleration);
+        }
+
+        return totalAcceleration;
+    }
+
+    private Translation2d calculateDrag(Translation2d velocity, double area) {
+        double vMag = velocity.getNorm();
+
+        // F_d = 0.5 * rho * v^2 * C_d * A
+        double dragForce = 0.5 * Constants.AIR_DENSITY * (vMag * vMag) * this.physicalValues.dragCoeff * area;
+        // a = F / m
+        double dragAccMag = dragForce / this.physicalValues.mass;
+
+        // Drag always opposes the velocity vector
+        return velocity.div(vMag).times(-dragAccMag);
+    }
+
+    private Translation2d calculateMagnus(Translation2d velocity, double radius, double area) {
+        double omega = this.physicalValues.spinRPS * (2 * Math.PI);
+
+        // Calculate the Magnus scalar (v cancels out with the perpendicular vector normalizer)
+        double magnusScalar = (0.5 * Constants.AIR_DENSITY * this.physicalValues.magnusCoeff * radius * omega * area) / this.physicalValues.mass;
+
+        // The cross product of spin and velocity results in a perpendicular vector: (-Vy, Vx)
+        return new Translation2d(-velocity.getY() * magnusScalar, velocity.getX() * magnusScalar);
     }
 }

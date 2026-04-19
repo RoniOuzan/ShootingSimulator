@@ -1,5 +1,8 @@
 package com.shooting_simulator.simulation;
 
+import lombok.AllArgsConstructor;
+
+@AllArgsConstructor
 public class PhysicalValues {
     public double minAngle;
     public double maxAngle;
@@ -9,12 +12,9 @@ public class PhysicalValues {
     public double estimatedVelocityError;
     public double estimatedAngleError;
 
-    public PhysicalValues(double minAngle, double maxAngle, double minVel, double maxVel, double estimatedVelocityError, double estimatedAngleError) {
-        this.minAngle = minAngle;
-        this.maxAngle = maxAngle;
-        this.minVel = minVel;
-        this.maxVel = maxVel;
-        this.estimatedVelocityError = estimatedVelocityError;
-        this.estimatedAngleError = estimatedAngleError;
-    }
+    public double mass;
+    public double diameter;
+    public double dragCoeff;
+    public double spinRPS;
+    public double magnusCoeff;
 }

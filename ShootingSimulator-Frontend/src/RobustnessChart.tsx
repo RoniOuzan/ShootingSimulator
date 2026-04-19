@@ -1,11 +1,15 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
+// 1. Add minAngle and maxAngle to the interface
 interface RobustnessChartProps {
   data: any[];
   bestAngle?: number | null;
+  minAngle: number;
+  maxAngle: number;
 }
 
-export default function RobustnessChart({ data, bestAngle }: RobustnessChartProps) {
+// 2. Destructure the new props
+export default function RobustnessChart({ data, bestAngle, minAngle, maxAngle }: RobustnessChartProps) {
   if (!data || data.length === 0) {
     return <div style={{ color: '#888', padding: '20px', textAlign: 'center' }}>Awaiting simulation data...</div>;
   }
@@ -33,13 +37,23 @@ export default function RobustnessChart({ data, bestAngle }: RobustnessChartProp
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2a2a35" vertical={false} />
-          <XAxis dataKey="angle" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} type="number" domain={['dataMin', 'dataMax']} tickCount={10} />
+          
+          {/* 3. Update the domain here to use your explicit bounds */}
+          <XAxis 
+            dataKey="angle" 
+            stroke="#888" 
+            tick={{ fill: '#888', fontSize: 12 }} 
+            type="number" 
+            domain={[minAngle, maxAngle]} 
+            tickCount={10} 
+          />
+          
           <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} domain={[0, (dataMax: number) => Math.min(dataMax, 2.0)]} allowDataOverflow />
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: '12px' }} />
           
           {bestAngle && (
-             <ReferenceLine x={Math.round(bestAngle)} stroke="#00ff88" strokeDasharray="3 3" label={{ position: 'top', value: 'Optimal', fill: '#00ff88', fontSize: 12 }} />
+             <ReferenceLine x={bestAngle} stroke="#00ff88" strokeDasharray="3 3" label={{ position: 'top', value: 'Optimal', fill: '#00ff88', fontSize: 12 }} />
           )}
 
           <Line type="linear" dataKey="velError" name="Velocity Sens." stroke="#ff4444" strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
