@@ -31,6 +31,7 @@ export default function TrajectoryVisualizer({
   // --- Simulation Parameters ---
   const [initialX, setInitialX] = useState<number>(0.0);
   const [initialY, setInitialY] = useState<number>(0.0);
+  const [radialVelocity, setRadialVelocity] = useState<number>(2.0);
   const [targetX, setTargetX] = useState<number>(8.0);
   const [targetY, setTargetY] = useState<number>(2.0);
   const [tolX, setTolX] = useState<number>(0.03);
@@ -50,7 +51,7 @@ export default function TrajectoryVisualizer({
   const [mass, setMass] = useState<number>(0.22); // kg
   const [diameter, setDiameter] = useState<number>(0.075); // meters
   const [dragCoeff, setDragCoeff] = useState<number>(0.5);
-  const [spinRPS, setSpinRPS] = useState<number>(1); // Positive = Backspin, Negative = Topspin
+  const [spinRPSPerMS, setSpinRPSPerMS] = useState<number>(1); // Positive = Backspin, Negative = Topspin
   const [magnusCoeff, setMagnusCoeff] = useState<number>(0.5); // Tuning variable (similar to lift coefficient slope)
 
   // --- Locks ---
@@ -92,6 +93,7 @@ export default function TrajectoryVisualizer({
       data: {
         initialX,
         initialY,
+        radialVelocity,
         targetX,
         targetY,
         tolX,
@@ -108,7 +110,7 @@ export default function TrajectoryVisualizer({
           mass,
           diameter,
           dragCoeff,
-          spinRPS,
+          spinRPSPerMS,
           magnusCoeff,
         },
       },
@@ -466,6 +468,7 @@ export default function TrajectoryVisualizer({
   }, [
     initialX,
     initialY,
+    radialVelocity,
     targetX,
     targetY,
     tolX,
@@ -581,7 +584,7 @@ export default function TrajectoryVisualizer({
           </h3>
           <RobustnessChart
             data={results.robustnessData}
-            bestAngle={results.bestInfo?.angle}
+            bestAngle={results.bestInfo?.angle ?? 0}
             minAngle={minAngle}
             maxAngle={maxAngle}
           />
@@ -722,13 +725,13 @@ export default function TrajectoryVisualizer({
             }}
           >
             <ControlSlider
-              label="Spin (RPS)"
-              value={spinRPS}
+              label="Spin (RPS/ms)"
+              value={spinRPSPerMS}
               min={-2}
               max={2}
               step={0.1}
-              unit=" rps"
-              onChange={setSpinRPS}
+              unit=" rps/ms"
+              onChange={setSpinRPSPerMS}
             />
             <ControlSlider
               label="Magnus Coeff"
@@ -1050,6 +1053,16 @@ export default function TrajectoryVisualizer({
             unit="m"
             disabled={isLockedOriginY}
             onChange={setInitialY}
+          />
+          
+          <ControlSlider
+            label="Radial Velocity"
+            value={radialVelocity}
+            min={-4.0}
+            max={4.0}
+            step={0.1}
+            unit="ms"
+            onChange={setRadialVelocity}
           />
         </div>
       </div>

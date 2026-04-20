@@ -13,7 +13,7 @@ import {
 // Add minAngle and maxAngle to the interface
 interface RobustnessChartProps {
   data: any[];
-  bestAngle?: number | null;
+  bestAngle: number;
   minAngle: number;
   maxAngle: number;
 }
@@ -89,6 +89,18 @@ export default function RobustnessChart({
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: "12px" }} />
 
+          <ReferenceLine
+            x={bestAngle}
+            stroke="#00ff88"
+            strokeDasharray="3 3"
+            label={{
+              position: "top",
+              value: "Optimal",
+              fill: "#00ff88",
+              fontSize: 12,
+            }}
+          />
+
           <ReferenceLine 
             yAxisId="right" 
             y={0} 
@@ -104,36 +116,11 @@ export default function RobustnessChart({
             }} 
           />
 
-          {bestAngle && (
-            <ReferenceLine
-              x={bestAngle}
-              stroke="#00ff88"
-              strokeDasharray="3 3"
-              label={{
-                position: "top",
-                value: "Optimal",
-                fill: "#00ff88",
-                fontSize: 12,
-              }}
-            />
-          )}
-
           <Line yAxisId="left" type="linear" dataKey="velError" name="Velocity Sens." stroke="#ff4444" strokeWidth={2} dot={false} isAnimationActive={false} />
           <Line yAxisId="left" type="linear" dataKey="angleError" name="Angle Sens." stroke="#4488ff" strokeWidth={2} dot={false} isAnimationActive={false} />
           <Line yAxisId="left" type="linear" dataKey="rssError" name="Combined RSS" stroke="#ff9900" strokeWidth={4} dot={false} isAnimationActive={false} />
           
-          {/* New Derivative Line */}
-          <Line 
-            yAxisId="right" 
-            type="monotone" 
-            dataKey="rssDerivative" 
-            name="RSS Derivative" 
-            stroke="#F5D409" 
-            strokeWidth={2} 
-            strokeDasharray="5 5" 
-            dot={false} 
-            isAnimationActive={false} 
-          />
+          <Line yAxisId="right" type="linear" dataKey="rssDerivative" name="RSS Derivative" stroke="#F5D409" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

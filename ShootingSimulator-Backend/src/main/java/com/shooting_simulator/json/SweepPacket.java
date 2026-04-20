@@ -12,6 +12,7 @@ import java.util.List;
 
 public class SweepPacket implements DataPacket {
     public double initialY;
+    public double radialVelocity;
     public double targetY;
 
     public double tolX;
@@ -42,18 +43,18 @@ public class SweepPacket implements DataPacket {
             TrajectoryChooser chooser = new TrajectoryChooser(
                     this.physicalValues,
                     initialPos,
+                    this.radialVelocity,
                     targetPos,
                     tolerance,
                     this.minHitAngle,
-                    this.maxHitAngle,
-                    prevAngle
+                    this.maxHitAngle
             );
 
             Trajectory best = chooser.getBestTrajectory();
 
             if (best != null) {
-                double vReq = best.getInitialSample().getVelocity().getNorm();
-                double angle = best.getInitialSample().getVelocity().getAngle().getDegrees();
+                double vReq = best.getInitialShootingVelocity().getNorm();
+                double angle = best.getInitialShootingVelocity().getAngle().getDegrees();
                 double rssError = chooser.calculateTrajectoryCost(best);
                 Double angleDerive = (prevAngle != null) ? (angle - prevAngle) / distanceStep : null;
                 Double velDerive = (prevVel != null) ? (vReq - prevVel) / distanceStep : null;

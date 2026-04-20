@@ -15,6 +15,6 @@ public class PhysicalValues {
     public double mass;
     public double diameter;
     public double dragCoeff;
-    public double spinRPS;
+    public double spinRPSPerMS;
     public double magnusCoeff;
 }

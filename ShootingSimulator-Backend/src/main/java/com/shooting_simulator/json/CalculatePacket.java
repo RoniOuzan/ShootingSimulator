@@ -15,6 +15,8 @@ public class CalculatePacket implements DataPacket {
 
     public double initialX;
     public double initialY;
+
+    public double radialVelocity;
     
     public double targetX;
     public double targetY;
@@ -42,7 +44,7 @@ public class CalculatePacket implements DataPacket {
     private ResultsPayload getResultsPayload(Translation2d initialPos, Translation2d target) {
         Translation2d targetTolerance = new Translation2d(this.tolX, this.tolY);
 
-        TrajectoryChooser chooser = new TrajectoryChooser(this.physicalValues, initialPos, target, targetTolerance, this.minHitAngle, this.maxHitAngle);
+        TrajectoryChooser chooser = new TrajectoryChooser(this.physicalValues, initialPos, this.radialVelocity, target, targetTolerance, this.minHitAngle, this.maxHitAngle);
 
         List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
         List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 1);
@@ -51,7 +53,7 @@ public class CalculatePacket implements DataPacket {
         List<Trajectory> downsampledTrajectories = new ArrayList<>();
 
         for (Trajectory t : rawTrajectories) {
-            downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 1)));
+            downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 1), t.getInitialShootingVelocity()));
         }
 
         return new ResultsPayload(downsampledTrajectories, chooser.getBestTrajectory(), downsampledRobustness);

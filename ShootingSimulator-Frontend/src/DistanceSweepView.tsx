@@ -11,6 +11,7 @@ interface DistanceSweepViewProps {
 export default function DistanceSweepView({ isConnected, sweepData, sendMessage }: DistanceSweepViewProps) {
   // --- Shared Simulation Constants ---
   const [targetY, setTargetY] = useState<number>(2.0);
+  const [radialVelocity, setRadialVelocity] = useState<number>(0);
   const initialY = 0.0; // Height of the shooter
   const tolY = 0.01; // Target Y tolerance
   const tolX = 0.03; // Target Y tolerance
@@ -29,7 +30,7 @@ export default function DistanceSweepView({ isConnected, sweepData, sendMessage 
   const [mass, setMass] = useState<number>(0.22); // kg
   const [diameter, setDiameter] = useState<number>(0.075); // meters
   const [dragCoeff, setDragCoeff] = useState<number>(0.5); 
-  const [spinRPS, setSpinRPS] = useState<number>(1); // Positive = Backspin
+  const [spinRPSPerMS, setSpinRPSPerMS] = useState<number>(1); // Positive = Backspin
   const [magnusCoeff, setMagnusCoeff] = useState<number>(0.5); 
 
   // --- Throttled Calculation Sender ---
@@ -43,10 +44,10 @@ export default function DistanceSweepView({ isConnected, sweepData, sendMessage 
     const payload = {
       type: 'sweep', 
       data: { 
-        initialY, targetY, tolX, tolY, minHitAngle, maxHitAngle, 
+        initialY, radialVelocity, targetY, tolX, tolY, minHitAngle, maxHitAngle, 
         physicalValues: {
           minAngle, maxAngle, minVel, maxVel, estimatedAngleError, estimatedVelocityError,
-          mass, diameter, dragCoeff, spinRPS, magnusCoeff
+          mass, diameter, dragCoeff, spinRPSPerMS, magnusCoeff
         } 
       }
     };
@@ -67,8 +68,8 @@ export default function DistanceSweepView({ isConnected, sweepData, sendMessage 
     }
   }, [
     isConnected, sendMessage, 
-    targetY, minAngle, maxAngle, minVel, maxVel, estimatedAngleError, estimatedVelocityError,
-    mass, diameter, dragCoeff, spinRPS, magnusCoeff
+    targetY, radialVelocity, minAngle, maxAngle, minVel, maxVel, estimatedAngleError, estimatedVelocityError,
+    mass, diameter, dragCoeff, spinRPSPerMS, magnusCoeff
   ]);
 
   return (
@@ -94,6 +95,7 @@ export default function DistanceSweepView({ isConnected, sweepData, sendMessage 
         
         <div className="card">
           <h3 className="card-title">Targeting</h3>
+          <ControlSlider label="Radial Velocity" value={radialVelocity} min={-4.0} max={4.0} step={0.1} unit="ms" onChange={setRadialVelocity} />
           <ControlSlider label="Target Height (Y)" value={targetY} min={0.5} max={4.0} step={0.05} unit="m" onChange={setTargetY} />
         </div>
 
@@ -105,7 +107,7 @@ export default function DistanceSweepView({ isConnected, sweepData, sendMessage 
           </div>
           
           <div className="card-divider card-row">
-            <ControlSlider label="Spin (RPM)" value={spinRPS} min={-6000} max={6000} step={100} unit=" rpm" onChange={setSpinRPS} />
+            <ControlSlider label="Spin (RPS/ms)" value={spinRPSPerMS} min={-2} max={2} step={0.1} unit=" rps/ms" onChange={setSpinRPSPerMS} />
             <ControlSlider label="Magnus Coeff" value={magnusCoeff} min={0.0} max={1.0} step={0.05} unit=" Cm" onChange={setMagnusCoeff} />
           </div>
         </div>

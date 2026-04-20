@@ -7,21 +7,15 @@ import java.util.List;
 
 @Getter
 public class Trajectory {
+    private final Translation2d initialShootingVelocity;
     private final List<Sample> samples;
 
-    public Trajectory(List<Sample> samples) {
+    public Trajectory(List<Sample> samples, Translation2d initialShootingVelocity) {
         this.samples = samples;
-    }
-
-    public Sample getInitialSample() {
-        return this.samples.get(0);
+        this.initialShootingVelocity = initialShootingVelocity;
     }
 
     public Sample getFinalSample() {
         return this.samples.get(this.samples.size() - 1);
-    }
-
-    public double getErrorFromTarget(Translation2d target) {
-        return this.getFinalSample().getPosition().getX() - target.getX();
     }
 }

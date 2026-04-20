@@ -14,6 +14,7 @@ public class TrajectoryBuilder {
     public static final double PERIOD = 0.005;
 
     private final Translation2d initialPosition;
+    private final double radialVelocity;
     private final Translation2d target;
     private final Translation2d targetTolerance;
     private final double minHitAngle;
@@ -21,8 +22,9 @@ public class TrajectoryBuilder {
 
     private final PhysicalValues physicalValues;
 
-    public TrajectoryBuilder(Translation2d initialPosition, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues) {
+    public TrajectoryBuilder(Translation2d initialPosition, double radialVelocity, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues) {
         this.initialPosition = initialPosition;
+        this.radialVelocity = radialVelocity;
         this.target = target;
         this.targetTolerance = targetTolerance;
         this.minHitAngle = minHitAngle;
@@ -39,8 +41,10 @@ public class TrajectoryBuilder {
     public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle) {
         List<Sample> samples = new ArrayList<>();
 
+        final Translation2d initialShootingVelocity = new Translation2d(exitVelocity, angle).plus(new Translation2d(this.radialVelocity, 0));
+
         Translation2d position = this.initialPosition;
-        Translation2d velocity = new Translation2d(exitVelocity, angle);
+        Translation2d velocity = initialShootingVelocity;
         samples.add(new Sample(position, velocity));
 
         while (shouldCalculateTrajectory(position, velocity)) {
@@ -66,7 +70,7 @@ public class TrajectoryBuilder {
             samples.add(new Sample(position, velocity));
         }
 
-        return new Trajectory(samples);
+        return new Trajectory(samples, initialShootingVelocity);
     }
 
     private boolean shouldCalculateTrajectory(Translation2d position, Translation2d velocity) {
@@ -143,12 +147,16 @@ public class TrajectoryBuilder {
     }
 
     private Translation2d calculateMagnus(Translation2d velocity, double radius, double area) {
-        double omega = this.physicalValues.spinRPS * (2 * Math.PI);
+        double omega = this.getBallRPS(velocity.getNorm()) * (2 * Math.PI);
 
         // Calculate the Magnus scalar (v cancels out with the perpendicular vector normalizer)
         double magnusScalar = (0.5 * Constants.AIR_DENSITY * this.physicalValues.magnusCoeff * radius * omega * area) / this.physicalValues.mass;
 
         // The cross product of spin and velocity results in a perpendicular vector: (-Vy, Vx)
         return new Translation2d(-velocity.getY() * magnusScalar, velocity.getX() * magnusScalar);
+    }
+
+    private double getBallRPS(double velocity) {
+        return this.physicalValues.spinRPSPerMS * velocity;
     }
 }
