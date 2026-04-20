@@ -282,4 +282,8 @@ public final class MathUtil {
         t = clamp(t, 0, 1);
         return a + (b - a) * t;
     }
+
+    public static boolean equals(double a, double b) {
+        return Math.abs(a - b) < 1e-6;
+    }
 }

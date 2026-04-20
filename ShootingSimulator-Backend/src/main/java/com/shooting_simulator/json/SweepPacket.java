@@ -52,22 +52,16 @@ public class SweepPacket implements DataPacket {
             Trajectory best = chooser.getBestTrajectory();
 
             if (best != null) {
-
                 double vReq = best.getInitialSample().getVelocity().getNorm();
                 double angle = best.getInitialSample().getVelocity().getAngle().getDegrees();
                 double rssError = chooser.calculateTrajectoryCost(best);
                 Double angleDerive = (prevAngle != null) ? (angle - prevAngle) / distanceStep : null;
                 Double velDerive = (prevVel != null) ? (vReq - prevVel) / distanceStep : null;
 
-                double a = Math.round(x * 100) / 100.0;
-                if (a == 5.85 || a == 5.8) {
-                    System.out.println(x + ": " + angle + " | " + vReq);
-                }
-
                 sweepData.add(new DistancePoint(
-                        Math.round(x * 100.0) / 100.0,
-                        Math.round(angle * 10.0) / 10.0,
-                        Math.round(vReq * 100.0) / 100.0,
+                        Math.round(x * 1000.0) / 1000.0,
+                        Math.round(angle * 1000.0) / 1000.0,
+                        Math.round(vReq * 1000.0) / 1000.0,
                         Math.round(rssError * 1000.0) / 1000.0,
                         angleDerive,
                         velDerive
@@ -78,7 +72,7 @@ public class SweepPacket implements DataPacket {
             } else {
                 // If the shot is impossible at this distance, return nulls.
                 // Recharts will automatically break the line on the graph to show a "dead zone".
-                sweepData.add(new DistancePoint(Math.round(x * 100.0) / 100.0, null, null, null, null, null));
+                sweepData.add(new DistancePoint(Math.round(x * 1000.0) / 1000.0, null, null, null, null, null));
             }
         }
 

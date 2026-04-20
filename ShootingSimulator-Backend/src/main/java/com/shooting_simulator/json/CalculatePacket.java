@@ -44,14 +44,14 @@ public class CalculatePacket implements DataPacket {
 
         TrajectoryChooser chooser = new TrajectoryChooser(this.physicalValues, initialPos, target, targetTolerance, this.minHitAngle, this.maxHitAngle);
 
-        List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.generateRobustnessSweep();
-        List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 5);
+        List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
+        List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 1);
 
         List<Trajectory> rawTrajectories = chooser.getTrajectories();
         List<Trajectory> downsampledTrajectories = new ArrayList<>();
 
         for (Trajectory t : rawTrajectories) {
-            downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 10)));
+            downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 1)));
         }
 
         return new ResultsPayload(downsampledTrajectories, chooser.getBestTrajectory(), downsampledRobustness);
@@ -81,7 +81,7 @@ public class CalculatePacket implements DataPacket {
 
     private static <T> List<T> decimate(List<T> list, int stride) {
         if (list == null || list.isEmpty()) return list;
-        List<T> decimated = new java.util.ArrayList<>();
+        List<T> decimated = new ArrayList<>();
         for (int i = 0; i < list.size(); i += stride) {
             decimated.add(list.get(i));
         }

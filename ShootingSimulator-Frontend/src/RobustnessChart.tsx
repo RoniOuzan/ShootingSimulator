@@ -62,8 +62,8 @@ export default function RobustnessChart({
             </span>
           </p>
           {payload.map((entry: any, index: number) => (
-            <div key={index} style={{ color: entry.color, margin: "4px 0" }}>
-              {entry.name}: {entry.value ? `${entry.value}m` : "N/A"}
+            <div key={index} style={{ color: entry.color, margin: "2px 0" }}>
+              {entry.name}: {entry.value !== null && entry.value !== undefined ? entry.value : "N/A"}
             </div>
           ))}
         </div>
@@ -75,34 +75,34 @@ export default function RobustnessChart({
   return (
     <div style={{ width: "100%", height: "100%", minHeight: "250px" }}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={data}
-          margin={{ top: 20, right: 20, left: -10, bottom: 0 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#2a2a35"
-            vertical={false}
+        <LineChart data={data} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#2a2a35" vertical={false} />
+          
+          <XAxis 
+            dataKey="angle" stroke="#888" type="number" 
+            domain={[minAngle, maxAngle]} tickCount={10} 
           />
 
-          {/* Update the domain here to use your explicit bounds */}
-          <XAxis
-            dataKey="angle"
-            stroke="#888"
-            tick={{ fill: "#888", fontSize: 12 }}
-            type="number"
-            domain={[minAngle, maxAngle]}
-            tickCount={10}
-          />
-
-          <YAxis
-            stroke="#888"
-            tick={{ fill: "#888", fontSize: 12 }}
-            domain={[0, (dataMax: number) => Math.min(dataMax, 2.0)]}
-            allowDataOverflow
-          />
+          <YAxis yAxisId="left" stroke="#888" orientation="left" />
+          <YAxis yAxisId="right" stroke="#F5D409" orientation="right" />
+          
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: "12px" }} />
+
+          <ReferenceLine 
+            yAxisId="right" 
+            y={0} 
+            stroke="#F5D409" 
+            strokeDasharray="3 3" 
+            strokeOpacity={0.5} 
+            label={{ 
+              value: "Zero Slope (Minimum)", 
+              position: "insideRight", 
+              fill: "#F5D409", 
+              fontSize: 10,
+              opacity: 0.5 
+            }} 
+          />
 
           {bestAngle && (
             <ReferenceLine
@@ -118,35 +118,21 @@ export default function RobustnessChart({
             />
           )}
 
-          <Line
-            type="linear"
-            dataKey="velError"
-            name="Velocity Sens."
-            stroke="#ff4444"
-            strokeWidth={2}
-            dot={false}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-          <Line
-            type="linear"
-            dataKey="angleError"
-            name="Angle Sens."
-            stroke="#4488ff"
-            strokeWidth={2}
-            dot={false}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-          <Line
-            type="linear"
-            dataKey="rssError"
-            name="Combined RSS"
-            stroke="#ff9900"
-            strokeWidth={3}
-            dot={false}
-            connectNulls={false}
-            isAnimationActive={false}
+          <Line yAxisId="left" type="linear" dataKey="velError" name="Velocity Sens." stroke="#ff4444" strokeWidth={2} dot={false} isAnimationActive={false} />
+          <Line yAxisId="left" type="linear" dataKey="angleError" name="Angle Sens." stroke="#4488ff" strokeWidth={2} dot={false} isAnimationActive={false} />
+          <Line yAxisId="left" type="linear" dataKey="rssError" name="Combined RSS" stroke="#ff9900" strokeWidth={4} dot={false} isAnimationActive={false} />
+          
+          {/* New Derivative Line */}
+          <Line 
+            yAxisId="right" 
+            type="monotone" 
+            dataKey="rssDerivative" 
+            name="RSS Derivative" 
+            stroke="#F5D409" 
+            strokeWidth={2} 
+            strokeDasharray="5 5" 
+            dot={false} 
+            isAnimationActive={false} 
           />
         </LineChart>
       </ResponsiveContainer>

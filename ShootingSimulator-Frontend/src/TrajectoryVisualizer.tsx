@@ -190,7 +190,7 @@ export default function TrajectoryVisualizer({
     const zoomSensitivity = 0.002;
     const delta = -e.deltaY * zoomSensitivity;
     let newZoom = zoom * Math.exp(delta);
-    newZoom = Math.max(20, Math.min(newZoom, 10000));
+    newZoom = Math.max(20, Math.min(newZoom, 1000000));
 
     const { x: mouseX, y: mouseY } = getMouseCoords(e, canvas);
     const worldX = (mouseX - pan.x) / zoom;

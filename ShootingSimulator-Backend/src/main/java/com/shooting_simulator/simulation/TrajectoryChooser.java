@@ -1,19 +1,22 @@
 package com.shooting_simulator.simulation;
 
 import com.shooting_simulator.Constants;
+import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Getter
 public class TrajectoryChooser {
 
-    private static final double EXIT_VELOCITY_DT = 0.002;
-//    private static final double ANGLE_DT = 0.5;
-    private static final double ANGLE_DT_DIVIDER = 10;
+    private static final double EXIT_VELOCITY_DT = 0.0005;
+//    private static final double ANGLE_DT = 0.01;
+    private static final double ANGLE_DT_DIVIDER = 20;
+    private static final int ANGLE_RECURSION = 5;
 
     private final PhysicalValues physicalValues;
 
@@ -23,8 +26,9 @@ public class TrajectoryChooser {
     private final Double maxAngle;
 
     private final List<Trajectory> trajectories;
+    private final List<RobustnessPoint> robustnessSweep;
+
     private Trajectory bestTrajectory;
-    private Trajectory secondBestTrajectory;
 
     public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle, Double maxAngle) {
         this.physicalValues = physicalValues;
@@ -34,7 +38,10 @@ public class TrajectoryChooser {
 
         this.maxAngle = maxAngle;
 
+        this.robustnessSweep = new ArrayList<>();
         this.trajectories = this.calculateTrajectories();
+
+        Collections.sort(this.robustnessSweep);
     }
 
     public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle) {
@@ -66,34 +73,46 @@ public class TrajectoryChooser {
         double minAngle = this.calculateMinAngle();
         double maxAngle = this.calculateMaxAngle();
 
-        return calculateTrajectories(4, minAngle, maxAngle, (maxAngle - minAngle) / ANGLE_DT_DIVIDER);
+        return calculateTrajectories(0, minAngle, maxAngle, (maxAngle - minAngle) / ANGLE_DT_DIVIDER);
     }
 
     private List<Trajectory> calculateTrajectories(int times, double minAngle, double maxAngle, double angleDT) {
         List<Trajectory> trajectories = calculateTrajectoriesFromAngles(minAngle, maxAngle, angleDT);
 
-        if (times == 1) {
+        if (times == ANGLE_RECURSION) {
             return trajectories;
         }
 
-        if (this.bestTrajectory == null || this.secondBestTrajectory == null) {
+        if (this.bestTrajectory == null) {
             return new ArrayList<>();
         }
 
-        double angle1 = this.bestTrajectory.getInitialSample().getVelocity().getAngle().getDegrees();
-        double angle2 = this.secondBestTrajectory.getInitialSample().getVelocity().getAngle().getDegrees();
+        double angle = this.bestTrajectory.getInitialSample().getVelocity().getAngle().getDegrees();
+
+        double cost = getCostDerivative(angle);
+        double range = (1 / Math.pow(10, times));
+        if (!Double.isNaN(cost) || cost < 0) {
+            minAngle = angle;
+            maxAngle = angle + range;
+        } else {
+            minAngle = angle - range;
+            maxAngle = angle;
+        }
 
         List<Trajectory> results = calculateTrajectories(
-                times - 1,
-                Math.min(angle1, angle2),
-                Math.max(angle1, angle2),
-                angleDT / ANGLE_DT_DIVIDER);
+                times + 1,
+                minAngle,
+                maxAngle,
+                range / ANGLE_DT_DIVIDER);
         results.addAll(trajectories);
         return results;
     }
 
     private List<Trajectory> calculateTrajectoriesFromAngles(double minAngle, double maxAngle, double angleDT) {
         List<Trajectory> trajectories = new ArrayList<>();
+
+        double prevCost = Double.NaN;
+        double prevAngle = Double.NaN;
 
         double bestCost = Double.MAX_VALUE;
         this.bestTrajectory = null;
@@ -110,14 +129,36 @@ public class TrajectoryChooser {
             if (this.builder.isInsideTarget(trajectory.getFinalSample())) {
                 trajectories.add(trajectory);
 
-                double currentCost = calculateTrajectoryCost(trajectory);
-                if (currentCost < bestCost) {
-                    bestCost = currentCost;
-                    this.secondBestTrajectory = this.bestTrajectory;
+                double vReq = trajectory.getInitialSample().getVelocity().getNorm();
+
+                // Calculate the errors using your existing simulation logic (which handles drag later)
+                double velErr = Math.abs(calculateMaxErrorForExitVelocity(trajectory));
+                double angErr = Math.abs(calculateMaxErrorForAngle(trajectory));
+                double cost = calculateTrajectoryCost(trajectory);
+
+                Double costDerivative = null;
+                if (!Double.isNaN(prevCost)) {
+                    costDerivative = (cost - prevCost) / (angle - prevAngle);
+                }
+
+                this.robustnessSweep.add(new RobustnessPoint(
+                        angle,
+                        Math.round(vReq * 1000.0) / 1000.0,
+                        Math.round(velErr * 1000_000.0) / 1000_000.0,
+                        Math.round(angErr * 1000_000.0) / 1000_000.0,
+                        Math.round(cost * 1000_000.0) / 1000_000.0,
+                        costDerivative == null ? null : Math.round(costDerivative * 1000_000.0) / 1000_000.0
+                ));
+
+                // Logic to maintain the best bounding trajectories
+                if (cost < bestCost) {
+                    bestCost = cost;
                     this.bestTrajectory = trajectory;
                 }
 
                 // Update the seed for the next iteration
+                prevCost = cost;
+                prevAngle = angle;
                 lastBestVelocity = trajectory.getInitialSample().getVelocity().getNorm();
             }
         }
@@ -180,39 +221,19 @@ public class TrajectoryChooser {
         return vy / Math.sin(Math.toRadians(angle));
     }
 
-    public record RobustnessPoint(double angle, double vReq, Double velError, Double angleError, Double rssError) {}
-
-    public List<RobustnessPoint> generateRobustnessSweep() {
-        List<RobustnessPoint> sweepData = new ArrayList<>();
-        double minAngle = this.calculateMinAngle();
-        double maxAngle = this.calculateMaxAngle();
-
-        double lastBestVelocity = (this.physicalValues.minVel + this.physicalValues.maxVel) / 2.0;
-        for (double angle = minAngle; angle <= maxAngle; angle += 0.1) {
-            // Find required velocity for this angle (your existing binary search)
-            Trajectory baseTrajectory = binarySearchBestVelocityForAngle(angle, lastBestVelocity);
-
-            if (!this.builder.isInsideTarget(baseTrajectory.getFinalSample())) {
-                continue; // Skip if it can't reach the target
+    private double getCostDerivative(double angle) {
+        for (RobustnessPoint robustnessPoint : this.robustnessSweep) {
+            if (robustnessPoint.rssDerivative != null && MathUtil.equals(robustnessPoint.angle, angle)) {
+                return robustnessPoint.rssDerivative;
             }
-
-            double vReq = baseTrajectory.getInitialSample().getVelocity().getNorm();
-
-            // Calculate the errors using your existing simulation logic (which handles drag later)
-            double velErr = Math.abs(calculateMaxErrorForExitVelocity(baseTrajectory));
-            double angErr = Math.abs(calculateMaxErrorForAngle(baseTrajectory));
-            double rss = Math.hypot(velErr, angErr);
-
-            sweepData.add(new RobustnessPoint(
-                    angle,
-                    Math.round(vReq * 100.0) / 100.0,
-                    Math.round(velErr * 1000.0) / 1000.0,
-                    Math.round(angErr * 1000.0) / 1000.0,
-                    Math.round(rss * 1000.0) / 1000.0
-            ));
-
-            lastBestVelocity = baseTrajectory.getInitialSample().getVelocity().getNorm();
         }
-        return sweepData;
+        return Double.NaN;
+    }
+
+    public record RobustnessPoint(double angle, double vReq, Double velError, Double angleError, Double rssError, Double rssDerivative) implements Comparable<RobustnessPoint> {
+        @Override
+        public int compareTo(RobustnessPoint o) {
+            return Double.compare(this.angle, o.angle);
+        }
     }
 }
