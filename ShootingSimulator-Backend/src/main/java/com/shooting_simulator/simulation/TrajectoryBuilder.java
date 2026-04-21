@@ -5,6 +5,7 @@ import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;
+import lombok.SneakyThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,10 @@ public class TrajectoryBuilder {
     }
 
     public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle) {
+        if (angle.getDegrees() < this.physicalValues.minAngle || angle.getDegrees() > this.physicalValues.maxAngle) {
+            throw new RuntimeException("Angle " + angle.getDegrees() + " is not possible to shoot in this shooter!");
+        }
+
         List<Sample> samples = new ArrayList<>();
 
         final Translation2d initialShootingVelocity = new Translation2d(exitVelocity, angle).plus(new Translation2d(this.radialVelocity, 0));

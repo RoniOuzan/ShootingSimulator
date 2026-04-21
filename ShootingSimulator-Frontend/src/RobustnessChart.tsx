@@ -10,7 +10,6 @@ import {
   ReferenceLine,
 } from "recharts";
 
-// Add minAngle and maxAngle to the interface
 interface RobustnessChartProps {
   data: any[];
   bestAngle: number;

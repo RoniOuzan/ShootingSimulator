@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import RobustnessChart from "./RobustnessChart";
 import { type Translation2d } from "./util";
+import RobustnessChart from "./RobustnessChart";
+import CostChart from "./CostChart";
 
 // --- Interfaces ---
 interface Sample {
@@ -15,6 +16,7 @@ export interface SimulationResults {
   bestTrajectory: Trajectory | null;
   bestInfo: { angle: number; velocity: number } | null;
   robustnessData: any[];
+  costData: any[];
 }
 
 interface TrajectoryVisualizerProps {
@@ -584,7 +586,18 @@ export default function TrajectoryVisualizer({
           </h3>
           <RobustnessChart
             data={results.robustnessData}
-            bestAngle={results.bestInfo?.angle ?? 0}
+            bestAngle={0}
+            minAngle={minAngle}
+            maxAngle={maxAngle}
+          />
+        </div>
+
+        <div className="view-panel">
+          <h3 style={{ margin: "0 0 10px 0", fontSize: "1rem", color: "#fff" }}>
+            Trajectory Costs
+          </h3>
+          <CostChart
+            data={results.costData}
             minAngle={minAngle}
             maxAngle={maxAngle}
           />

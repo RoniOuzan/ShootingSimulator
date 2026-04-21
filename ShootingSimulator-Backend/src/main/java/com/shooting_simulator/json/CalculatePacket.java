@@ -56,7 +56,7 @@ public class CalculatePacket implements DataPacket {
             downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 1), t.getInitialShootingVelocity()));
         }
 
-        return new ResultsPayload(downsampledTrajectories, chooser.getBestTrajectory(), downsampledRobustness);
+        return new ResultsPayload(downsampledTrajectories, chooser.findBestTrajectory(), downsampledRobustness, chooser.getCostSweep());
     }
 
     // Inner class representing the JSON structure React expects back
@@ -65,14 +65,16 @@ public class CalculatePacket implements DataPacket {
         public Trajectory bestTrajectory;
         public TrajectoryInfo bestInfo;
         public List<TrajectoryChooser.RobustnessPoint> robustnessData;
+        public List<Translation2d> costData;
 
-        public ResultsPayload(List<Trajectory> valid, Trajectory best, List<TrajectoryChooser.RobustnessPoint> robustnessData) {
+        public ResultsPayload(List<Trajectory> valid, Trajectory best, List<TrajectoryChooser.RobustnessPoint> robustnessData, List<Translation2d> costData) {
             this.trajectories = valid;
             this.bestTrajectory = best;
             this.robustnessData = robustnessData;
+            this.costData = costData;
             
             if (best != null && !best.getSamples().isEmpty()) {
-                Translation2d initialVel = best.getSamples().get(0).getVelocity();
+                Translation2d initialVel = best.getInitialShootingVelocity();
                 this.bestInfo = new TrajectoryInfo(
                     initialVel.getAngle().getDegrees(), 
                     initialVel.getNorm()

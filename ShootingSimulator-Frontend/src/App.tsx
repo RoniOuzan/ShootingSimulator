@@ -13,7 +13,7 @@ export default function App() {
 
   // --- Global Data Store ---
   const [simulatorResults, setSimulatorResults] = useState<SimulationResults>({
-    trajectories: [], bestTrajectory: null, bestInfo: null, robustnessData: []
+    trajectories: [], bestTrajectory: null, bestInfo: null, robustnessData: [], costData: []
   });
   const [sweepResults, setSweepResults] = useState<any[]>([]);
 
@@ -49,7 +49,8 @@ export default function App() {
             trajectories: data.data.trajectories || [],
             bestTrajectory: data.data.bestTrajectory || null,
             bestInfo: data.data.bestInfo || null,
-            robustnessData: data.data.robustnessData || []
+            robustnessData: data.data.robustnessData || [],
+            costData: data.data.costData || [],
           });
         } else if (data.type === 'sweepResults') {
           setSweepResults(data.data || []);
