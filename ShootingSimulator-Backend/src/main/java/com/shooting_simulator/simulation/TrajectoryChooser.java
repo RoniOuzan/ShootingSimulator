@@ -14,8 +14,8 @@ import java.util.List;
 @Getter
 public class TrajectoryChooser {
 
-    private static final double EXIT_VELOCITY_DT = 0.000_001;
-    private static final double ANGLE_DT = 0.000_001;
+    private static final double EXIT_VELOCITY_DT = 0.000_1;
+    private static final double ANGLE_DT = 0.000_1;
 
     private static final double ANGLE_DT_DIVIDER = 100;
     private static final int ANGLE_RECURSION = 0;

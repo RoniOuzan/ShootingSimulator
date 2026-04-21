@@ -1,9 +1,6 @@
 package com.shooting_simulator;
 
-import com.shooting_simulator.json.BasePacket;
-import com.shooting_simulator.json.CalculatePacket;
-import com.shooting_simulator.json.DataPacket;
-import com.shooting_simulator.json.SweepPacket;
+import com.shooting_simulator.json.*;
 import com.shooting_simulator.util.json.JsonUtil;
 import org.java_websocket.WebSocket;
 
@@ -16,7 +13,8 @@ public class PacketHandler {
     // Register incoming React packets here
     private final Map<String, Class<? extends DataPacket>> packetTypes = Map.of(
             "calculate", CalculatePacket.class,
-            "sweep", SweepPacket.class
+            "sweep", SweepPacket.class,
+            "surface", SurfacePacket.class
     );
 
     public PacketHandler(SimulatorServer server) {

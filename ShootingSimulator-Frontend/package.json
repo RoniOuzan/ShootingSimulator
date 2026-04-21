@@ -10,8 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "plotly.js": "^3.5.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-plotly.js": "^2.6.0",
     "recharts": "^3.8.1"
   },
   "devDependencies": {
@@ -22,6 +24,7 @@
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/react-plotly.js": "^2.6.4",
     "@vitejs/plugin-react": "^6.0.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.39.4",
