@@ -11,12 +11,12 @@ interface DistanceSweepViewProps {
 export default function DistanceSweepView({ isConnected, sweepData, sendMessage }: DistanceSweepViewProps) {
   // --- Shared Simulation Constants ---
   const [targetY, setTargetY] = useState<number>(2.0);
-  const [radialVelocity, setRadialVelocity] = useState<number>(0);
+  const [radialVelocity, setRadialVelocity] = useState<number>(2);
   const initialY = 0.0; // Height of the shooter
   const tolY = 0.01; // Target Y tolerance
   const tolX = 0.03; // Target Y tolerance
   const minHitAngle = -90;
-  const maxHitAngle = 0;
+  const maxHitAngle = -30;
 
   // --- Hardware Limits State ---
   const [minAngle, setMinAngle] = useState<number>(50);

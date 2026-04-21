@@ -5,7 +5,6 @@ import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;
-import lombok.SneakyThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,23 +32,29 @@ public class TrajectoryBuilder {
         this.physicalValues = physicalValues;
     }
 
-    public boolean isInsideTarget(Sample sample) {
+    public boolean isInsideTarget(Trajectory trajectory) {
+        Sample sample = trajectory.getFinalSample();
         boolean withinXBounds = Math.abs(sample.getPosition().getX() - this.target.getX()) <= this.targetTolerance.getX();
         boolean withinYBounds = Math.abs(sample.getPosition().getY() - this.target.getY()) <= this.targetTolerance.getY();
         return withinXBounds && withinYBounds && isInHitAngleRange(sample.getVelocity().getAngle());
     }
 
     public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle) {
-        if (angle.getDegrees() < this.physicalValues.minAngle || angle.getDegrees() > this.physicalValues.maxAngle) {
+        return simulateTrajectory(exitVelocity, angle, true);
+    }
+
+    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean checkLimits) {
+        if (checkLimits && (angle.getDegrees() < this.physicalValues.minAngle - 1e-9 || angle.getDegrees() > this.physicalValues.maxAngle + 1e-9 ||
+                exitVelocity < this.physicalValues.minVel - 1e-9 || exitVelocity > this.physicalValues.maxVel + 1e-9)) {
             throw new RuntimeException("Angle " + angle.getDegrees() + " is not possible to shoot in this shooter!");
         }
 
         List<Sample> samples = new ArrayList<>();
 
-        final Translation2d initialShootingVelocity = new Translation2d(exitVelocity, angle).plus(new Translation2d(this.radialVelocity, 0));
+        final Translation2d initialShootingVelocity = new Translation2d(exitVelocity, angle);
 
         Translation2d position = this.initialPosition;
-        Translation2d velocity = initialShootingVelocity;
+        Translation2d velocity = initialShootingVelocity.plus(new Translation2d(this.radialVelocity, 0));
         samples.add(new Sample(position, velocity));
 
         while (shouldCalculateTrajectory(position, velocity)) {

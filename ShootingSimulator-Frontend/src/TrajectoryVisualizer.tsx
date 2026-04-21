@@ -34,7 +34,7 @@ export default function TrajectoryVisualizer({
   const [initialX, setInitialX] = useState<number>(0.0);
   const [initialY, setInitialY] = useState<number>(0.0);
   const [radialVelocity, setRadialVelocity] = useState<number>(2.0);
-  const [targetX, setTargetX] = useState<number>(8.0);
+  const [targetX, setTargetX] = useState<number>(2.3);
   const [targetY, setTargetY] = useState<number>(2.0);
   const [tolX, setTolX] = useState<number>(0.03);
   const [tolY, setTolY] = useState<number>(0.01);

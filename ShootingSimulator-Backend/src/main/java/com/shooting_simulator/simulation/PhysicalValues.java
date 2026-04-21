@@ -1,8 +1,10 @@
 package com.shooting_simulator.simulation;
 
 import lombok.AllArgsConstructor;
+import lombok.ToString;
 
 @AllArgsConstructor
+@ToString
 public class PhysicalValues {
     public double minAngle;
     public double maxAngle;

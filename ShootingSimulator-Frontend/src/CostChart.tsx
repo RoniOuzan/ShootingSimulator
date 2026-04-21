@@ -7,7 +7,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ReferenceLine,
 } from "recharts";
 
 // Add minAngle and maxAngle to the interface
@@ -86,22 +85,7 @@ export default function CostChart({
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: "12px" }} />
 
-          <ReferenceLine 
-            yAxisId="right" 
-            y={0} 
-            stroke="#F5D409" 
-            strokeDasharray="3 3" 
-            strokeOpacity={0.5} 
-            label={{ 
-              value: "Zero Slope (Minimum)", 
-              position: "insideRight", 
-              fill: "#F5D409", 
-              fontSize: 10,
-              opacity: 0.5 
-            }} 
-          />
-
-          <Line yAxisId="left" type="linear" dataKey="y" name="cost" stroke="#ff4444" strokeWidth={2} dot={false} isAnimationActive={false} />
+          <Line yAxisId="left" type="linear" dataKey="y" name="cost" stroke="#ff4444" strokeWidth={2} dot={true} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
