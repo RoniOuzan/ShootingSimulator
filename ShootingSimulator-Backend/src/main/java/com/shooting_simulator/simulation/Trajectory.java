@@ -13,13 +13,15 @@ public class Trajectory {
     private final boolean isHitTarget;
     private final boolean isReachedTargetHeight;
     private final Translation2d initialShootingVelocity;
+    private final boolean isFlat;
 
-    public Trajectory(List<Sample> samples, Sample hitSample, boolean isHitTarget, Translation2d initialShootingVelocity) {
+    public Trajectory(List<Sample> samples, Sample hitSample, boolean isHitTarget, Translation2d initialShootingVelocity, boolean isFlat) {
         this.samples = samples;
         this.initialShootingVelocity = initialShootingVelocity;
         this.isHitTarget = isHitTarget;
         this.isReachedTargetHeight = hitSample != null;
         this.hitSample = hitSample;
+        this.isFlat = isFlat;
     }
 
     public Sample getFinalSample() {

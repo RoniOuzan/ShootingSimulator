@@ -21,6 +21,8 @@ public class TrajectoryChooser {
 
     private static final double MISS_TARGET_COST = 3;
 
+    private static final boolean[] SHOT_PHASES = {true, false};
+
     private final PhysicalValues physicalValues;
 
     private final TrajectoryBuilder builder;
@@ -63,70 +65,61 @@ public class TrajectoryChooser {
         return this.trajectories;
     }
 
-    private double getCostAtAngle(double angle) {
-        // Find the velocity required to hit the target at this specific angle
-        Trajectory trajectory = binarySearchBestVelocityForAngle(angle);
+    public Trajectory findBestTrajectory() {
+        Trajectory bestFlat = findBestTrajectoryForPhase(true);
+        Trajectory bestLob = findBestTrajectoryForPhase(false);
 
-        // Check if it actually hits (if it hits the target, return cost, else return a value based on how far we missed)
-        double cost;
-        if (!trajectory.isHitTarget()) {
-            cost = MISS_TARGET_COST;
-        } else {
-            cost = calculateTrajectoryCost(trajectory);
-        }
+        if (bestFlat == null && bestLob == null) return null;
+        if (bestFlat == null) return bestLob;
+        if (bestLob == null) return bestFlat;
 
-        this.costSweep.add(new Translation2d(angle, cost));
-        return cost;
+        return calculateTrajectoryCost(bestFlat, true) < calculateTrajectoryCost(bestLob, false) ? bestFlat : bestLob;
     }
 
-    public Trajectory findBestTrajectory() {
+    private Trajectory findBestTrajectoryForPhase(boolean isFlat) {
         double minAngle = calculateMinAngle();
         double maxAngle = calculateMaxAngle();
 
-        // Scout for the actual hit window first
-        double[] hitWindow = findHitWindow(minAngle, maxAngle);
+        double[] hitWindow = findHitWindow(minAngle, maxAngle, isFlat);
 
         if (hitWindow == null) {
-            return null; // Target is physically unreachable with current limits
+            return null;
         }
 
-        // Run GSS strictly inside the valid U-shaped bowl
-        double bestAngle = goldenSectionSearch(hitWindow[0], hitWindow[1]);
+        double bestAngle = goldenSectionSearch(hitWindow[0], hitWindow[1], isFlat);
 
-        Trajectory trajectory = binarySearchBestVelocityForAngle(bestAngle);
+        Trajectory trajectory = binarySearchBestVelocityForAngle(bestAngle, isFlat);
         if (trajectory != null && trajectory.isHitTarget()) {
             return trajectory;
         }
         return null;
     }
 
-    private double[] findHitWindow(double minAngle, double maxAngle) {
-        double sweepStep = 1.0; // 1-degree steps guarantees we won't jump over a target
+    private double[] findHitWindow(double minAngle, double maxAngle, boolean isFlat) {
+        double sweepStep = 1.0;
         Double firstHit = null;
         Double lastHit = null;
 
         for (double angle = minAngle; angle <= maxAngle; angle += sweepStep) {
-            Trajectory t = binarySearchBestVelocityForAngle(angle);
+            Trajectory t = binarySearchBestVelocityForAngle(angle, isFlat);
 
-            if (t.isHitTarget()) {
+            if (t != null && t.isHitTarget()) {
                 if (firstHit == null) firstHit = angle;
                 lastHit = angle;
             } else if (firstHit != null) {
-                // If we hit the target previously but missed this time, we have exited the hit window
                 break;
             }
         }
 
         if (firstHit == null) return null;
 
-        // Expand the bounds by 1 step on each side to ensure we capture the absolute edges for GSS
         return new double[]{
                 Math.max(minAngle, firstHit - sweepStep),
                 Math.min(maxAngle, lastHit + sweepStep)
         };
     }
 
-    private double goldenSectionSearch(double min, double max) {
+    private double goldenSectionSearch(double min, double max, boolean isFlat) {
         double phi = (Math.sqrt(5) - 1) / 2;
         double a = min;
         double b = max;
@@ -135,8 +128,8 @@ public class TrajectoryChooser {
         double x2 = a + phi * (b - a);
 
         while (Math.abs(b - a) > ANGLE_DT) {
-            double cost1 = getCostAtAngle(x1);
-            double cost2 = getCostAtAngle(x2);
+            double cost1 = getCostAtAngle(x1, isFlat);
+            double cost2 = getCostAtAngle(x2, isFlat);
 
             if (cost1 < cost2) {
                 b = x2;
@@ -151,25 +144,39 @@ public class TrajectoryChooser {
         return (a + b) / 2.0;
     }
 
-    public double calculateTrajectoryCost(Trajectory trajectory) {
-        return Math.hypot(calculateMaxErrorForExitVelocity(trajectory), calculateMaxErrorForAngle(trajectory));
+    private double getCostAtAngle(double angle, boolean isFlat) {
+        Trajectory trajectory = binarySearchBestVelocityForAngle(angle, isFlat);
+
+        double cost;
+        if (trajectory == null || !trajectory.isHitTarget()) {
+            cost = MISS_TARGET_COST;
+        } else {
+            cost = calculateTrajectoryCost(trajectory, isFlat);
+        }
+
+        this.costSweep.add(new Translation2d(angle, cost));
+        return cost;
     }
 
-    private double calculateMaxErrorForExitVelocity(Trajectory trajectory) {
+    public double calculateTrajectoryCost(Trajectory trajectory, boolean isFlat) {
+        return Math.hypot(calculateMaxErrorForExitVelocity(trajectory, isFlat), calculateMaxErrorForAngle(trajectory, isFlat));
+    }
+
+    private double calculateMaxErrorForExitVelocity(Trajectory trajectory, boolean isFlat) {
         Translation2d velocity = trajectory.getInitialShootingVelocity();
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.estimatedVelocityError, velocity.getAngle(), false);
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false);
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, isFlat);
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, isFlat);
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
 
         return after.getHitSample().getPosition().getX() - before.getHitSample().getPosition().getX();
     }
 
-    private double calculateMaxErrorForAngle(Trajectory trajectory) {
+    private double calculateMaxErrorForAngle(Trajectory trajectory, boolean isFlat) {
         Translation2d velocity = trajectory.getInitialShootingVelocity();
         Rotation2d estimatedAngleError = Rotation2d.fromDegrees(this.physicalValues.estimatedAngleError);
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError), false);
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false);
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError), false, isFlat);
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, isFlat);
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
 
@@ -198,75 +205,81 @@ public class TrajectoryChooser {
         this.bestTrajectory = null;
 
         for (double angle = minAngle; angle <= maxAngle; angle += angleDT) {
-            // If the strongest shot can't reach the target, skip this angle
-            if (!canReachTarget(this.physicalValues.maxVel, angle)) {
-                continue;
-            }
-
-            Trajectory trajectory = binarySearchBestVelocityForAngle(angle);
-
-            if (trajectory.isHitTarget()) {
-                trajectories.add(trajectory);
-
-                double vReq = trajectory.getInitialShootingVelocity().getNorm();
-
-                // Calculate the errors using your existing simulation logic (which handles drag later)
-                double velErr = Math.abs(calculateMaxErrorForExitVelocity(trajectory));
-                double angErr = Math.abs(calculateMaxErrorForAngle(trajectory));
-                double cost = calculateTrajectoryCost(trajectory);
-
-                Double costDerivative = null;
-                if (!Double.isNaN(prevCost)) {
-                    costDerivative = (cost - prevCost) / (angle - prevAngle);
+            for (boolean isFlat : SHOT_PHASES) {
+                if (!canReachTarget(this.physicalValues.maxVel, angle, isFlat)) {
+                    continue;
                 }
 
-                this.robustnessSweep.add(new RobustnessPoint(
-                        angle,
-                        Math.round(vReq * 1000.0) / 1000.0,
-                        Math.round(velErr * 1000_000.0) / 1000_000.0,
-                        Math.round(angErr * 1000_000.0) / 1000_000.0,
-                        Math.round(cost * 1000_000.0) / 1000_000.0,
-                        costDerivative == null ? null : Math.round(costDerivative * 1000_000.0) / 1000_000.0
-                ));
+                Trajectory trajectory = binarySearchBestVelocityForAngle(angle, isFlat);
 
-                // Logic to maintain the best bounding trajectories
-                if (cost < bestCost) {
-                    bestCost = cost;
-                    this.bestTrajectory = trajectory;
+                if (trajectory.isHitTarget()) {
+                    trajectories.add(trajectory);
+
+                    double vReq = trajectory.getInitialShootingVelocity().getNorm();
+                    double velErr = Math.abs(calculateMaxErrorForExitVelocity(trajectory, isFlat));
+                    double angErr = Math.abs(calculateMaxErrorForAngle(trajectory, isFlat));
+                    double cost = calculateTrajectoryCost(trajectory, isFlat);
+
+                    Double costDerivative = null;
+                    if (!Double.isNaN(prevCost)) {
+                        costDerivative = (cost - prevCost) / (angle - prevAngle);
+                    }
+
+                    this.robustnessSweep.add(new RobustnessPoint(
+                            angle,
+                            Math.round(vReq * 1000.0) / 1000.0,
+                            Math.round(velErr * 1000_000.0) / 1000_000.0,
+                            Math.round(angErr * 1000_000.0) / 1000_000.0,
+                            Math.round(cost * 1000_000.0) / 1000_000.0,
+                            costDerivative == null ? null : Math.round(costDerivative * 1000_000.0) / 1000_000.0
+                    ));
+
+                    if (cost < bestCost) {
+                        bestCost = cost;
+                        this.bestTrajectory = trajectory;
+                    }
+
+                    prevCost = cost;
+                    prevAngle = angle;
                 }
-
-                // Update the seed for the next iteration
-                prevCost = cost;
-                prevAngle = angle;
             }
         }
 
         return trajectories;
     }
 
-    private Trajectory binarySearchBestVelocityForAngle(double angle) {
+    private Trajectory binarySearchBestVelocityForAngle(double angle, boolean isFlat) {
         double minLimit = Math.max(this.calculateMinExitVelocity(angle), this.physicalValues.minVel);
         double maxLimit = this.physicalValues.maxVel;
 
-        return performBinarySearch(angle, minLimit, maxLimit);
+        return performBinarySearch(angle, minLimit, maxLimit, isFlat);
     }
 
-    private boolean canReachTarget(double velocity, double angle) {
-        Trajectory trajectory = this.builder.simulateTrajectory(velocity, Rotation2d.fromDegrees(angle));
-        if (!trajectory.isReachedTargetHeight()) return false;
-        return trajectory.getHitSample().getPosition().getX() > this.target.getX();
+    private boolean canReachTarget(double velocity, double angle, boolean isFlat) {
+        Trajectory trajectory = this.builder.simulateTrajectory(velocity, Rotation2d.fromDegrees(angle), isFlat);
+        return trajectory.isReachedTargetHeight();
     }
 
-    private Trajectory performBinarySearch(double angle, double min, double max) {
+    private Trajectory performBinarySearch(double angle, double min, double max, boolean isFlat) {
         while (max - min > EXIT_VELOCITY_DT) {
             double mid = (min + max) / 2.0;
-            if (canReachTarget(mid, angle)) {
-                max = mid;
-            } else {
+            Trajectory trajectory = this.builder.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), isFlat);
+
+            if (!trajectory.isReachedTargetHeight()) {
                 min = mid;
+            } else {
+                boolean overshotX = trajectory.getHitSample().getPosition().getX() > this.target.getX();
+
+                if (isFlat) {
+                    if (overshotX) min = mid;
+                    else max = mid;
+                } else {
+                    if (overshotX) max = mid;
+                    else min = mid;
+                }
             }
         }
-        return this.builder.simulateTrajectory((max + min) / 2.0, Rotation2d.fromDegrees(angle));
+        return this.builder.simulateTrajectory((max + min) / 2.0, Rotation2d.fromDegrees(angle), isFlat);
     }
 
     private double calculateMinAngle() {

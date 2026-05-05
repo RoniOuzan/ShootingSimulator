@@ -43,11 +43,11 @@ public class TrajectoryBuilder {
         return withinXBounds && withinYBounds;
     }
 
-    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle) {
-        return simulateTrajectory(exitVelocity, angle, true);
+    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean isFlat) {
+        return simulateTrajectory(exitVelocity, angle, true, isFlat);
     }
 
-    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean checkLimits) {
+    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean checkLimits, boolean isFlat) {
         if (checkLimits && (angle.getDegrees() < this.physicalValues.minAngle - 1e-3 || angle.getDegrees() > this.physicalValues.maxAngle + 1e-3)) {
             throw new RuntimeException("Angle " + angle.getDegrees() + " is not possible to shoot in this shooter!");
         } else if (checkLimits && (exitVelocity < this.physicalValues.minVel - 1e-3 || exitVelocity > this.physicalValues.maxVel + 1e-3)) {
@@ -63,7 +63,7 @@ public class TrajectoryBuilder {
         Translation2d velocity = initialShootingVelocity.plus(new Translation2d(this.radialVelocity, 0));
         samples.add(new Sample(position, velocity));
 
-        while (shouldCalculateTrajectory(position, velocity)) {
+        while (shouldCalculateTrajectory(position)) {
             Translation2d acceleration = calculateAcceleration(velocity);
 
             // Calculate next position using exact kinematics (matches your quadratic solver)
@@ -74,7 +74,7 @@ public class TrajectoryBuilder {
             Translation2d nextVelocity = velocity.plus(acceleration.times(PERIOD));
 
             // Check for crossing
-            if (isPassedTarget(position, nextPosition, nextVelocity)) {
+            if (isPassedTarget(position, nextPosition, nextVelocity, isFlat)) {
                 // Add the perfect sample and STOP
                 hitSample = calculateLastSample(position, velocity, acceleration);
                 samples.add(hitSample);
@@ -86,34 +86,19 @@ public class TrajectoryBuilder {
             samples.add(new Sample(position, velocity));
         }
 
-        return new Trajectory(samples, hitSample, this.isInsideTarget(hitSample), initialShootingVelocity);
+        return new Trajectory(samples, hitSample, this.isInsideTarget(hitSample), initialShootingVelocity, isFlat);
     }
 
-    private boolean isPassedTarget(Translation2d prev, Translation2d next, Translation2d velocity) {
-        // boolean withinXBounds = Math.abs(prev.getX() - this.target.getX()) <= this.targetTolerance.getX() * 10;
-        // if (!withinXBounds) return false;
-        
-        if (velocity.getY() > 0) {
-            return prev.getY() <= this.target.getY() && next.getY() > this.target.getY();
+    private boolean isPassedTarget(Translation2d prev, Translation2d next, Translation2d velocity, boolean isFlat) {
+        if (isFlat) {
+            return velocity.getY() > 0 && prev.getY() <= this.target.getY() && next.getY() > this.target.getY();
+        } else {
+            return velocity.getY() < 0 && prev.getY() >= this.target.getY() && next.getY() < this.target.getY();
         }
-        if (velocity.getY() < 0) {
-            return prev.getY() >= this.target.getY() && next.getY() < this.target.getY();
-        }
-        return false;
     }
 
-    private boolean shouldCalculateTrajectory(Translation2d position, Translation2d velocity) {
-        // Simulation ends if the projectile hits the floor
-        if (position.getY() < 0) {
-            return false;
-        }
-
-        // Simulation ends if it is falling AND has dropped completely below the bottom edge of the target
-        // if (velocity.getY() < 0 && position.getY() < this.target.getY() - this.targetTolerance.getY()) {
-        //     return false;
-        // }
-        // If none of the miss conditions are met, keep simulating
-        return true;
+    private boolean shouldCalculateTrajectory(Translation2d position) {
+        return position.getY() >= 0;
     }
 
     private Sample calculateLastSample(Translation2d position, Translation2d velocity, Translation2d acceleration) {
