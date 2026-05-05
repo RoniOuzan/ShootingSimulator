@@ -1,12 +1,15 @@
 package com.shooting_simulator.simulation;
 
-import com.shooting_simulator.Constants;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
-import lombok.Getter;
 
-import java.util.*;
+import lombok.Getter;
 
 @Getter
 public class TrajectoryChooser {
@@ -67,7 +70,7 @@ public class TrajectoryChooser {
 
         // Check if it actually hits (if it hits the target, return cost, else return a value based on how far we missed)
         double cost;
-        if (!this.builder.isInsideTarget(trajectory)) {
+        if (!trajectory.isHitTarget()) {
             cost = MISS_TARGET_COST;
         } else {
             cost = calculateTrajectoryCost(trajectory);
@@ -92,7 +95,7 @@ public class TrajectoryChooser {
         double bestAngle = goldenSectionSearch(hitWindow[0], hitWindow[1]);
 
         Trajectory trajectory = binarySearchBestVelocityForAngle(bestAngle, (physicalValues.minVel + physicalValues.maxVel) / 2.0);
-        if (trajectory != null && this.builder.isInsideTarget(trajectory)) {
+        if (trajectory != null && trajectory.isHitTarget()) {
             return trajectory;
         }
         return null;
@@ -106,7 +109,7 @@ public class TrajectoryChooser {
         for (double angle = minAngle; angle <= maxAngle; angle += sweepStep) {
             Trajectory t = binarySearchBestVelocityForAngle(angle, (physicalValues.minVel + physicalValues.maxVel) / 2.0);
 
-            if (this.builder.isInsideTarget(t)) {
+            if (t.isHitTarget()) {
                 if (firstHit == null) firstHit = angle;
                 lastHit = angle;
             } else if (firstHit != null) {
@@ -158,7 +161,9 @@ public class TrajectoryChooser {
         Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.estimatedVelocityError, velocity.getAngle(), false);
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false);
 
-        return after.getFinalSample().getPosition().getX() - before.getFinalSample().getPosition().getX();
+        if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
+
+        return after.getHitSample().getPosition().getX() - before.getHitSample().getPosition().getX();
     }
 
     private double calculateMaxErrorForAngle(Trajectory trajectory) {
@@ -167,7 +172,9 @@ public class TrajectoryChooser {
         Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError), false);
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false);
 
-        return after.getFinalSample().getPosition().getX() - before.getFinalSample().getPosition().getX();
+        if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
+
+        return after.getHitSample().getPosition().getX() - before.getHitSample().getPosition().getX();
     }
 
     private List<Trajectory> calculateTrajectories() {
@@ -227,7 +234,7 @@ public class TrajectoryChooser {
 
             Trajectory trajectory = binarySearchBestVelocityForAngle(angle, lastBestVelocity);
 
-            if (this.builder.isInsideTarget(trajectory)) {
+            if (trajectory.isHitTarget()) {
                 trajectories.add(trajectory);
 
                 double vReq = trajectory.getInitialShootingVelocity().getNorm();
@@ -271,23 +278,13 @@ public class TrajectoryChooser {
         double minLimit = Math.max(this.calculateMinExitVelocity(angle), this.physicalValues.minVel);
         double maxLimit = this.physicalValues.maxVel;
 
-        // Neighborhood Search: Check a small window around the seed
-        double window = 1.0;
-        double localMin = Math.max(minLimit, seedVelocity - window);
-        double localMax = Math.min(maxLimit, seedVelocity + window);
-
-        // If the target is within this narrow window, perform a fast search
-        if (canReachTarget(localMin, angle) != canReachTarget(localMax, angle)) {
-            return performBinarySearch(angle, localMin, localMax);
-        }
-
-        // Otherwise, fall back to the full range search
         return performBinarySearch(angle, minLimit, maxLimit);
     }
 
     private boolean canReachTarget(double velocity, double angle) {
         Trajectory trajectory = this.builder.simulateTrajectory(velocity, Rotation2d.fromDegrees(angle));
-        return trajectory.getFinalSample().getPosition().getX() > this.target.getX();
+        if (!trajectory.isReachedTargetHeight()) return false;
+        return trajectory.getHitSample().getPosition().getX() > this.target.getX();
     }
 
     private Trajectory performBinarySearch(double angle, double min, double max) {
@@ -311,15 +308,16 @@ public class TrajectoryChooser {
     }
 
     private double calculateMinExitVelocity(double angle) {
-        double deltaY = this.target.getY() - this.builder.getInitialPosition().getY();
-        // Min vy so the y will reach the target (v_final_y is 0 at the target)
-        double vy = Math.sqrt(-2 * Constants.GRAVITY * deltaY);
+        // double deltaY = this.target.getY() - this.builder.getInitialPosition().getY();
+        // // Min vy so the y will reach the target (v_final_y is 0 at the target)
+        // double vy = Math.sqrt(-2 * Constants.GRAVITY * deltaY);
 
-        double vx = vy / Math.tan(Math.toRadians(angle));
+        // double vx = vy / Math.tan(Math.toRadians(angle));
 
-        double vx_needed = vx - this.builder.getRadialVelocity();
+        // double vx_needed = vx - this.builder.getRadialVelocity();
 
-        return Math.hypot(vx_needed, vy);
+        // return Math.hypot(vx_needed, vy);
+        return this.physicalValues.minVel;
     }
 
     private double getCostDerivative(double angle) {

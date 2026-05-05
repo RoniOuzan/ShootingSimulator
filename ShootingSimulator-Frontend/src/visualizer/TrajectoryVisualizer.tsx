@@ -33,17 +33,17 @@ export default function TrajectoryVisualizer({
   // --- Simulation Parameters ---
   const [initialX, setInitialX] = useState<number>(0.0);
   const [initialY, setInitialY] = useState<number>(0.0);
-  const [radialVelocity, setRadialVelocity] = useState<number>(-3.7);
-  const [targetX, setTargetX] = useState<number>(2.1);
+  const [radialVelocity, setRadialVelocity] = useState<number>(0);
+  const [targetX, setTargetX] = useState<number>(3);
   const [targetY, setTargetY] = useState<number>(2.0);
   const [tolX, setTolX] = useState<number>(0.03);
   const [tolY, setTolY] = useState<number>(0.01);
-  const [minAngle, setMinAngle] = useState<number>(50);
-  const [maxAngle, setMaxAngle] = useState<number>(80);
+  const [minAngle, setMinAngle] = useState<number>(10);
+  const [maxAngle, setMaxAngle] = useState<number>(60);
   const [minVel, setMinVel] = useState<number>(6);
   const [maxVel, setMaxVel] = useState<number>(12);
-  const [minHitAngle, setMinHitAngle] = useState<number>(-90);
-  const [maxHitAngle, setMaxHitAngle] = useState<number>(-30);
+  const [minHitAngle, setMinHitAngle] = useState<number>(0);
+  const [maxHitAngle, setMaxHitAngle] = useState<number>(90);
 
   // --- Error Estimations ---
   const [estimatedAngleError, setEstimatedAngleError] = useState<number>(0.5);
@@ -452,6 +452,8 @@ export default function TrajectoryVisualizer({
         const px = toScreen(p.position.x, p.position.y, canvas.height);
         if (index === 0) ctx.moveTo(px.x, px.y);
         else ctx.lineTo(px.x, px.y);
+
+        // ctx.arc(px.x, px.y, 2, 0, 360);
       });
       ctx.stroke();
     });
@@ -779,7 +781,7 @@ export default function TrajectoryVisualizer({
             <ControlSlider
               label="Min Angle"
               value={minAngle}
-              min={20}
+              min={0}
               max={maxAngle}
               step={1}
               unit="°"
@@ -789,7 +791,7 @@ export default function TrajectoryVisualizer({
               label="Max Angle"
               value={maxAngle}
               min={minAngle}
-              max={85}
+              max={90}
               step={1}
               unit="°"
               onChange={setMaxAngle}

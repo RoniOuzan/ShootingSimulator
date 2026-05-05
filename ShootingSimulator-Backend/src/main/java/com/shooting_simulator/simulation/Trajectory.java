@@ -1,19 +1,25 @@
 package com.shooting_simulator.simulation;
 
-import com.shooting_simulator.util.math.geometry.Translation2d;
-import lombok.Getter;
-
-import javax.swing.*;
 import java.util.List;
+
+import com.shooting_simulator.util.math.geometry.Translation2d;
+
+import lombok.Getter;
 
 @Getter
 public class Trajectory {
-    private final Translation2d initialShootingVelocity;
     private final List<Sample> samples;
+    private final Sample hitSample;
+    private final boolean isHitTarget;
+    private final boolean isReachedTargetHeight;
+    private final Translation2d initialShootingVelocity;
 
-    public Trajectory(List<Sample> samples, Translation2d initialShootingVelocity) {
+    public Trajectory(List<Sample> samples, Sample hitSample, boolean isHitTarget, Translation2d initialShootingVelocity) {
         this.samples = samples;
         this.initialShootingVelocity = initialShootingVelocity;
+        this.isHitTarget = isHitTarget;
+        this.isReachedTargetHeight = hitSample != null;
+        this.hitSample = hitSample;
     }
 
     public Sample getFinalSample() {

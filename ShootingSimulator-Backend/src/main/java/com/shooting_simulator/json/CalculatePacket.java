@@ -1,15 +1,15 @@
 package com.shooting_simulator.json;
 
-import com.shooting_simulator.SimulatorServer;
-import com.shooting_simulator.simulation.PhysicalValues;
-import com.shooting_simulator.simulation.TrajectoryChooser;
-import com.shooting_simulator.simulation.Trajectory;
-import com.shooting_simulator.simulation.TrajectoryInfo;
-import com.shooting_simulator.util.math.geometry.Translation2d;
+import java.util.List;
+
 import org.java_websocket.WebSocket;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.shooting_simulator.SimulatorServer;
+import com.shooting_simulator.simulation.PhysicalValues;
+import com.shooting_simulator.simulation.Trajectory;
+import com.shooting_simulator.simulation.TrajectoryChooser;
+import com.shooting_simulator.simulation.TrajectoryInfo;
+import com.shooting_simulator.util.math.geometry.Translation2d;
 
 public class CalculatePacket implements DataPacket {
 
@@ -47,19 +47,19 @@ public class CalculatePacket implements DataPacket {
         TrajectoryChooser chooser = new TrajectoryChooser(this.physicalValues, initialPos, this.radialVelocity, target, targetTolerance, this.minHitAngle, this.maxHitAngle);
 
         List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
-        List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 1);
+        // List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 1);
 
         List<Trajectory> rawTrajectories = chooser.getTrajectories();
-        List<Trajectory> downsampledTrajectories = new ArrayList<>();
+        // List<Trajectory> downsampledTrajectories = new ArrayList<>();
 
-        for (Trajectory t : rawTrajectories) {
-            downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 1), t.getInitialShootingVelocity()));
-        }
+        // for (Trajectory t : rawTrajectories) {
+        //     downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 1), t.getInitialShootingVelocity()));
+        // }
 
-        return new ResultsPayload(downsampledTrajectories, chooser.findBestTrajectory(), downsampledRobustness, chooser.getCostSweep());
+        return new ResultsPayload(rawTrajectories, chooser.findBestTrajectory(), rawRobustness, chooser.getCostSweep());
     }
 
-    // Inner class representing the JSON structure React expects back
+    @SuppressWarnings("unused")
     private static class ResultsPayload {
         public List<Trajectory> trajectories;
         public Trajectory bestTrajectory;
@@ -83,16 +83,16 @@ public class CalculatePacket implements DataPacket {
         }
     }
 
-    private static <T> List<T> decimate(List<T> list, int stride) {
-        if (list == null || list.isEmpty()) return list;
-        List<T> decimated = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += stride) {
-            decimated.add(list.get(i));
-        }
-        // Always include the last point to keep the endpoint accurate
-        if ((list.size() - 1) % stride != 0) {
-            decimated.add(list.get(list.size() - 1));
-        }
-        return decimated;
-    }
+    // private static <T> List<T> decimate(List<T> list, int stride) {
+    //     if (list == null || list.isEmpty()) return list;
+    //     List<T> decimated = new ArrayList<>();
+    //     for (int i = 0; i < list.size(); i += stride) {
+    //         decimated.add(list.get(i));
+    //     }
+    //     // Always include the last point to keep the endpoint accurate
+    //     if ((list.size() - 1) % stride != 0) {
+    //         decimated.add(list.get(list.size() - 1));
+    //     }
+    //     return decimated;
+    // }
 }

@@ -32,11 +32,15 @@ public class TrajectoryBuilder {
         this.physicalValues = physicalValues;
     }
 
-    public boolean isInsideTarget(Trajectory trajectory) {
-        Sample sample = trajectory.getFinalSample();
-        boolean withinXBounds = Math.abs(sample.getPosition().getX() - this.target.getX()) <= this.targetTolerance.getX();
-        boolean withinYBounds = Math.abs(sample.getPosition().getY() - this.target.getY()) <= this.targetTolerance.getY();
-        return withinXBounds && withinYBounds && isInHitAngleRange(sample.getVelocity().getAngle());
+    public boolean isInsideTarget(Sample sample) {
+        if (sample == null) return false;
+        return isInsideTarget(sample.getPosition()) && isInHitAngleRange(sample.getVelocity().getAngle());
+    }
+
+    public boolean isInsideTarget(Translation2d position) {
+        boolean withinXBounds = Math.abs(position.getX() - this.target.getX()) <= this.targetTolerance.getX();
+        boolean withinYBounds = Math.abs(position.getY() - this.target.getY()) <= this.targetTolerance.getY();
+        return withinXBounds && withinYBounds;
     }
 
     public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle) {
@@ -44,12 +48,14 @@ public class TrajectoryBuilder {
     }
 
     public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean checkLimits) {
-        if (checkLimits && (angle.getDegrees() < this.physicalValues.minAngle - 1e-9 || angle.getDegrees() > this.physicalValues.maxAngle + 1e-9 ||
-                exitVelocity < this.physicalValues.minVel - 1e-9 || exitVelocity > this.physicalValues.maxVel + 1e-9)) {
+        if (checkLimits && (angle.getDegrees() < this.physicalValues.minAngle - 1e-3 || angle.getDegrees() > this.physicalValues.maxAngle + 1e-3)) {
             throw new RuntimeException("Angle " + angle.getDegrees() + " is not possible to shoot in this shooter!");
+        } else if (checkLimits && (exitVelocity < this.physicalValues.minVel - 1e-3 || exitVelocity > this.physicalValues.maxVel + 1e-3)) {
+            throw new RuntimeException("Exit velocity " + exitVelocity + " is not possible to shoot in this shooter!");
         }
 
         List<Sample> samples = new ArrayList<>();
+        Sample hitSample = null;
 
         final Translation2d initialShootingVelocity = new Translation2d(exitVelocity, angle);
 
@@ -68,10 +74,10 @@ public class TrajectoryBuilder {
             Translation2d nextVelocity = velocity.plus(acceleration.times(PERIOD));
 
             // Check for crossing
-            if (position.getY() >= this.target.getY() && nextPosition.getY() < this.target.getY() && velocity.getY() < 0) {
+            if (isPassedTarget(position, nextPosition, nextVelocity)) {
                 // Add the perfect sample and STOP
-                samples.add(calculateLastSample(position, velocity, acceleration));
-                break;
+                hitSample = calculateLastSample(position, velocity, acceleration);
+                samples.add(hitSample);
             }
 
             // Standard update if no crossing
@@ -80,7 +86,20 @@ public class TrajectoryBuilder {
             samples.add(new Sample(position, velocity));
         }
 
-        return new Trajectory(samples, initialShootingVelocity);
+        return new Trajectory(samples, hitSample, this.isInsideTarget(hitSample), initialShootingVelocity);
+    }
+
+    private boolean isPassedTarget(Translation2d prev, Translation2d next, Translation2d velocity) {
+        // boolean withinXBounds = Math.abs(prev.getX() - this.target.getX()) <= this.targetTolerance.getX() * 10;
+        // if (!withinXBounds) return false;
+        
+        if (velocity.getY() > 0) {
+            return prev.getY() <= this.target.getY() && next.getY() > this.target.getY();
+        }
+        if (velocity.getY() < 0) {
+            return prev.getY() >= this.target.getY() && next.getY() < this.target.getY();
+        }
+        return false;
     }
 
     private boolean shouldCalculateTrajectory(Translation2d position, Translation2d velocity) {
@@ -90,9 +109,9 @@ public class TrajectoryBuilder {
         }
 
         // Simulation ends if it is falling AND has dropped completely below the bottom edge of the target
-        if (velocity.getY() < 0 && position.getY() < this.target.getY() - this.targetTolerance.getY()) {
-            return false;
-        }
+        // if (velocity.getY() < 0 && position.getY() < this.target.getY() - this.targetTolerance.getY()) {
+        //     return false;
+        // }
         // If none of the miss conditions are met, keep simulating
         return true;
     }
