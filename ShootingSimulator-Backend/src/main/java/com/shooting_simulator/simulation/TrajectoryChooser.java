@@ -18,7 +18,6 @@ public class TrajectoryChooser {
     private static final double ANGLE_DT = 0.000_1;
 
     private static final double ANGLE_DT_DIVIDER = 100;
-    private static final int ANGLE_RECURSION = 0;
 
     private static final double MISS_TARGET_COST = 3;
 
@@ -66,7 +65,7 @@ public class TrajectoryChooser {
 
     private double getCostAtAngle(double angle) {
         // Find the velocity required to hit the target at this specific angle
-        Trajectory trajectory = binarySearchBestVelocityForAngle(angle, (physicalValues.minVel + physicalValues.maxVel) / 2.0);
+        Trajectory trajectory = binarySearchBestVelocityForAngle(angle);
 
         // Check if it actually hits (if it hits the target, return cost, else return a value based on how far we missed)
         double cost;
@@ -94,7 +93,7 @@ public class TrajectoryChooser {
         // Run GSS strictly inside the valid U-shaped bowl
         double bestAngle = goldenSectionSearch(hitWindow[0], hitWindow[1]);
 
-        Trajectory trajectory = binarySearchBestVelocityForAngle(bestAngle, (physicalValues.minVel + physicalValues.maxVel) / 2.0);
+        Trajectory trajectory = binarySearchBestVelocityForAngle(bestAngle);
         if (trajectory != null && trajectory.isHitTarget()) {
             return trajectory;
         }
@@ -107,7 +106,7 @@ public class TrajectoryChooser {
         Double lastHit = null;
 
         for (double angle = minAngle; angle <= maxAngle; angle += sweepStep) {
-            Trajectory t = binarySearchBestVelocityForAngle(angle, (physicalValues.minVel + physicalValues.maxVel) / 2.0);
+            Trajectory t = binarySearchBestVelocityForAngle(angle);
 
             if (t.isHitTarget()) {
                 if (firstHit == null) firstHit = angle;
@@ -181,39 +180,12 @@ public class TrajectoryChooser {
         double minAngle = this.calculateMinAngle();
         double maxAngle = this.calculateMaxAngle();
 
-        return calculateTrajectories(0, minAngle, maxAngle, (maxAngle - minAngle) / ANGLE_DT_DIVIDER);
-    }
-
-    private List<Trajectory> calculateTrajectories(int times, double minAngle, double maxAngle, double angleDT) {
-        List<Trajectory> trajectories = calculateTrajectoriesFromAngles(minAngle, maxAngle, angleDT);
-
-        if (times == ANGLE_RECURSION) {
-            return trajectories;
-        }
+        List<Trajectory> trajectories = calculateTrajectoriesFromAngles(minAngle, maxAngle, (maxAngle - minAngle) / ANGLE_DT_DIVIDER);
 
         if (this.bestTrajectory == null) {
             return new ArrayList<>();
         }
-
-        double angle = this.bestTrajectory.getInitialShootingVelocity().getAngle().getDegrees();
-
-        double cost = getCostDerivative(angle);
-        double range = (1 / Math.pow(10, times));
-        if (!Double.isNaN(cost) || cost < 0) {
-            minAngle = angle;
-            maxAngle = angle + range;
-        } else {
-            minAngle = angle - range;
-            maxAngle = angle;
-        }
-
-        List<Trajectory> results = calculateTrajectories(
-                times + 1,
-                minAngle,
-                maxAngle,
-                range / ANGLE_DT_DIVIDER);
-        results.addAll(trajectories);
-        return results;
+        return trajectories;
     }
 
     private List<Trajectory> calculateTrajectoriesFromAngles(double minAngle, double maxAngle, double angleDT) {
@@ -225,14 +197,13 @@ public class TrajectoryChooser {
         double bestCost = Double.MAX_VALUE;
         this.bestTrajectory = null;
 
-        double lastBestVelocity = (this.physicalValues.minVel + this.physicalValues.maxVel) / 2.0;
         for (double angle = minAngle; angle <= maxAngle; angle += angleDT) {
             // If the strongest shot can't reach the target, skip this angle
             if (!canReachTarget(this.physicalValues.maxVel, angle)) {
                 continue;
             }
 
-            Trajectory trajectory = binarySearchBestVelocityForAngle(angle, lastBestVelocity);
+            Trajectory trajectory = binarySearchBestVelocityForAngle(angle);
 
             if (trajectory.isHitTarget()) {
                 trajectories.add(trajectory);
@@ -267,14 +238,13 @@ public class TrajectoryChooser {
                 // Update the seed for the next iteration
                 prevCost = cost;
                 prevAngle = angle;
-                lastBestVelocity = trajectory.getInitialShootingVelocity().getNorm();
             }
         }
 
         return trajectories;
     }
 
-    private Trajectory binarySearchBestVelocityForAngle(double angle, double seedVelocity) {
+    private Trajectory binarySearchBestVelocityForAngle(double angle) {
         double minLimit = Math.max(this.calculateMinExitVelocity(angle), this.physicalValues.minVel);
         double maxLimit = this.physicalValues.maxVel;
 
