@@ -1,32 +1,39 @@
 /* =========================================
-   REBUILT DESIGN SYSTEM - CSS VARIABLES
+   REBUILT DESIGN SYSTEM - TEAM COLOR EDITION
    ========================================= */
 :root {
-  /* Backgrounds */
-  --bg-base: #0a0a0c;       
-  --bg-panel: #141418;      
-  --bg-card: #1c1c22;       
-  --bg-input: #2a2a35;      
+  /* Richer, deeper backgrounds for a "sleek" feel */
+  --bg-base: #050507;       
+  --bg-panel: #111114;      
+  --bg-card: #18181c;       
+  --bg-input: #222228;      
 
-  /* Borders */
-  --border-subtle: #222;
-  --border-strong: #333;
+  /* Translucent borders for a cleaner look */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-strong: rgba(255, 255, 255, 0.1);
 
   /* Text */
-  --text-primary: #ffffff;
-  --text-secondary: #888888;
-  --text-value: #aaaaaa;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-value: #cbd5e1;
 
-  /* Accents */
-  --accent-blue: #4488ff;
-  --accent-orange: #F5D409;
-  --status-good: #00ff88;
-  --status-bad: #ff4444;
+  /* TEAM ACCENT COLOR (#F5D409) */
+  --accent-team: #F5D409;
+  --accent-team-darker: #d9bb05; /* For gradients */
+  --accent-team-glow: rgba(245, 212, 9, 0.25);
+  --accent-team-faint: rgba(245, 212, 9, 0.1);
+  
+  --accent-cyan: #00e5ff;
+  --accent-cyan-glow: rgba(0, 229, 255, 0.2);
 
-  /* Sizing */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --status-good: #10b981;
+  --status-bad: #ef4444;
+
+  /* Softer, more modern border radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
 }
 
 /* =========================================
@@ -39,10 +46,10 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-base);
   color: var(--text-primary);
-  overflow: hidden; /* Prevents whole-page scroll, we handle scrolling in panels */
+  overflow: hidden; 
 }
 
 /* =========================================
@@ -53,6 +60,7 @@ body {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
+  background: radial-gradient(circle at 50% -20%, #1a1a24 0%, var(--bg-base) 60%);
 }
 
 .main-content {
@@ -63,113 +71,189 @@ body {
 }
 
 /* =========================================
-   HEADER
+   HEADER & NAVIGATION
    ========================================= */
 .app-header {
-  background-color: var(--bg-panel);
+  background-color: rgba(17, 17, 20, 0.7);
+  backdrop-filter: blur(12px); 
   border-bottom: 1px solid var(--border-subtle);
   padding: 15px 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  z-index: 50;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
 }
 
 .app-title {
   margin: 0;
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(90deg, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .app-subtitle {
   margin: 4px 0 0 0;
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  color: var(--accent-cyan);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
+/* --- Target Mode Toggle --- */
+.target-mode-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mode-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.mode-toggle {
+  display: flex;
+  background-color: var(--bg-base);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.btn-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 8px 20px;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-toggle:hover:not(.active-mode) {
+  color: var(--text-primary);
+}
+
+.btn-toggle.active-mode {
+  background: linear-gradient(135deg, var(--accent-team), var(--accent-team-darker));
+  color: #111; /* Dark text for high contrast against the bright team color */
+  box-shadow: 0 4px 12px var(--accent-team-glow);
+}
+
+/* --- Main Navigation Tabs --- */
 .tab-container {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   background-color: var(--bg-base);
   padding: 6px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
 }
 
-/* =========================================
-   BUTTONS
-   ========================================= */
 .btn {
   background-color: transparent;
   color: var(--text-secondary);
-  border: none;
+  border: 1px solid transparent;
   padding: 8px 20px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
   transition: all 0.2s ease;
 }
 
-.btn:hover {
+.btn:hover:not(.active-orange) {
   background-color: var(--bg-input);
   color: var(--text-primary);
 }
 
-.btn.active-blue {
-  background-color: var(--accent-blue);
-  color: var(--text-primary);
-}
-
+/* Note: Left as .active-orange so you don't have to rewrite your React code, 
+   but it will now render your team's yellow/gold! */
 .btn.active-orange {
-  background-color: var(--accent-orange);
-  color: #111; /* Dark text on bright orange for contrast */
+  background-color: var(--accent-team-faint);
+  color: var(--accent-team);
+  border: 1px solid rgba(245, 212, 9, 0.3);
+  box-shadow: 0 0 15px var(--accent-team-glow);
 }
 
 /* =========================================
-   PANELS & CARDS (For Settings & Charts)
+   PANELS & CARDS 
    ========================================= */
 .sidebar {
-  width: 400px;
+  width: 380px;
   flex-shrink: 0;
-  background-color: var(--bg-panel);
-  border-left: 1px solid var(--border-subtle);
-  padding: 20px;
+  background-color: rgba(17, 17, 20, 0.6);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid var(--border-subtle);
+  padding: 24px;
   overflow-y: auto;
+}
+
+.content-wrapper {
+  position: relative;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px;
 }
 
 .charts-area {
   flex-grow: 1;
-  padding: 20px 40px;
   display: flex;
   flex-direction: column;
   min-width: 0;
   overflow-y: auto;
-  gap: 20px; /* Adds space between stacked graphs */
+  gap: 24px; 
 }
 
-/* Add this new class for your Canvas and Graphs */
 .view-panel {
-  flex-shrink: 0; /* Prevents the browser from squishing it */
+  flex-shrink: 0; 
   background-color: var(--bg-panel);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-strong);
-  padding: 15px;
+  padding: 20px;
   min-height: 600px;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); 
 }
 
 .card {
   background-color: var(--bg-card);
-  padding: 15px;
+  padding: 18px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--bg-input);
+  border: 1px solid var(--border-subtle);
   margin-bottom: 20px;
+  transition: border-color 0.3s ease;
+}
+
+.card:hover {
+  border-color: var(--border-strong);
 }
 
 .card-title {
-  margin: 0 0 15px 0;
+  margin: 0 0 16px 0;
   font-size: 1.1rem;
   color: var(--text-primary);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-row {
@@ -179,8 +263,8 @@ body {
 
 .card-divider {
   border-top: 1px solid var(--border-strong);
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
 }
 
 /* =========================================
@@ -189,141 +273,143 @@ body {
 .status-indicator {
   display: flex;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
+  background: var(--bg-input);
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  width: fit-content;
+  border: 1px solid var(--border-subtle);
 }
 
 .status-dot {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  margin-right: 8px;
+  margin-right: 10px;
+  box-shadow: 0 0 8px currentColor; 
 }
 
-.status-dot.connected { background-color: var(--status-good); }
-.status-dot.disconnected { background-color: var(--status-bad); }
+.status-dot.connected { color: var(--status-good); background-color: var(--status-good); }
+.status-dot.disconnected { color: var(--status-bad); background-color: var(--status-bad); }
 
 .status-text {
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-/* Custom Slider Styling */
 .slider-wrapper {
   flex: 1;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .slider-header {
   display: flex;
   justify-content: space-between;
   font-size: 0.85rem;
-  margin-bottom: 6px;
-  color: var(--text-value);
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .slider-value {
-  color: var(--text-primary);
-  font-weight: bold;
-}
-
-/* Disabled Slider States */
-.slider-wrapper.disabled {
-  opacity: 0.5;
-  filter: grayscale(100%);
-}
-
-.slider-wrapper.disabled input[type="range"] {
-  cursor: not-allowed;
+  color: var(--accent-team); /* Emphasize values with your team color */
+  font-weight: 700;
+  font-family: monospace;
+  font-size: 0.95rem;
 }
 
 input[type=range] {
   width: 100%;
   cursor: pointer;
-  accent-color: var(--accent-orange);
+  accent-color: var(--accent-team);
+  height: 6px;
+  background: var(--bg-input);
+  border-radius: var(--radius-pill);
+  outline: none;
 }
 
 /* =========================================
-   CUSTOM SCROLLBARS (Overflow)
+   CUSTOM SCROLLBARS
    ========================================= */
-
-/* Firefox (Uses properties on the element itself) */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
 
-/* Chrome, Edge, and Safari */
 ::-webkit-scrollbar {
-  width: 8px;  /* Width of the vertical scrollbar */
-  height: 8px; /* Height of the horizontal scrollbar */
+  width: 8px; 
+  height: 8px; 
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent; /* Keeps the background flush with your panels */
-  border-radius: var(--radius-sm);
+  background: transparent; 
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-strong); 
-  border-radius: var(--radius-sm);
+  background: var(--bg-input); 
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--bg-base); 
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary); /* Brightens up slightly when hovered */
+  background: var(--text-secondary); 
 }
 
-/* Optional: Make the scrollbar thumb bright orange when actively clicking/dragging it */
-::-webkit-scrollbar-thumb:active {
-  background: var(--accent-orange);
+/* =========================================
+   OVERLAYS & STATS
+   ========================================= */
+.calc-stats {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(16, 185, 129, 0.1); 
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--status-good);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 600;
+  z-index: 10;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+  animation: fadeOut 3s forwards;
+  animation-delay: 2s; 
 }
 
-/* Overlay while calculating */
+@keyframes fadeOut {
+  to { opacity: 0; pointer-events: none; }
+}
+
 .calc-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(10, 10, 12, 0.85);
+  background: rgba(5, 5, 7, 0.7);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  z-index: 10;
-  backdrop-filter: blur(2px);
+  z-index: 100;
+  backdrop-filter: blur(4px);
 }
 
-/* A simple CSS spinner */
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--border-strong);
-  border-top: 4px solid var(--accent-orange);
+  width: 45px;
+  height: 45px;
+  border: 3px solid var(--accent-team-faint);
+  border-top: 3px solid var(--accent-team);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 15px;
+  animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+  margin-bottom: 20px;
+}
+
+.calc-overlay p {
+  color: var(--accent-team);
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 0.9rem;
 }
 
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-.content-wrapper {
-  position: relative; /* Essential for absolute overlay positioning */
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Floating Stats Badge */
-.calc-stats {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-strong);
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-family: monospace;
-  font-size: 0.85rem;
-  z-index: 5;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-}

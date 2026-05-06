@@ -80,7 +80,7 @@ export default function CostChart({
             domain={[minAngle, maxAngle]} tickCount={10} 
           />
 
-          <YAxis yAxisId="left" stroke="#888" orientation="left" domain={[0.1, 0.3]} allowDataOverflow={true} />
+          <YAxis yAxisId="left" stroke="#888" orientation="left" allowDataOverflow={true} />
           
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: "12px" }} />

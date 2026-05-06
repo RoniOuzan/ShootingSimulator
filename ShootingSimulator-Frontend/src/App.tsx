@@ -6,11 +6,16 @@ import TrajectoryVisualizer, {
 } from "./visualizer/TrajectoryVisualizer";
 import SurfaceSweepView from "./surface/SurfaceSweepView";
 
+export type TargetMode = "VERTICAL" | "HORIZONTAL";
+
 export default function App() {
   const WS_URL = "ws://localhost:8080";
   const [activeTab, setActiveTab] = useState<"simulator" | "sweep" | "surface">(
     "simulator",
   );
+
+  // --- Global Target Mode ---
+  const [targetMode, setTargetMode] = useState<TargetMode>("VERTICAL");
 
   // --- Global Connection State ---
   const [isConnected, setIsConnected] = useState(false);
@@ -76,7 +81,7 @@ export default function App() {
     return () => {
       if (ws.readyState === WebSocket.OPEN) ws.close();
     };
-  }, []); // Only runs once when the app loads
+  }, []);
 
   // Generic function to allow children to send data through the shared socket
   const sendMessage = useCallback((payload: any, showTime: boolean = false) => {
@@ -84,8 +89,8 @@ export default function App() {
       wsRef.current.send(JSON.stringify(payload));
 
       if (showTime) {
-        setIsCalculating(true); // Start loading state
-        startTimeRef.current = performance.now(); // Record start time
+        setIsCalculating(true);
+        startTimeRef.current = performance.now();
       }
     }
   }, []);
@@ -93,11 +98,30 @@ export default function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <div>
+        <div className="header-left">
           <h1 className="app-title">REBUILT Target Simulator</h1>
           <p className="app-subtitle">
             Live trajectory calculation and hardware constraint mapping
           </p>
+        </div>
+
+        {/* Global Target Mode Toggle */}
+        <div className="target-mode-container">
+          <span className="mode-label">Target Type:</span>
+          <div className="mode-toggle">
+            <button
+              onClick={() => setTargetMode("VERTICAL")}
+              className={`btn-toggle ${targetMode === "VERTICAL" ? "active-mode" : ""}`}
+            >
+              Vertical
+            </button>
+            <button
+              onClick={() => setTargetMode("HORIZONTAL")}
+              className={`btn-toggle ${targetMode === "HORIZONTAL" ? "active-mode" : ""}`}
+            >
+              Horizontal
+            </button>
+          </div>
         </div>
 
         <div className="tab-container">
@@ -129,11 +153,14 @@ export default function App() {
               Finished in <strong>{calcTime}ms</strong>
             </div>
           )}
+          
+          {/* Pass targetMode down to all child views */}
           {activeTab === "simulator" && (
             <TrajectoryVisualizer
               isConnected={isConnected}
               results={simulatorResults}
               sendMessage={sendMessage}
+              targetMode={targetMode} 
             />
           )}
           {activeTab === "sweep" && (
@@ -141,6 +168,7 @@ export default function App() {
               isConnected={isConnected}
               sweepData={sweepResults}
               sendMessage={sendMessage}
+              targetMode={targetMode}
             />
           )}
           {activeTab === "surface" && (
@@ -148,18 +176,19 @@ export default function App() {
               isConnected={isConnected}
               surfaceData={surfaceResults}
               sendMessage={sendMessage}
+              targetMode={targetMode}
             />
           )}
         </div>
       </main>
+
+      {/* Absolute-positioned components */}
+      {/* {isCalculating && (
+        <div className="calc-overlay">
+          <div className="spinner"></div>
+          <p>Calculating optimized trajectory...</p>
+        </div>
+      )} */}
     </div>
   );
 }
-
-// {/* Absolute-positioned components */}
-// {isCalculating && (
-// <div className="calc-overlay">
-// <div className="spinner"></div>
-// <p>Calculating optimized trajectory...</p>
-// </div>
-// )}

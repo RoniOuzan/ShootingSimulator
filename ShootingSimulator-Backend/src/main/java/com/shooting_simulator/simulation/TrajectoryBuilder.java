@@ -78,6 +78,7 @@ public class TrajectoryBuilder {
                 // Add the perfect sample and STOP
                 hitSample = calculateLastSample(position, velocity, acceleration);
                 samples.add(hitSample);
+//                break; // Ensure the loop breaks once the target X is crossed
             }
 
             // Standard update if no crossing
@@ -95,17 +96,20 @@ public class TrajectoryBuilder {
         } else {
             return velocity.getY() < 0 && prev.getY() >= this.target.getY() && next.getY() < this.target.getY();
         }
+//        return prev.getX() <= this.target.getX() && next.getX() > this.target.getX();
     }
 
     private boolean shouldCalculateTrajectory(Translation2d position) {
+        // Keeps the simulation from running forever if it misses the target and falls
         return position.getY() >= 0;
     }
 
     private Sample calculateLastSample(Translation2d position, Translation2d velocity, Translation2d acceleration) {
-        double deltaY = this.target.getY() - position.getY();
+        // Calculate based on the remaining distance in the X axis
+        double delta = this.target.getY() - position.getY();
 
-        // Solve: 0.5*a*t^2 + v*t - deltaY = 0
-        double[] roots = MathUtil.quadraticSolver(0.5 * acceleration.getY(), velocity.getY(), -deltaY);
+        // Solve: 0.5*a*t^2 + v*t - deltaX = 0 using X components
+        double[] roots = MathUtil.quadraticSolver(0.5 * acceleration.getY(), velocity.getY(), -delta);
 
         double exactT = PERIOD; // fallback
         if (roots.length == 1) {

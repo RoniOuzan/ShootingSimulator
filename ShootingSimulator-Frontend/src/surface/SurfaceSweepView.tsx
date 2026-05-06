@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import SurfaceSweepCharts from './SurfaceSweepCharts';
-// import { ControlSlider } from './YourSliderFile'; // Make sure to import this or define it below
+import type { TargetMode } from '../App';
 
-interface SurfaceSweepViewProps {
+interface Props {
   isConnected: boolean;
   surfaceData: any;
   sendMessage: (payload: any, showTime?: boolean) => void;
+  targetMode: TargetMode;
 }
 
-export default function SurfaceSweepView({ isConnected, surfaceData, sendMessage }: SurfaceSweepViewProps) {
+export default function SurfaceSweepView({ isConnected, surfaceData, sendMessage, targetMode }: Props) {
   // --- 3D Graph Bounds State ---
   const [minDist, setMinDist] = useState<number>(1);
   const [maxDist, setMaxDist] = useState<number>(8);
@@ -49,6 +50,7 @@ export default function SurfaceSweepView({ isConnected, surfaceData, sendMessage
     const payload = {
       type: 'surface', // Tell backend we want a 2D matrix
       data: { 
+        targetMode,
         initialY, targetY, tolX, tolY, minHitAngle, maxHitAngle, 
         sweepBounds: { minDist, maxDist, distStep, minRadialVel, maxRadialVel, radialVelStep },
         physicalValues: {

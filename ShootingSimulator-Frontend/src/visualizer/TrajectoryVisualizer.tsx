@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { type Translation2d } from "../util";
 import RobustnessChart from "./RobustnessChart";
 import CostChart from "./CostChart";
+import type { TargetMode } from "../App";
 
 // --- Interfaces ---
 interface Sample {
@@ -19,17 +20,19 @@ export interface SimulationResults {
   costData: any[];
 }
 
-interface TrajectoryVisualizerProps {
+interface Props {
   isConnected: boolean;
   results: SimulationResults;
   sendMessage: (payload: any, showTime?: boolean) => void;
+  targetMode: TargetMode;
 }
 
 export default function TrajectoryVisualizer({
   isConnected,
   results,
   sendMessage,
-}: TrajectoryVisualizerProps) {
+  targetMode,
+}: Props) {
   // --- Simulation Parameters ---
   const [initialX, setInitialX] = useState<number>(0.0);
   const [initialY, setInitialY] = useState<number>(0.0);
@@ -46,9 +49,9 @@ export default function TrajectoryVisualizer({
   const [maxHitAngle, setMaxHitAngle] = useState<number>(90);
 
   // --- Error Estimations ---
-  const [estimatedAngleError, setEstimatedAngleError] = useState<number>(0.5);
+  const [estimatedAngleError, setEstimatedAngleError] = useState<number>(0.005);
   const [estimatedVelocityError, setEstimatedVelocityError] =
-    useState<number>(0.08);
+    useState<number>(0.0008);
 
   // --- Aerodynamic Parameters ---
   const [mass, setMass] = useState<number>(0.22); // kg
@@ -94,6 +97,7 @@ export default function TrajectoryVisualizer({
     const payload = {
       type: "calculate",
       data: {
+        targetMode,
         initialX,
         initialY,
         radialVelocity,
@@ -828,18 +832,18 @@ export default function TrajectoryVisualizer({
               <ControlSlider
                 label="Angle Error"
                 value={estimatedAngleError}
-                min={0}
-                max={1}
-                step={0.02}
+                min={0.005}
+                max={0.1}
+                step={0.005}
                 unit="°"
                 onChange={setEstimatedAngleError}
               />
               <ControlSlider
                 label="Velocity Error"
                 value={estimatedVelocityError}
-                min={0}
-                max={0.5}
-                step={0.01}
+                min={0.0001}
+                max={0.05}
+                step={0.0001}
                 unit="m/s"
                 onChange={setEstimatedVelocityError}
               />

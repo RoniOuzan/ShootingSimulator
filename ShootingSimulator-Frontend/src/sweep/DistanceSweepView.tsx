@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import DistanceSweepCharts from './DistanceSweepCharts';
+import type { TargetMode } from '../App';
 
 // --- Props Interface ---
-interface DistanceSweepViewProps {
+interface Props {
   isConnected: boolean;
   sweepData: any[];
   sendMessage: (payload: any, showTime?: boolean) => void;
+  targetMode: TargetMode;
 }
 
-export default function DistanceSweepView({ isConnected, sweepData, sendMessage }: DistanceSweepViewProps) {
+export default function DistanceSweepView({ isConnected, sweepData, sendMessage, targetMode }: Props) {
   // --- Shared Simulation Constants ---
   const [targetY, setTargetY] = useState<number>(2.0);
   const [radialVelocity, setRadialVelocity] = useState<number>(2);
@@ -44,6 +46,7 @@ export default function DistanceSweepView({ isConnected, sweepData, sendMessage 
     const payload = {
       type: 'sweep', 
       data: { 
+        targetMode,
         initialY, radialVelocity, targetY, tolX, tolY, minHitAngle, maxHitAngle, 
         physicalValues: {
           minAngle, maxAngle, minVel, maxVel, estimatedAngleError, estimatedVelocityError,

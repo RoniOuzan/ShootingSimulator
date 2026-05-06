@@ -56,7 +56,7 @@ public class SweepPacket implements DataPacket {
                 double vReq = best.getInitialShootingVelocity().getNorm();
                 double angle = best.getInitialShootingVelocity().getAngle().getDegrees();
 
-                double rssError = chooser.calculateTrajectoryCost(best, best.isFlat());
+                double rssError = chooser.calculateTrajectoryCost(best);
 
                 Double angleDerive = (prevAngle != null) ? (angle - prevAngle) / distanceStep : null;
                 Double velDerive = (prevVel != null) ? (vReq - prevVel) / distanceStep : null;

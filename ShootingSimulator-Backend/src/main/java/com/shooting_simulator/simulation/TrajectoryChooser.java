@@ -73,7 +73,7 @@ public class TrajectoryChooser {
         if (bestFlat == null) return bestLob;
         if (bestLob == null) return bestFlat;
 
-        return calculateTrajectoryCost(bestFlat, true) < calculateTrajectoryCost(bestLob, false) ? bestFlat : bestLob;
+        return calculateTrajectoryCost(bestFlat) < calculateTrajectoryCost(bestLob) ? bestFlat : bestLob;
     }
 
     private Trajectory findBestTrajectoryForPhase(boolean isFlat) {
@@ -151,32 +151,32 @@ public class TrajectoryChooser {
         if (trajectory == null || !trajectory.isHitTarget()) {
             cost = MISS_TARGET_COST;
         } else {
-            cost = calculateTrajectoryCost(trajectory, isFlat);
+            cost = calculateTrajectoryCost(trajectory);
         }
 
         this.costSweep.add(new Translation2d(angle, cost));
         return cost;
     }
 
-    public double calculateTrajectoryCost(Trajectory trajectory, boolean isFlat) {
-        return Math.hypot(calculateMaxErrorForExitVelocity(trajectory, isFlat), calculateMaxErrorForAngle(trajectory, isFlat));
+    public double calculateTrajectoryCost(Trajectory trajectory) {
+        return Math.hypot(calculateMaxErrorForExitVelocity(trajectory), calculateMaxErrorForAngle(trajectory));
     }
 
-    private double calculateMaxErrorForExitVelocity(Trajectory trajectory, boolean isFlat) {
+    private double calculateMaxErrorForExitVelocity(Trajectory trajectory) {
         Translation2d velocity = trajectory.getInitialShootingVelocity();
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, isFlat);
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, isFlat);
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, trajectory.isFlat());
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
 
         return after.getHitSample().getPosition().getX() - before.getHitSample().getPosition().getX();
     }
 
-    private double calculateMaxErrorForAngle(Trajectory trajectory, boolean isFlat) {
+    private double calculateMaxErrorForAngle(Trajectory trajectory) {
         Translation2d velocity = trajectory.getInitialShootingVelocity();
         Rotation2d estimatedAngleError = Rotation2d.fromDegrees(this.physicalValues.estimatedAngleError);
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError), false, isFlat);
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, isFlat);
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError), false, trajectory.isFlat());
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
 
@@ -216,9 +216,9 @@ public class TrajectoryChooser {
                     trajectories.add(trajectory);
 
                     double vReq = trajectory.getInitialShootingVelocity().getNorm();
-                    double velErr = Math.abs(calculateMaxErrorForExitVelocity(trajectory, isFlat));
-                    double angErr = Math.abs(calculateMaxErrorForAngle(trajectory, isFlat));
-                    double cost = calculateTrajectoryCost(trajectory, isFlat);
+                    double velErr = Math.abs(calculateMaxErrorForExitVelocity(trajectory));
+                    double angErr = Math.abs(calculateMaxErrorForAngle(trajectory));
+                    double cost = calculateTrajectoryCost(trajectory);
 
                     Double costDerivative = null;
                     if (!Double.isNaN(prevCost)) {
