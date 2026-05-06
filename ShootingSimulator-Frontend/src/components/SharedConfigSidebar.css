@@ -1,0 +1,113 @@
+.shared-sidebar {
+  width: 340px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(17, 17, 20, 0.95) 0%, rgba(24, 24, 28, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: width 0.3s ease;
+  overflow: hidden;
+}
+
+.shared-sidebar.collapsed {
+  width: 48px;
+}
+
+.collapse-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+.collapsed .collapse-toggle {
+  right: auto;
+  left: 8px;
+  padding: 8px;
+}
+
+.collapse-toggle:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.sidebar-content {
+  padding: 50px 20px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sidebar-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin: 0 0 20px 0;
+  background: linear-gradient(90deg, var(--accent-team), #fff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.config-card {
+  background: var(--bg-card);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 16px;
+}
+
+.config-card.hardware {
+  border-left: 3px solid var(--accent-cyan);
+}
+
+.config-card .card-title {
+  margin: 0 0 14px 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-card .card-title .icon {
+  font-size: 1.1rem;
+}
+
+.config-card .card-row {
+  display: flex;
+  gap: 12px;
+}
+
+.config-card .card-divider {
+  border-top: 1px solid var(--border-strong);
+  margin: 12px 0;
+}
+
+.reset-config-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--status-bad);
+  color: var(--status-bad);
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.reset-config-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}

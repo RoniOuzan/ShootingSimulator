@@ -1,27 +1,65 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import DistanceSweepView from "./sweep/DistanceSweepView";
-import TrajectoryVisualizer, {
-  type SimulationResults,
-} from "./visualizer/TrajectoryVisualizer";
+import TrajectoryVisualizer from "./visualizer/TrajectoryVisualizer";
 import SurfaceSweepView from "./surface/SurfaceSweepView";
+import SharedConfigSidebar from "./components/SharedConfigSidebar";
+import { usePersistedState } from "./hooks/usePersistedState";
+import type { SharedConfig, SimulationResults, TargetMode } from "./types";
 
-export type TargetMode = "VERTICAL" | "HORIZONTAL";
+const DEFAULT_CONFIG: SharedConfig = {
+  targetMode: "HORIZONTAL",
+  origin: {
+    initialX: 0,
+    initialY: 0,
+    radialVelocity: 0,
+  },
+  target: {
+    targetY: 2.0,
+    tolX: 0.03,
+    tolY: 0.01,
+    minHitAngle: -90,
+    maxHitAngle: -30,
+  },
+  aerodynamics: {
+    mass: 0.22,
+    diameter: 0.075,
+    dragCoeff: 0.5,
+    spinRPSPerMS: 1,
+    magnusCoeff: 0.5,
+  },
+  hardware: {
+    minAngle: 50,
+    maxAngle: 90,
+    minVel: 6,
+    maxVel: 12,
+    estimatedAngleError: 0.005,
+    estimatedVelocityError: 0.0008,
+  },
+};
 
 export default function App() {
   const WS_URL = "ws://localhost:8080";
-  const [activeTab, setActiveTab] = useState<"simulator" | "sweep" | "surface">(
-    "simulator",
+
+  const [activeTab, setActiveTab] = usePersistedState<
+    "simulator" | "sweep" | "surface"
+  >("activeTab", "simulator");
+  const [sidebarCollapsed, setSidebarCollapsed] = usePersistedState(
+    "sidebarCollapsed",
+    false,
   );
 
-  // --- Global Target Mode ---
-  const [targetMode, setTargetMode] = useState<TargetMode>("VERTICAL");
+  // Shared configuration with persistence
+  const [sharedConfig, setSharedConfig] = usePersistedState<SharedConfig>(
+    "sharedConfig",
+    DEFAULT_CONFIG,
+  );
 
-  // --- Global Connection State ---
+  // Connection state
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // --- Global Data Store ---
+  // Data stores
   const [simulatorResults, setSimulatorResults] = useState<SimulationResults>({
     trajectories: [],
     bestTrajectory: null,
@@ -32,68 +70,98 @@ export default function App() {
   const [sweepResults, setSweepResults] = useState<any[]>([]);
   const [surfaceResults, setSurfaceResults] = useState<any>({});
 
-  const [isCalculating, setIsCalculating] = useState<boolean>(false);
+  // Calculation state
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [calcProgress, setCalcProgress] = useState(0);
+  const [eta, setEta] = useState(0);
   const [calcTime, setCalcTime] = useState<number | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  // --- Centralized WebSocket Management ---
+  // WebSocket management
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      if (wsRef.current?.readyState == WebSocket.OPEN) setIsConnected(true);
+      if (wsRef.current?.readyState === WebSocket.OPEN) setIsConnected(true);
     };
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const message = JSON.parse(event.data);
+
+        // Handle progress updates
+        if (message.type === "progress") {
+          setCalcProgress(message.data.progress || 0);
+          setEta(message.data.eta);
+          return;
+        }
 
         const duration = Math.round(performance.now() - startTimeRef.current);
-        setIsCalculating((prev) => {
-          if (prev) {
-            setCalcTime(duration);
-          }
-          return false; // Always set to false once a message arrives
-        });
+        setIsCalculating(false);
+        setCalcProgress(0);
+        setCalcTime(duration);
 
-        // Route the incoming data to the correct state based on its type
-        if (data.type === "results") {
+        if (message.type === "results") {
           setSimulatorResults({
-            trajectories: data.data.trajectories || [],
-            bestTrajectory: data.data.bestTrajectory || null,
-            bestInfo: data.data.bestInfo || null,
-            robustnessData: data.data.robustnessData || [],
-            costData: data.data.costData || [],
+            trajectories: message.data.trajectories || [],
+            bestTrajectory: message.data.bestTrajectory || null,
+            bestInfo: message.data.bestInfo || null,
+            robustnessData: message.data.robustnessData || [],
+            costData: message.data.costData || [],
           });
-        } else if (data.type === "sweepResults") {
-          setSweepResults(data.data || []);
-        } else if (data.type === "surfaceResults") {
-          setSurfaceResults(data.data || {});
+        } else if (message.type === "sweepResults") {
+          setSweepResults(message.data || []);
+        } else if (message.type === "surfaceResults") {
+          setSurfaceResults(message.data || {});
         }
       } catch (e) {
         console.error("Failed to parse backend response", e);
+        setIsCalculating(false);
       }
     };
 
     ws.onclose = () => setIsConnected(false);
+    ws.onerror = () => setIsCalculating(false);
 
     return () => {
       if (ws.readyState === WebSocket.OPEN) ws.close();
     };
   }, []);
 
-  // Generic function to allow children to send data through the shared socket
-  const sendMessage = useCallback((payload: any, showTime: boolean = false) => {
+  const sendMessage = useCallback((payload: any, showTime = false) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(payload));
 
       if (showTime) {
         setIsCalculating(true);
+        setCalcProgress(0);
         startTimeRef.current = performance.now();
       }
     }
   }, []);
+
+  // Update shared config helper
+  const updateConfig = useCallback(
+    <K extends keyof SharedConfig>(
+      section: K,
+      updates: Partial<SharedConfig[K]>,
+    ) => {
+      setSharedConfig((prev) => ({
+        ...prev,
+        [section]: { ...(prev[section] as any), ...updates },
+      }));
+    },
+    [setSharedConfig],
+  );
+
+  // Target mode setter (also updates shared config)
+  const setTargetMode = useCallback(
+    (mode: TargetMode) => {
+      setSharedConfig((prev) => ({ ...prev, targetMode: mode }));
+    },
+    [setSharedConfig],
+  );
 
   return (
     <div className="app-container">
@@ -105,25 +173,26 @@ export default function App() {
           </p>
         </div>
 
-        {/* Global Target Mode Toggle */}
+        {/* Target Mode Toggle */}
         <div className="target-mode-container">
           <span className="mode-label">Target Type:</span>
           <div className="mode-toggle">
             <button
               onClick={() => setTargetMode("VERTICAL")}
-              className={`btn-toggle ${targetMode === "VERTICAL" ? "active-mode" : ""}`}
+              className={`btn-toggle ${sharedConfig.targetMode === "VERTICAL" ? "active-mode" : ""}`}
             >
               Vertical
             </button>
             <button
               onClick={() => setTargetMode("HORIZONTAL")}
-              className={`btn-toggle ${targetMode === "HORIZONTAL" ? "active-mode" : ""}`}
+              className={`btn-toggle ${sharedConfig.targetMode === "HORIZONTAL" ? "active-mode" : ""}`}
             >
               Horizontal
             </button>
           </div>
         </div>
 
+        {/* Tab Navigation */}
         <div className="tab-container">
           <button
             onClick={() => setActiveTab("simulator")}
@@ -146,49 +215,58 @@ export default function App() {
         </div>
       </header>
 
-      <main className="main-content">
-        <div className="content-wrapper">
-          {!isCalculating && calcTime !== null && (
-            <div className="calc-stats">
-              Finished in <strong>{calcTime}ms</strong>
-            </div>
-          )}
-          
-          {/* Pass targetMode down to all child views */}
-          {activeTab === "simulator" && (
-            <TrajectoryVisualizer
-              isConnected={isConnected}
-              results={simulatorResults}
-              sendMessage={sendMessage}
-              targetMode={targetMode} 
-            />
-          )}
-          {activeTab === "sweep" && (
-            <DistanceSweepView
-              isConnected={isConnected}
-              sweepData={sweepResults}
-              sendMessage={sendMessage}
-              targetMode={targetMode}
-            />
-          )}
-          {activeTab === "surface" && (
-            <SurfaceSweepView
-              isConnected={isConnected}
-              surfaceData={surfaceResults}
-              sendMessage={sendMessage}
-              targetMode={targetMode}
-            />
-          )}
-        </div>
-      </main>
+      <div className="app-body">
+        {/* Shared Configuration Sidebar */}
+        <SharedConfigSidebar
+          config={sharedConfig}
+          updateConfig={updateConfig}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
 
-      {/* Absolute-positioned components */}
-      {/* {isCalculating && (
-        <div className="calc-overlay">
-          <div className="spinner"></div>
-          <p>Calculating optimized trajectory...</p>
-        </div>
-      )} */}
+        {/* Main Content */}
+        <main className="main-content">
+          <div className="content-wrapper">
+            {!isCalculating && calcTime !== null && (
+              <div className="calc-stats">
+                Finished in <strong>{calcTime}ms</strong>
+              </div>
+            )}
+
+            {activeTab === "simulator" && (
+              <TrajectoryVisualizer
+                isConnected={isConnected}
+                results={simulatorResults}
+                sendMessage={sendMessage}
+                sharedConfig={sharedConfig}
+                updateConfig={updateConfig}
+              />
+            )}
+            {activeTab === "sweep" && (
+              <DistanceSweepView
+                isConnected={isConnected}
+                sweepData={sweepResults}
+                sendMessage={sendMessage}
+                sharedConfig={sharedConfig}
+                isCalculating={isCalculating}
+                calcProgress={calcProgress}
+                eta={eta}
+              />
+            )}
+            {activeTab === "surface" && (
+              <SurfaceSweepView
+                isConnected={isConnected}
+                surfaceData={surfaceResults}
+                sendMessage={sendMessage}
+                sharedConfig={sharedConfig}
+                isCalculating={isCalculating}
+                calcProgress={calcProgress}
+                eta={eta}
+              />
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -413,3 +413,114 @@ input[type=range] {
 }
 
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Calculate Button */
+.calculate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--accent-team), var(--accent-team-darker));
+  color: #111;
+  border: none;
+  padding: 14px 28px;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px var(--accent-team-glow);
+}
+
+.calculate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--accent-team-glow);
+}
+
+.calculate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.calculate-btn .icon {
+  font-size: 1.2rem;
+}
+
+/* Tab-specific config card */
+.tab-config-card {
+  background: var(--bg-card);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  margin-bottom: 16px;
+}
+
+.tab-config-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+/* View Layouts */
+.sweep-view,
+.surface-view {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  gap: 0;
+}
+
+.charts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.charts-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.tab-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-subtle);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.tab-sidebar .sidebar-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+}
+
+.sweep-info {
+  background: var(--bg-input);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-top: 16px;
+}
+
+.sweep-info p {
+  margin: 0 0 6px 0;
+  font-size: 0.9rem;
+}
+
+.sweep-info .hint {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin: 0;
+}

@@ -1,0 +1,56 @@
+.slider-wrapper {
+  flex: 1;
+  margin-bottom: 16px;
+}
+
+.slider-wrapper.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.slider-label {
+  white-space: nowrap;
+}
+
+.slider-value {
+  color: var(--accent-team);
+  font-weight: 700;
+  font-family: monospace;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.slider-value:hover {
+  background-color: var(--bg-input);
+}
+
+.slider-input {
+  width: 80px;
+  background: var(--bg-input);
+  border: 1px solid var(--accent-team);
+  border-radius: 4px;
+  color: var(--accent-team);
+  font-family: monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  text-align: right;
+  outline: none;
+}
+
+.slider-input:focus {
+  box-shadow: 0 0 0 2px var(--accent-team-glow);
+}

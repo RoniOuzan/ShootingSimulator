@@ -14,32 +14,27 @@ public class SurfacePacket implements DataPacket {
 
     public double initialY;
     public double targetY;
-
     public double tolX;
     public double tolY;
-
     public double minHitAngle;
     public double maxHitAngle;
 
     public SweepBounds sweepBounds;
-
     public PhysicalValues physicalValues;
 
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
-        System.out.println("Simulating...");
+        System.out.println("Simulating Surface...");
 
         Translation2d initialPos = new Translation2d(0, this.initialY);
         Translation2d tolerance = new Translation2d(this.tolX, this.tolY);
 
-        // Pull bounds dynamically from the frontend payload
-        double distanceStep = this.sweepBounds.distStep; // Tweak this for resolution vs. performance
-        double radialVelocityStep = this.sweepBounds.radialVelStep;
+        double distanceStep = this.sweepBounds.distStep();
+        double radialVelocityStep = this.sweepBounds.radialVelStep();
 
         List<Double> distances = new ArrayList<>();
         List<Double> radialVels = new ArrayList<>();
 
-        // Pre-calculate the axes arrays
         for (double x = sweepBounds.minDist(); x <= sweepBounds.maxDist(); x += distanceStep) {
             distances.add(Math.round(x * 100.0) / 100.0);
         }
@@ -50,7 +45,13 @@ public class SurfacePacket implements DataPacket {
         List<List<Double>> angleMatrix = new ArrayList<>();
         List<List<Double>> velocityMatrix = new ArrayList<>();
 
-        // Build the 2D Matrices. Outer loop: Y (Radial Vel). Inner loop: X (Distance).
+        int totalSteps = distances.size() * radialVels.size();
+        int currentStep = 0;
+        int lastReportedProgress = -1;
+
+        // Track time for ETA calculation
+        long startTimeMs = System.currentTimeMillis();
+
         for (double radialVelocity : radialVels) {
             List<Double> angleRow = new ArrayList<>();
             List<Double> velocityRow = new ArrayList<>();
@@ -77,27 +78,38 @@ public class SurfacePacket implements DataPacket {
                     angleRow.add(Math.round(angle * 1000.0) / 1000.0);
                     velocityRow.add(Math.round(vReq * 1000.0) / 1000.0);
                 } else {
-                    // Plotly uses nulls to create gaps/holes in the 3D surface for impossible shots
                     angleRow.add(null);
                     velocityRow.add(null);
+                }
+
+                // --- Progress & ETA Tracking ---
+                currentStep++;
+                int progress = (int) (((double) currentStep / totalSteps) * 100);
+
+                if (progress > lastReportedProgress) {
+                    long elapsedTimeMs = System.currentTimeMillis() - startTimeMs;
+                    long estimatedTotalTimeMs = (long) (((double) elapsedTimeMs / currentStep) * totalSteps);
+                    long eta = Math.max(0, estimatedTotalTimeMs - elapsedTimeMs); // Ensure no negative values
+
+                    server.sendPacket(conn, "progress", new ProgressPayload(progress, eta));
+                    lastReportedProgress = progress;
                 }
             }
             angleMatrix.add(angleRow);
             velocityMatrix.add(velocityRow);
         }
 
-        // Send the re-formatted payload to the correct WebSocket listener
         SurfacePayload payload = new SurfacePayload(distances, radialVels, angleMatrix, velocityMatrix);
-        server.sendPacket(conn, "surfaceResults", payload); // Note: changed from sweepResults to surfaceResults
+        server.sendPacket(conn, "surfaceResults", payload);
     }
 
-    // Updated Records to match the frontend expectations
     public record SurfacePayload(
-            List<Double> distances,
-            List<Double> radialVels,
-            List<List<Double>> angleMatrix,
-            List<List<Double>> velocityMatrix
+            List<Double> distances, List<Double> radialVels,
+            List<List<Double>> angleMatrix, List<List<Double>> velocityMatrix
     ) {}
 
     public record SweepBounds(double minDist, double maxDist, double distStep, double minRadialVel, double maxRadialVel, double radialVelStep) {}
+
+    // Updated Record
+    public record ProgressPayload(int progress, long eta) {}
 }
