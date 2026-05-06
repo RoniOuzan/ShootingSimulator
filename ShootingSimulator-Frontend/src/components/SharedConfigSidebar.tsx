@@ -1,12 +1,12 @@
-import type { SharedConfig } from '../types';
-import ControlSlider from './ControlSlider';
-import './SharedConfigSidebar.css';
+import type { SharedConfig } from "../types";
+import ControlSlider from "./ControlSlider";
+import "./SharedConfigSidebar.css";
 
 interface Props {
   config: SharedConfig;
   updateConfig: <K extends keyof SharedConfig>(
     section: K,
-    updates: Partial<SharedConfig[K]>
+    updates: Partial<SharedConfig[K]>,
   ) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -21,9 +21,9 @@ export default function SharedConfigSidebar({
   const { origin, target, aerodynamics, hardware } = config;
 
   return (
-    <div className={`shared-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+    <div className={`shared-sidebar ${isCollapsed ? "collapsed" : ""}`}>
       <button className="collapse-toggle" onClick={onToggleCollapse}>
-        {isCollapsed ? '▶' : '◀'}
+        {isCollapsed ? "▶" : "◀"}
         {!isCollapsed && <span>Collapse</span>}
       </button>
 
@@ -32,7 +32,7 @@ export default function SharedConfigSidebar({
           <h2 className="sidebar-title">Global Configuration</h2>
 
           {/* Origin Parameters */}
-          <div className="config-card">
+          <div className="config-card origin">
             <h3 className="card-title">
               <span className="icon">📍</span> Initial Position
             </h3>
@@ -44,7 +44,7 @@ export default function SharedConfigSidebar({
                 max={10}
                 step={0.1}
                 unit="m"
-                onChange={(v) => updateConfig('origin', { initialX: v })}
+                onChange={(v) => updateConfig("origin", { initialX: v })}
               />
               <ControlSlider
                 label="Y Height"
@@ -53,7 +53,7 @@ export default function SharedConfigSidebar({
                 max={5}
                 step={0.1}
                 unit="m"
-                onChange={(v) => updateConfig('origin', { initialY: v })}
+                onChange={(v) => updateConfig("origin", { initialY: v })}
               />
             </div>
             <ControlSlider
@@ -63,12 +63,12 @@ export default function SharedConfigSidebar({
               max={4}
               step={0.1}
               unit="m/s"
-              onChange={(v) => updateConfig('origin', { radialVelocity: v })}
+              onChange={(v) => updateConfig("origin", { radialVelocity: v })}
             />
           </div>
 
           {/* Target Parameters */}
-          <div className="config-card">
+          <div className="config-card target">
             <h3 className="card-title">
               <span className="icon">🎯</span> Target Bounds
             </h3>
@@ -79,28 +79,8 @@ export default function SharedConfigSidebar({
               max={5}
               step={0.05}
               unit="m"
-              onChange={(v) => updateConfig('target', { targetY: v })}
+              onChange={(v) => updateConfig("target", { targetY: v })}
             />
-            <div className="card-row">
-              <ControlSlider
-                label="Tolerance X"
-                value={target.tolX}
-                min={0.01}
-                max={0.3}
-                step={0.01}
-                unit="m"
-                onChange={(v) => updateConfig('target', { tolX: v })}
-              />
-              <ControlSlider
-                label="Tolerance Y"
-                value={target.tolY}
-                min={0.01}
-                max={0.3}
-                step={0.01}
-                unit="m"
-                onChange={(v) => updateConfig('target', { tolY: v })}
-              />
-            </div>
             <div className="card-row">
               <ControlSlider
                 label="Min Hit Angle"
@@ -109,7 +89,7 @@ export default function SharedConfigSidebar({
                 max={target.maxHitAngle}
                 step={1}
                 unit="°"
-                onChange={(v) => updateConfig('target', { minHitAngle: v })}
+                onChange={(v) => updateConfig("target", { minHitAngle: v })}
               />
               <ControlSlider
                 label="Max Hit Angle"
@@ -118,13 +98,43 @@ export default function SharedConfigSidebar({
                 max={90}
                 step={1}
                 unit="°"
-                onChange={(v) => updateConfig('target', { maxHitAngle: v })}
+                onChange={(v) => updateConfig("target", { maxHitAngle: v })}
               />
+            </div>
+            <div className="target-mode-container">
+              <span className="mode-label">Target Axis</span>
+              <div className="mode-toggle">
+                <div
+                  className="mode-toggle-slider"
+                  style={{
+                    transform:
+                      config.target.targetAxis === "VERTICAL"
+                        ? "translateX(100%)"
+                        : "translateX(0%)",
+                  }}
+                />
+                <button
+                  onClick={() =>
+                    updateConfig("target", { targetAxis: "HORIZONTAL" })
+                  }
+                  className={`btn-toggle ${config.target.targetAxis === "HORIZONTAL" ? "active-mode" : ""}`}
+                >
+                  Horizontal
+                </button>
+                <button
+                  onClick={() =>
+                    updateConfig("target", { targetAxis: "VERTICAL" })
+                  }
+                  className={`btn-toggle ${config.target.targetAxis === "VERTICAL" ? "active-mode" : ""}`}
+                >
+                  Vertical
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Aerodynamics */}
-          <div className="config-card">
+          <div className="config-card aerodynamics">
             <h3 className="card-title">
               <span className="icon">💨</span> Aerodynamics
             </h3>
@@ -136,7 +146,7 @@ export default function SharedConfigSidebar({
                 max={1}
                 step={0.01}
                 unit="kg"
-                onChange={(v) => updateConfig('aerodynamics', { mass: v })}
+                onChange={(v) => updateConfig("aerodynamics", { mass: v })}
               />
               <ControlSlider
                 label="Diameter"
@@ -145,7 +155,7 @@ export default function SharedConfigSidebar({
                 max={0.3}
                 step={0.005}
                 unit="m"
-                onChange={(v) => updateConfig('aerodynamics', { diameter: v })}
+                onChange={(v) => updateConfig("aerodynamics", { diameter: v })}
               />
             </div>
             <ControlSlider
@@ -155,7 +165,7 @@ export default function SharedConfigSidebar({
               max={1.5}
               step={0.01}
               unit=" Cd"
-              onChange={(v) => updateConfig('aerodynamics', { dragCoeff: v })}
+              onChange={(v) => updateConfig("aerodynamics", { dragCoeff: v })}
             />
             <div className="card-divider" />
             <div className="card-row">
@@ -166,7 +176,9 @@ export default function SharedConfigSidebar({
                 max={2}
                 step={0.1}
                 unit=" rps/ms"
-                onChange={(v) => updateConfig('aerodynamics', { spinRPSPerMS: v })}
+                onChange={(v) =>
+                  updateConfig("aerodynamics", { spinRPSPerMS: v })
+                }
               />
               <ControlSlider
                 label="Magnus Coeff"
@@ -175,7 +187,9 @@ export default function SharedConfigSidebar({
                 max={1}
                 step={0.01}
                 unit=" Cm"
-                onChange={(v) => updateConfig('aerodynamics', { magnusCoeff: v })}
+                onChange={(v) =>
+                  updateConfig("aerodynamics", { magnusCoeff: v })
+                }
               />
             </div>
           </div>
@@ -193,7 +207,7 @@ export default function SharedConfigSidebar({
                 max={hardware.maxAngle}
                 step={1}
                 unit="°"
-                onChange={(v) => updateConfig('hardware', { minAngle: v })}
+                onChange={(v) => updateConfig("hardware", { minAngle: v })}
               />
               <ControlSlider
                 label="Max Angle"
@@ -202,7 +216,7 @@ export default function SharedConfigSidebar({
                 max={90}
                 step={1}
                 unit="°"
-                onChange={(v) => updateConfig('hardware', { maxAngle: v })}
+                onChange={(v) => updateConfig("hardware", { maxAngle: v })}
               />
             </div>
             <div className="card-row">
@@ -213,7 +227,7 @@ export default function SharedConfigSidebar({
                 max={hardware.maxVel}
                 step={0.5}
                 unit="m/s"
-                onChange={(v) => updateConfig('hardware', { minVel: v })}
+                onChange={(v) => updateConfig("hardware", { minVel: v })}
               />
               <ControlSlider
                 label="Max Velocity"
@@ -222,7 +236,7 @@ export default function SharedConfigSidebar({
                 max={30}
                 step={0.5}
                 unit="m/s"
-                onChange={(v) => updateConfig('hardware', { maxVel: v })}
+                onChange={(v) => updateConfig("hardware", { maxVel: v })}
               />
             </div>
             <div className="card-divider" />
@@ -230,20 +244,26 @@ export default function SharedConfigSidebar({
               <ControlSlider
                 label="Angle Error"
                 value={hardware.estimatedAngleError}
-                min={0}
-                max={2}
-                step={0.01}
+                min={0.001}
+                max={0.02}
+                step={0.001}
                 unit="°"
-                onChange={(v) => updateConfig('hardware', { estimatedAngleError: v })}
+                precision={3}
+                onChange={(v) =>
+                  updateConfig("hardware", { estimatedAngleError: v })
+                }
               />
               <ControlSlider
                 label="Velocity Error"
                 value={hardware.estimatedVelocityError}
-                min={0}
-                max={0.5}
-                step={0.01}
+                min={0.0001}
+                max={0.002}
+                step={0.0001}
                 unit="m/s"
-                onChange={(v) => updateConfig('hardware', { estimatedVelocityError: v })}
+                precision={4}
+                onChange={(v) =>
+                  updateConfig("hardware", { estimatedVelocityError: v })
+                }
               />
             </div>
           </div>
@@ -252,8 +272,8 @@ export default function SharedConfigSidebar({
           <button
             className="reset-config-btn"
             onClick={() => {
-              if (confirm('Reset all configuration to defaults?')) {
-                localStorage.removeItem('sharedConfig');
+              if (confirm("Reset all configuration to defaults?")) {
+                localStorage.removeItem("sharedConfig");
                 window.location.reload();
               }
             }}

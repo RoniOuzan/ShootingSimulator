@@ -5,10 +5,9 @@ import TrajectoryVisualizer from "./visualizer/TrajectoryVisualizer";
 import SurfaceSweepView from "./surface/SurfaceSweepView";
 import SharedConfigSidebar from "./components/SharedConfigSidebar";
 import { usePersistedState } from "./hooks/usePersistedState";
-import type { SharedConfig, SimulationResults, TargetMode } from "./types";
+import type { SharedConfig, SimulationResults } from "./types";
 
 const DEFAULT_CONFIG: SharedConfig = {
-  targetMode: "HORIZONTAL",
   origin: {
     initialX: 0,
     initialY: 0,
@@ -16,10 +15,9 @@ const DEFAULT_CONFIG: SharedConfig = {
   },
   target: {
     targetY: 2.0,
-    tolX: 0.03,
-    tolY: 0.01,
     minHitAngle: -90,
     maxHitAngle: -30,
+    targetAxis: "HORIZONTAL",
   },
   aerodynamics: {
     mass: 0.22,
@@ -79,6 +77,8 @@ export default function App() {
 
   // WebSocket management
   useEffect(() => {
+    if (wsRef.current) return;
+
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
@@ -125,7 +125,10 @@ export default function App() {
     ws.onerror = () => setIsCalculating(false);
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN) ws.close();
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, []);
 
@@ -155,14 +158,6 @@ export default function App() {
     [setSharedConfig],
   );
 
-  // Target mode setter (also updates shared config)
-  const setTargetMode = useCallback(
-    (mode: TargetMode) => {
-      setSharedConfig((prev) => ({ ...prev, targetMode: mode }));
-    },
-    [setSharedConfig],
-  );
-
   return (
     <div className="app-container">
       <header className="app-header">
@@ -174,23 +169,6 @@ export default function App() {
         </div>
 
         {/* Target Mode Toggle */}
-        <div className="target-mode-container">
-          <span className="mode-label">Target Type:</span>
-          <div className="mode-toggle">
-            <button
-              onClick={() => setTargetMode("VERTICAL")}
-              className={`btn-toggle ${sharedConfig.targetMode === "VERTICAL" ? "active-mode" : ""}`}
-            >
-              Vertical
-            </button>
-            <button
-              onClick={() => setTargetMode("HORIZONTAL")}
-              className={`btn-toggle ${sharedConfig.targetMode === "HORIZONTAL" ? "active-mode" : ""}`}
-            >
-              Horizontal
-            </button>
-          </div>
-        </div>
 
         {/* Tab Navigation */}
         <div className="tab-container">

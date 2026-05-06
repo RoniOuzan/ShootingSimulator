@@ -12,21 +12,23 @@ import java.util.List;
 @Getter
 public class TrajectoryBuilder {
     public static final double PERIOD = 0.005;
+    private static final double TOLERANCE = 0.001;
 
     private final Translation2d initialPosition;
     private final double radialVelocity;
     private final Translation2d target;
-    private final Translation2d targetTolerance;
+    private final TargetAxis targetAxis;
+
     private final double minHitAngle;
     private final double maxHitAngle;
 
     private final PhysicalValues physicalValues;
 
-    public TrajectoryBuilder(Translation2d initialPosition, double radialVelocity, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues) {
+    public TrajectoryBuilder(Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues) {
         this.initialPosition = initialPosition;
         this.radialVelocity = radialVelocity;
         this.target = target;
-        this.targetTolerance = targetTolerance;
+        this.targetAxis = targetAxis;
         this.minHitAngle = minHitAngle;
         this.maxHitAngle = maxHitAngle;
         this.physicalValues = physicalValues;
@@ -38,8 +40,8 @@ public class TrajectoryBuilder {
     }
 
     public boolean isInsideTarget(Translation2d position) {
-        boolean withinXBounds = Math.abs(position.getX() - this.target.getX()) <= this.targetTolerance.getX();
-        boolean withinYBounds = Math.abs(position.getY() - this.target.getY()) <= this.targetTolerance.getY();
+        boolean withinXBounds = Math.abs(position.getX() - this.target.getX()) <= TOLERANCE;
+        boolean withinYBounds = Math.abs(position.getY() - this.target.getY()) <= TOLERANCE;
         return withinXBounds && withinYBounds;
     }
 
@@ -78,7 +80,10 @@ public class TrajectoryBuilder {
                 // Add the perfect sample and STOP
                 hitSample = calculateLastSample(position, velocity, acceleration);
                 samples.add(hitSample);
-//                break; // Ensure the loop breaks once the target X is crossed
+
+                // Only stops if vertical because in horizontal it can pass the y twice
+                if (this.targetAxis == TargetAxis.VERTICAL)
+                    break;
             }
 
             // Standard update if no crossing
@@ -91,12 +96,15 @@ public class TrajectoryBuilder {
     }
 
     private boolean isPassedTarget(Translation2d prev, Translation2d next, Translation2d velocity, boolean isFlat) {
+        if (this.targetAxis == TargetAxis.VERTICAL) {
+            return prev.getX() <= this.target.getX() && next.getX() > this.target.getX();
+        }
+
         if (isFlat) {
             return velocity.getY() > 0 && prev.getY() <= this.target.getY() && next.getY() > this.target.getY();
         } else {
             return velocity.getY() < 0 && prev.getY() >= this.target.getY() && next.getY() < this.target.getY();
         }
-//        return prev.getX() <= this.target.getX() && next.getX() > this.target.getX();
     }
 
     private boolean shouldCalculateTrajectory(Translation2d position) {
@@ -105,11 +113,10 @@ public class TrajectoryBuilder {
     }
 
     private Sample calculateLastSample(Translation2d position, Translation2d velocity, Translation2d acceleration) {
-        // Calculate based on the remaining distance in the X axis
-        double delta = this.target.getY() - position.getY();
+        double delta = this.targetAxis.getTargetAxis(this.target) - this.targetAxis.getTargetAxis(position);
 
-        // Solve: 0.5*a*t^2 + v*t - deltaX = 0 using X components
-        double[] roots = MathUtil.quadraticSolver(0.5 * acceleration.getY(), velocity.getY(), -delta);
+        // Solve: 0.5*a*t^2 + v*t - delta = 0
+        double[] roots = MathUtil.quadraticSolver(0.5 * this.targetAxis.getTargetAxis(acceleration), this.targetAxis.getTargetAxis(velocity), -delta);
 
         double exactT = PERIOD; // fallback
         if (roots.length == 1) {

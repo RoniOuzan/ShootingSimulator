@@ -46,11 +46,10 @@ export default function SurfaceSweepView({
     const payload = {
       type: "surface",
       data: {
-        targetMode: sharedConfig.targetMode,
+        targetAxis: sharedConfig.target.targetAxis,
+        initialX: sharedConfig.origin.initialX,
         initialY: sharedConfig.origin.initialY,
         targetY: sharedConfig.target.targetY,
-        tolX: sharedConfig.target.tolX,
-        tolY: sharedConfig.target.tolY,
         minHitAngle: sharedConfig.target.minHitAngle,
         maxHitAngle: sharedConfig.target.maxHitAngle,
         sweepBounds: {

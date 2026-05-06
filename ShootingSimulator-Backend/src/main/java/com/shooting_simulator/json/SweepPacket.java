@@ -2,6 +2,7 @@ package com.shooting_simulator.json;
 
 import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.simulation.PhysicalValues;
+import com.shooting_simulator.simulation.TargetAxis;
 import com.shooting_simulator.simulation.Trajectory;
 import com.shooting_simulator.simulation.TrajectoryChooser;
 import com.shooting_simulator.util.math.geometry.Translation2d;
@@ -13,10 +14,9 @@ import java.util.List;
 public class SweepPacket implements DataPacket {
     public double initialY;
     public double radialVelocity;
-    public double targetY;
 
-    public double tolX;
-    public double tolY;
+    public double targetY;
+    public String targetAxis;
 
     public double minHitAngle;
     public double maxHitAngle;
@@ -27,7 +27,6 @@ public class SweepPacket implements DataPacket {
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
         Translation2d initialPos = new Translation2d(0, this.initialY);
-        Translation2d tolerance = new Translation2d(this.tolX, this.tolY);
 
         List<DistancePoint> sweepData = new ArrayList<>();
 
@@ -53,7 +52,7 @@ public class SweepPacket implements DataPacket {
                     initialPos,
                     this.radialVelocity,
                     targetPos,
-                    tolerance,
+                    TargetAxis.valueOf(this.targetAxis),
                     this.minHitAngle,
                     this.maxHitAngle
             );

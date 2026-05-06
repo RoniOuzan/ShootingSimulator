@@ -34,12 +34,11 @@ export default function DistanceSweepView({
     const payload = {
       type: "sweep",
       data: {
-        targetMode: sharedConfig.targetMode,
+        targetAxis: sharedConfig.target.targetAxis,
         initialY: sharedConfig.origin.initialY,
+        initialX: sharedConfig.origin.initialX,
         radialVelocity: sharedConfig.origin.radialVelocity,
         targetY: sharedConfig.target.targetY,
-        tolX: sharedConfig.target.tolX,
-        tolY: sharedConfig.target.tolY,
         minHitAngle: sharedConfig.target.minHitAngle,
         maxHitAngle: sharedConfig.target.maxHitAngle,
         sweepBounds: { minDist, maxDist, distStep },

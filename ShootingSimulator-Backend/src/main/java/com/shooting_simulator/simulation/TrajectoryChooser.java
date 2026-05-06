@@ -1,9 +1,6 @@
 package com.shooting_simulator.simulation;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
@@ -27,17 +24,19 @@ public class TrajectoryChooser {
 
     private final TrajectoryBuilder builder;
     private final Translation2d target;
+    private final TargetAxis targetAxis;
 
     private final List<RobustnessPoint> robustnessSweep;
     private final List<Translation2d> costSweep;
     private List<Trajectory> trajectories;
     private Trajectory bestTrajectory;
 
-    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, Translation2d target, Translation2d targetTolerance, double minHitAngle, double maxHitAngle) {
+    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle) {
         this.physicalValues = physicalValues;
 
-        this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, target, targetTolerance, minHitAngle, maxHitAngle, physicalValues);
+        this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, target, targetAxis, minHitAngle, maxHitAngle, physicalValues);
         this.target = target;
+        this.targetAxis = targetAxis;
 
         this.robustnessSweep = new ArrayList<>();
         this.costSweep = new ArrayList<>();
@@ -96,7 +95,7 @@ public class TrajectoryChooser {
     }
 
     private double[] findHitWindow(double minAngle, double maxAngle, boolean isFlat) {
-        double sweepStep = 1.0;
+        double sweepStep = 1;
         Double firstHit = null;
         Double lastHit = null;
 
@@ -106,8 +105,6 @@ public class TrajectoryChooser {
             if (t != null && t.isHitTarget()) {
                 if (firstHit == null) firstHit = angle;
                 lastHit = angle;
-            } else if (firstHit != null) {
-                break;
             }
         }
 
@@ -127,9 +124,22 @@ public class TrajectoryChooser {
         double x1 = b - phi * (b - a);
         double x2 = a + phi * (b - a);
 
+        double bestAngle = (a + b) / 2.0;
+        double bestCost = Double.MAX_VALUE;
+
         while (Math.abs(b - a) > ANGLE_DT) {
             double cost1 = getCostAtAngle(x1, isFlat);
             double cost2 = getCostAtAngle(x2, isFlat);
+
+            if (cost1 < bestCost) {
+                bestCost = cost1;
+                bestAngle = x1;
+            }
+
+            if (cost2 < bestCost) {
+                bestCost = cost2;
+                bestAngle = x2;
+            }
 
             if (cost1 < cost2) {
                 b = x2;
@@ -141,7 +151,8 @@ public class TrajectoryChooser {
                 x2 = a + phi * (b - a);
             }
         }
-        return (a + b) / 2.0;
+
+        return bestAngle;
     }
 
     private double getCostAtAngle(double angle, boolean isFlat) {
@@ -169,7 +180,7 @@ public class TrajectoryChooser {
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
 
-        return after.getHitSample().getPosition().getX() - before.getHitSample().getPosition().getX();
+        return this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition());
     }
 
     private double calculateMaxErrorForAngle(Trajectory trajectory) {
@@ -180,7 +191,7 @@ public class TrajectoryChooser {
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
 
-        return after.getHitSample().getPosition().getX() - before.getHitSample().getPosition().getX();
+        return this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition());
     }
 
     private List<Trajectory> calculateTrajectories() {
@@ -249,10 +260,7 @@ public class TrajectoryChooser {
     }
 
     private Trajectory binarySearchBestVelocityForAngle(double angle, boolean isFlat) {
-        double minLimit = Math.max(this.calculateMinExitVelocity(angle), this.physicalValues.minVel);
-        double maxLimit = this.physicalValues.maxVel;
-
-        return performBinarySearch(angle, minLimit, maxLimit, isFlat);
+        return performBinarySearch(angle, this.physicalValues.minVel, this.physicalValues.maxVel, isFlat);
     }
 
     private boolean canReachTarget(double velocity, double angle, boolean isFlat) {
@@ -268,13 +276,13 @@ public class TrajectoryChooser {
             if (!trajectory.isReachedTargetHeight()) {
                 min = mid;
             } else {
-                boolean overshotX = trajectory.getHitSample().getPosition().getX() > this.target.getX();
+                boolean overshot = this.targetAxis.getErrorAxis(trajectory.getHitSample().getPosition()) > this.targetAxis.getErrorAxis(this.target);
 
                 if (isFlat) {
-                    if (overshotX) min = mid;
+                    if (overshot) min = mid;
                     else max = mid;
                 } else {
-                    if (overshotX) max = mid;
+                    if (overshot) max = mid;
                     else min = mid;
                 }
             }
@@ -290,18 +298,6 @@ public class TrajectoryChooser {
         return this.physicalValues.maxAngle;
     }
 
-    private double calculateMinExitVelocity(double angle) {
-        // double deltaY = this.target.getY() - this.builder.getInitialPosition().getY();
-        // // Min vy so the y will reach the target (v_final_y is 0 at the target)
-        // double vy = Math.sqrt(-2 * Constants.GRAVITY * deltaY);
-
-        // double vx = vy / Math.tan(Math.toRadians(angle));
-
-        // double vx_needed = vx - this.builder.getRadialVelocity();
-
-        // return Math.hypot(vx_needed, vy);
-        return this.physicalValues.minVel;
-    }
 
     private double getCostDerivative(double angle) {
         for (RobustnessPoint robustnessPoint : this.robustnessSweep) {

@@ -1,4 +1,4 @@
-export type TargetMode = "VERTICAL" | "HORIZONTAL";
+export type TargetAxis = "VERTICAL" | "HORIZONTAL";
 
 export interface Translation2d {
   x: number;
@@ -24,10 +24,9 @@ export interface HardwareLimits {
 
 export interface TargetParams {
   targetY: number;
-  tolX: number;
-  tolY: number;
   minHitAngle: number;
   maxHitAngle: number;
+  targetAxis: TargetAxis;
 }
 
 export interface OriginParams {
@@ -37,7 +36,6 @@ export interface OriginParams {
 }
 
 export interface SharedConfig {
-  targetMode: TargetMode;
   origin: OriginParams;
   target: TargetParams;
   aerodynamics: AerodynamicParams;
@@ -59,4 +57,31 @@ export interface SimulationResults {
   bestInfo: { angle: number; velocity: number } | null;
   robustnessData: any[];
   costData: any[];
+}
+
+export interface Sample {
+  position: Translation2d;
+  velocity: Translation2d;
+}
+
+export interface Trajectory {
+  samples: Sample[];
+}
+
+export interface SimulationResults {
+  trajectories: Trajectory[];
+  bestTrajectory: Trajectory | null;
+  bestInfo: { angle: number; velocity: number } | null;
+  robustnessData: any[];
+  costData: any[];
+}
+
+export interface Translation2d {
+  x: number;
+  y: number;
+}
+
+export function angle(vector: Translation2d | undefined): number {
+  if (!vector) return 0;
+  return (Math.atan2(vector.y, vector.x) * 180) / Math.PI;
 }

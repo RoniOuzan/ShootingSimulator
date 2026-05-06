@@ -1,5 +1,5 @@
 .shared-sidebar {
-  width: 340px;
+  width: 400px;
   flex-shrink: 0;
   background: linear-gradient(180deg, rgba(17, 17, 20, 0.95) 0%, rgba(24, 24, 28, 0.95) 100%);
   backdrop-filter: blur(12px);
@@ -67,8 +67,20 @@
   margin-bottom: 16px;
 }
 
+.config-card.origin {
+  border-left: 2px solid var(--accent-team);
+}
+
+.config-card.target {
+  border-left: 2px solid #15ff00;
+}
+
+.config-card.aerodynamics {
+  border-left: 2px solid #ff0000;
+}
+
 .config-card.hardware {
-  border-left: 3px solid var(--accent-cyan);
+  border-left: 2px solid var(--accent-cyan);
 }
 
 .config-card .card-title {
@@ -110,4 +122,68 @@
 
 .reset-config-btn:hover {
   background: rgba(239, 68, 68, 0.1);
+}
+
+.target-mode-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: var(--radius-lg, 12px);
+  width: 100%;
+}
+
+.mode-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #aaa);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.mode-toggle {
+  position: relative; /* Crucial for the absolute slider */
+  display: flex;
+  background-color: var(--bg-base, #111115);
+  border-radius: var(--radius-lg, 8px);
+  padding: 4px;
+  border: 1px solid var(--border-strong, #2a2a35);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+  width: 220px; /* Fixed width helps the math for the 50% slide */
+}
+
+/* The animated background pill */
+.mode-toggle-slider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px); /* 50% of parent minus padding */
+  background: linear-gradient(135deg, var(--accent-team, #00ff88), var(--accent-team-darker, #00cc66));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: 0 4px 12px var(--accent-team-glow, rgba(0, 255, 136, 0.25));
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1;
+}
+
+.btn-toggle {
+  position: relative;
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #888);
+  padding: 8px 0;
+  border-radius: var(--radius-md, 6px);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 2; /* Sits above the slider */
+  transition: color 0.3s ease;
+  text-align: center;
+}
+
+.btn-toggle:hover:not(.active-mode) {
+  color: var(--text-primary, #fff);
+}
+
+.btn-toggle.active-mode {
+  color: #111; /* Dark text for high contrast against the bright sliding pill */
 }

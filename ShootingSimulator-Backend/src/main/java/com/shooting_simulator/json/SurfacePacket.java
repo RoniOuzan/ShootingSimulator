@@ -2,6 +2,7 @@ package com.shooting_simulator.json;
 
 import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.simulation.PhysicalValues;
+import com.shooting_simulator.simulation.TargetAxis;
 import com.shooting_simulator.simulation.Trajectory;
 import com.shooting_simulator.simulation.TrajectoryChooser;
 import com.shooting_simulator.util.math.geometry.Translation2d;
@@ -13,9 +14,10 @@ import java.util.List;
 public class SurfacePacket implements DataPacket {
 
     public double initialY;
+
     public double targetY;
-    public double tolX;
-    public double tolY;
+    public String targetAxis;
+
     public double minHitAngle;
     public double maxHitAngle;
 
@@ -27,7 +29,6 @@ public class SurfacePacket implements DataPacket {
         System.out.println("Simulating Surface...");
 
         Translation2d initialPos = new Translation2d(0, this.initialY);
-        Translation2d tolerance = new Translation2d(this.tolX, this.tolY);
 
         double distanceStep = this.sweepBounds.distStep();
         double radialVelocityStep = this.sweepBounds.radialVelStep();
@@ -64,7 +65,7 @@ public class SurfacePacket implements DataPacket {
                         initialPos,
                         radialVelocity,
                         targetPos,
-                        tolerance,
+                        TargetAxis.valueOf(this.targetAxis),
                         this.minHitAngle,
                         this.maxHitAngle
                 );
@@ -110,6 +111,5 @@ public class SurfacePacket implements DataPacket {
 
     public record SweepBounds(double minDist, double maxDist, double distStep, double minRadialVel, double maxRadialVel, double radialVelStep) {}
 
-    // Updated Record
     public record ProgressPayload(int progress, long eta) {}
 }
