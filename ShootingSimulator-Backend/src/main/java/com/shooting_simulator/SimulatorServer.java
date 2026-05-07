@@ -9,15 +9,14 @@ import org.java_websocket.server.WebSocketServer;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class SimulatorServer extends WebSocketServer {
 
     private final Set<WebSocket> connections = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final ScheduledExecutorService physicsEngine = Executors.newSingleThreadScheduledExecutor();
+
+    private final ExecutorService calculationPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     // Pass 'this' so the handler knows about the server
     private final PacketHandler packetHandler = new PacketHandler(this);
@@ -40,13 +39,17 @@ public class SimulatorServer extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket conn, String message) {
-        try {
-            // Pass the specific connection so we can reply directly to it
-            this.packetHandler.handlePacket(conn, message);
-        } catch (Exception e) {
-            System.err.println("Failed to parse message: " + message);
-            e.printStackTrace();
-        }
+        calculationPool.submit(() -> {
+            try {
+                this.packetHandler.handlePacket(conn, message);
+            } catch (Exception e) {
+                System.err.println("Failed to parse/process message: " + message);
+                e.printStackTrace();
+
+                // Optional: Send an error packet back to the frontend
+                // sendPacket(conn, "error", "Calculation failed");
+            }
+        });
     }
 
     @Override

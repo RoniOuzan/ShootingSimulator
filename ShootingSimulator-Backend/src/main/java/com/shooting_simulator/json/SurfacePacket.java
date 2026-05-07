@@ -8,8 +8,11 @@ import com.shooting_simulator.simulation.TrajectoryChooser;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class SurfacePacket implements DataPacket {
 
@@ -33,75 +36,94 @@ public class SurfacePacket implements DataPacket {
         double distanceStep = this.sweepBounds.distStep();
         double radialVelocityStep = this.sweepBounds.radialVelStep();
 
-        List<Double> distances = new ArrayList<>();
-        List<Double> radialVels = new ArrayList<>();
+        // Generate axes
+        List<Double> distances = IntStream.range(0, (int) ((sweepBounds.maxDist() - sweepBounds.minDist()) / distanceStep) + 1)
+                .mapToDouble(i -> sweepBounds.minDist() + (i * distanceStep))
+                .map(x -> Math.round(x * 100.0) / 100.0)
+                .boxed().toList();
 
-        for (double x = sweepBounds.minDist(); x <= sweepBounds.maxDist(); x += distanceStep) {
-            distances.add(Math.round(x * 100.0) / 100.0);
-        }
-        for (double rv = sweepBounds.minRadialVel(); rv <= sweepBounds.maxRadialVel(); rv += radialVelocityStep) {
-            radialVels.add(Math.round(rv * 100.0) / 100.0);
-        }
+        List<Double> radialVels = IntStream.range(0, (int) ((sweepBounds.maxRadialVel() - sweepBounds.minRadialVel()) / radialVelocityStep) + 1)
+                .mapToDouble(i -> sweepBounds.minRadialVel() + (i * radialVelocityStep))
+                .map(rv -> Math.round(rv * 100.0) / 100.0)
+                .boxed().toList();
 
-        List<List<Double>> angleMatrix = new ArrayList<>();
-        List<List<Double>> velocityMatrix = new ArrayList<>();
+        int numRadialVels = radialVels.size();
+        int numDistances = distances.size();
 
-        int totalSteps = distances.size() * radialVels.size();
-        int currentStep = 0;
-        int lastReportedProgress = -1;
+        // FIX 1: Change dimensions to [numDistances][numRadialVels]
+        // to match frontend expectation: angleMatrix[distance_idx][vel_idx]
+        Double[][] angleData = new Double[numDistances][numRadialVels];
+        Double[][] velocityData = new Double[numDistances][numRadialVels];
 
-        // Track time for ETA calculation
+        TargetAxis axis = TargetAxis.valueOf(this.targetAxis);
+
+        int totalSteps = numDistances * numRadialVels;
+        AtomicInteger currentStep = new AtomicInteger(0);
+        AtomicInteger lastReportedProgress = new AtomicInteger(-1);
+        AtomicInteger successCount = new AtomicInteger(0);
+
         long startTimeMs = System.currentTimeMillis();
 
-        for (double radialVelocity : radialVels) {
-            List<Double> angleRow = new ArrayList<>();
-            List<Double> velocityRow = new ArrayList<>();
+        // Execute simulation in parallel
+        IntStream.range(0, totalSteps).parallel().forEach(step -> {
+            // FIX 2: Swap the index calculation to make Distance the "outer" dimension
+            int dIdx = step / numRadialVels; // Row: Distance
+            int rIdx = step % numRadialVels; // Column: Radial Velocity
 
-            for (double x : distances) {
-                Translation2d targetPos = new Translation2d(x, this.targetY);
+            double x = distances.get(dIdx);
+            double radialVelocity = radialVels.get(rIdx);
+            Translation2d targetPos = new Translation2d(x, this.targetY);
 
-                TrajectoryChooser chooser = new TrajectoryChooser(
-                        this.physicalValues,
-                        initialPos,
-                        radialVelocity,
-                        targetPos,
-                        TargetAxis.valueOf(this.targetAxis),
-                        this.minHitAngle,
-                        this.maxHitAngle
-                );
+            // FIX 3: Pass indices in the correct order [dIdx][rIdx]
+            calculatePoint(initialPos, radialVelocity, targetPos, axis, angleData, velocityData, dIdx, rIdx, successCount);
 
-                Trajectory best = chooser.getBestTrajectory();
+            // ... Progress tracking (no changes needed) ...
+            int completed = currentStep.incrementAndGet();
+            int progress = (int) (((double) completed / totalSteps) * 100);
 
-                if (best != null) {
-                    double vReq = best.getInitialShootingVelocity().getNorm();
-                    double angle = best.getInitialShootingVelocity().getAngle().getDegrees();
-
-                    angleRow.add(Math.round(angle * 1000.0) / 1000.0);
-                    velocityRow.add(Math.round(vReq * 1000.0) / 1000.0);
-                } else {
-                    angleRow.add(null);
-                    velocityRow.add(null);
-                }
-
-                // --- Progress & ETA Tracking ---
-                currentStep++;
-                int progress = (int) (((double) currentStep / totalSteps) * 100);
-
-                if (progress > lastReportedProgress) {
-                    long elapsedTimeMs = System.currentTimeMillis() - startTimeMs;
-                    long estimatedTotalTimeMs = (long) (((double) elapsedTimeMs / currentStep) * totalSteps);
-                    long eta = Math.max(0, estimatedTotalTimeMs - elapsedTimeMs); // Ensure no negative values
-
-                    server.sendPacket(conn, "progress", new ProgressPayload(progress, eta));
-                    lastReportedProgress = progress;
+            if (progress > lastReportedProgress.get()) {
+                synchronized (lastReportedProgress) {
+                    if (progress > lastReportedProgress.get()) {
+                        lastReportedProgress.set(progress);
+                        long elapsedTimeMs = System.currentTimeMillis() - startTimeMs;
+                        long estimatedTotalTimeMs = (long) (((double) elapsedTimeMs / completed) * totalSteps);
+                        long eta = Math.max(0, estimatedTotalTimeMs - elapsedTimeMs);
+                        server.sendPacket(conn, "progress", new ProgressPayload(progress, eta));
+                    }
                 }
             }
-            angleMatrix.add(angleRow);
-            velocityMatrix.add(velocityRow);
-        }
+        });
+
+        System.out.println("Simulation Complete. Success rate: " + successCount.get() + "/" + totalSteps);
+
+        // Convert arrays to List<List<Double>> for payload
+        List<List<Double>> angleMatrix = Arrays.stream(angleData).map(Arrays::asList).collect(Collectors.toList());
+        List<List<Double>> velocityMatrix = Arrays.stream(velocityData).map(Arrays::asList).collect(Collectors.toList());
 
         SurfacePayload payload = new SurfacePayload(distances, radialVels, angleMatrix, velocityMatrix);
         server.sendPacket(conn, "surfaceResults", payload);
+    }
+
+    private void calculatePoint(Translation2d initialPos, double radialVelocity, Translation2d targetPos,
+                                TargetAxis axis, Double[][] angleData, Double[][] velocityData,
+                                int dIdx, int rIdx, AtomicInteger successCount) {
+        TrajectoryChooser chooser = new TrajectoryChooser(
+                this.physicalValues,
+                initialPos,
+                radialVelocity,
+                targetPos,
+                axis,
+                this.minHitAngle,
+                this.maxHitAngle
+        );
+
+        Trajectory best = chooser.getBestTrajectory();
+        if (best != null) {
+            // FIX 4: Use swapped indices dIdx -> rIdx
+            angleData[dIdx][rIdx] = Math.round(best.getInitialShootingVelocity().getAngle().getDegrees() * 1000.0) / 1000.0;
+            velocityData[dIdx][rIdx] = Math.round(best.getInitialShootingVelocity().getNorm() * 1000.0) / 1000.0;
+            successCount.incrementAndGet();
+        }
     }
 
     public record SurfacePayload(

@@ -17,7 +17,8 @@ export interface DatasetState {
 export interface ModelState {
   angleModel: MultivariateLinearRegression;
   velocityModel: MultivariateLinearRegression;
-  degree: number;
+  angleDegree: number;
+  velocityDegree: number;
 }
 
 interface Props {
@@ -31,7 +32,11 @@ interface Props {
 }
 
 // ── Polynomial feature expansion ─────────────────────────────────────────────
-export const getPolynomialFeatures = (d: number, vr: number, degree: number) => {
+export const getPolynomialFeatures = (
+  d: number,
+  vr: number,
+  degree: number,
+) => {
   const features: number[] = [];
   const names: { pD: number; pVR: number }[] = [];
 
@@ -54,7 +59,7 @@ function buildTermString(
   coef: number,
   pD: number,
   pVR: number,
-  isFirst: boolean
+  isFirst: boolean,
 ): string {
   const abs = Math.abs(coef);
   const sign = coef < 0 ? " -\n           " : isFirst ? "" : " +\n           ";
@@ -67,7 +72,7 @@ function buildTermString(
 
 function generateEquation(
   model: MultivariateLinearRegression | null,
-  degree: number
+  degree: number,
 ): string {
   if (!model) return "0.0";
   const { names } = getPolynomialFeatures(1, 1, degree);
@@ -88,85 +93,168 @@ function termCount(model: MultivariateLinearRegression | null): number {
   return model.weights.filter((w) => Math.abs(w[0]) >= 1e-9).length;
 }
 
-// ── Java code generator ──────────────────────────────────────────────────────
+// ── Derivative Term Builder ──────────────────────────────────────────────────
+/**
+ * Computes partial derivatives of the polynomial equation.
+ * If targetVar is 'd', we apply power rule to d components.
+ */
+function generateDerivativeEquation(
+  model: MultivariateLinearRegression | null,
+  degree: number,
+  targetVar: 'd' | 'vr'
+): string {
+  if (!model) return "0.0";
+  const { names } = getPolynomialFeatures(1, 1, degree);
+  const weights = model.weights;
+  const terms: string[] = [];
+
+  for (let i = 0; i < weights.length; i++) {
+    const coef = weights[i][0];
+    const { pD, pVR } = names[i];
+    
+    let derivativeCoef = 0;
+    let newPD = pD;
+    let newPVR = pVR;
+
+    if (targetVar === 'd' && pD > 0) {
+      derivativeCoef = coef * pD;
+      newPD = pD - 1;
+    } else if (targetVar === 'vr' && pVR > 0) {
+      derivativeCoef = coef * pVR;
+      newPVR = pVR - 1;
+    }
+
+    if (Math.abs(derivativeCoef) < 1e-9) continue;
+    terms.push(buildTermString(derivativeCoef, newPD, newPVR, terms.length === 0));
+  }
+  return terms.length > 0 ? terms.join("") : "0.0";
+}
+
+/**
+ * Computes the second partial derivatives of the polynomial.
+ */
+function generateSecondDerivativeEquation(
+  model: MultivariateLinearRegression | null,
+  degree: number,
+  var1: 'd' | 'vr',
+  var2: 'd' | 'vr'
+): string {
+  if (!model) return "0.0";
+  const { names } = getPolynomialFeatures(1, 1, degree);
+  const weights = model.weights;
+  const terms: string[] = [];
+
+  for (let i = 0; i < weights.length; i++) {
+    const coef = weights[i][0];
+    const { pD, pVR } = names[i];
+    
+    let derivativeCoef = coef;
+    let currPD = pD;
+    let currPVR = pVR;
+
+    // Apply first derivative power rule
+    if (var1 === 'd') { if (currPD > 0) { derivativeCoef *= currPD; currPD--; } else continue; }
+    else { if (currPVR > 0) { derivativeCoef *= currPVR; currPVR--; } else continue; }
+
+    // Apply second derivative power rule
+    if (var2 === 'd') { if (currPD > 0) { derivativeCoef *= currPD; currPD--; } else continue; }
+    else { if (currPVR > 0) { derivativeCoef *= currPVR; currPVR--; } else continue; }
+
+    if (Math.abs(derivativeCoef) < 1e-9) continue;
+    terms.push(buildTermString(derivativeCoef, currPD, currPVR, terms.length === 0));
+  }
+  return terms.length > 0 ? terms.join("") : "0.0";
+}
+
 function buildJavaCode(
   models: Props["models"],
-  hardware: Props["hardware"]
+  hardware: Props["hardware"],
 ): string {
-  const nd = models.normal?.degree ?? 3;
-  const cd = models.min?.degree ?? 2;
-  const xd = models.max?.degree ?? 2;
+  const hasData = !!models.normal;
+  const nAd = models.normal?.angleDegree ?? 4;
+  const nVd = models.normal?.velocityDegree ?? 4;
+
+  const getEq = (m: any, d: number) => hasData ? generateEquation(m, d) : "0.0";
+  const getD1 = (m: any, d: number, v: 'd' | 'vr') => hasData ? generateDerivativeEquation(m, d, v) : "0.0";
+  const getD2 = (m: any, d: number, v1: 'd' | 'vr', v2: 'd' | 'vr') => hasData ? generateSecondDerivativeEquation(m, d, v1, v2) : "0.0";
 
   return `package frc.robot.util;
 
 /**
- * Auto-generated ballistic lookup table.
- *
- * Normal regime:    degree-${nd} polynomial  (${termCount(models.normal?.angleModel ?? null)} angle terms, ${termCount(models.normal?.velocityModel ?? null)} vel terms)
- * Min-angle regime: degree-${cd} polynomial  (${termCount(models.min?.angleModel ?? null)} angle terms, ${termCount(models.min?.velocityModel ?? null)} vel terms)
- * Max-angle regime: degree-${xd} polynomial  (${termCount(models.max?.angleModel ?? null)} angle terms, ${termCount(models.max?.velocityModel ?? null)} vel terms)
- *
- * Parameters:
- *   d  – horizontal distance to target (m)
- *   vr – radial velocity of robot toward target (m/s)
+ * Auto-generated Ballistic Controller with Hessian support for curvature compensation.
  */
 public final class ShooterBallistics {
 
+    // ── Hardware Constraints ─────────────────────────────────────────────────
+    public static final double MIN_SAFE_ANGLE = ${hardware.minAngle.toFixed(2)};
+    public static final double MAX_SAFE_ANGLE = ${hardware.maxAngle.toFixed(2)};
+
     private ShooterBallistics() {}
 
-    // ── Angle: normal regime ─────────────────────────────────────────────────
-    private static double angleNormal(double d, double vr) {
-        return ${generateEquation(models.normal?.angleModel ?? null, nd)};
-    }
+    // ── Angle Prediction ─────────────────────────────────────────────────────
 
-    // ── Angle: min-angle clamped regime ─────────────────────────────────────
-    private static double angleMin(double d, double vr) {
-        return ${generateEquation(models.min?.angleModel ?? null, cd)};
-    }
-
-    // ── Angle: max-angle clamped regime ─────────────────────────────────────
-    private static double angleMax(double d, double vr) {
-        return ${generateEquation(models.max?.angleModel ?? null, xd)};
-    }
-
-    /**
-     * Returns the optimal shooter angle in degrees.
-     * @param d  Distance to target (m)
-     * @param vr Radial velocity toward target (m/s); positive = approaching
-     */
     public static double calculateAngle(double d, double vr) {
-        double normal = angleNormal(d, vr);
-        if (normal <= ${hardware.minAngle}) return angleMin(d, vr);
-        if (normal >= ${hardware.maxAngle}) return angleMax(d, vr);
+        double normal = ${getEq(models.normal?.angleModel, nAd)};
+        if (normal <= MIN_SAFE_ANGLE) return ${getEq(models.min?.angleModel, 1)};
+        if (normal >= MAX_SAFE_ANGLE) return ${getEq(models.max?.angleModel, 1)};
         return normal;
     }
 
-    // ── Velocity: normal regime ──────────────────────────────────────────────
-    private static double velocityNormal(double d, double vr) {
-        return ${generateEquation(models.normal?.velocityModel ?? null, nd)};
+    /** 1st Derivative: dA/dd */
+    public static double getAngledD(double d, double vr) {
+        return ${getD1(models.normal?.angleModel, nAd, 'd')};
     }
 
-    // ── Velocity: min-angle clamped regime ──────────────────────────────────
-    private static double velocityMin(double d, double vr) {
-        return ${generateEquation(models.min?.velocityModel ?? null, cd)};
+    /** 1st Derivative: dA/dvr */
+    public static double getAngleDVR(double d, double vr) {
+        return ${getD1(models.normal?.angleModel, nAd, 'vr')};
     }
 
-    // ── Velocity: max-angle clamped regime ──────────────────────────────────
-    private static double velocityMax(double d, double vr) {
-        return ${generateEquation(models.max?.velocityModel ?? null, xd)};
+    /** 2nd Derivative: d^2A/dd^2 */
+    public static double getAngledD2(double d, double vr) {
+        return ${getD2(models.normal?.angleModel, nAd, 'd', 'd')};
     }
+
+    /** Mixed Partial Derivative: d^2A/d(d)d(vr) */
+    public static double getAngledDdVR(double d, double vr) {
+        return ${getD2(models.normal?.angleModel, nAd, 'd', 'vr')};
+    }
+
+    // ── Velocity Prediction ──────────────────────────────────────────────────
+
+    public static double calculateVelocity(double d, double vr) {
+        double angle = calculateAngle(d, vr);
+        if (angle <= MIN_SAFE_ANGLE) return ${getEq(models.min?.velocityModel, 2)};
+        if (angle >= MAX_SAFE_ANGLE) return ${getEq(models.max?.velocityModel, 2)};
+        return ${getEq(models.normal?.velocityModel, nVd)};
+    }
+
+    /** 1st Derivative: dV/dd */
+    public static double getVelocitydD(double d, double vr) {
+        return ${getD1(models.normal?.velocityModel, nVd, 'd')};
+    }
+
+    /** 2nd Derivative: d^2V/dd^2 */
+    public static double getVelocitydD2(double d, double vr) {
+        return ${getD2(models.normal?.velocityModel, nVd, 'd', 'd')};
+    }
+
+    // ── Advanced Control ─────────────────────────────────────────────────────
 
     /**
-     * Returns the optimal exit velocity in m/s.
-     * Regime is determined by the angle prediction (same boundary conditions).
-     * @param d  Distance to target (m)
-     * @param vr Radial velocity toward target (m/s)
+     * Calculates the estimated optimal angle adjusting for latency and acceleration.
+     * Uses a Taylor expansion: f(t+dt) ≈ f(t) + f'(t)dt + 0.5f''(t)dt^2
      */
-    public static double calculateVelocity(double d, double vr) {
-        double normal = angleNormal(d, vr);
-        if (normal <= ${hardware.minAngle}) return velocityMin(d, vr);
-        if (normal >= ${hardware.maxAngle}) return velocityMax(d, vr);
-        return velocityNormal(d, vr);
+    public static double predictAngle(double d, double vr, double accel, double dt) {
+        double current = calculateAngle(d, vr);
+        
+        // First order change (Chain rule)
+        double dAdt = (getAngledD(d, vr) * -vr) + (getAngleDVR(d, vr) * accel);
+        
+        // Second order change (High precision curvature compensation)
+        double d2Adt2 = (getAngledD2(d, vr) * vr * vr) + (getAngledDdVR(d, vr) * -vr * accel);
+
+        return current + (dAdt * dt) + (0.5 * d2Adt2 * dt * dt);
     }
 }`;
 }
@@ -180,9 +268,15 @@ const TAB_LABELS: { id: Tab; label: string }[] = [
   { id: "full", label: "Full Java class" },
 ];
 
-export default function CodeExporter({ models, hardware, datasetCounts }: Props) {
+export default function CodeExporter({
+  models,
+  hardware,
+  datasetCounts,
+}: Props) {
   const [tab, setTab] = useState<Tab>("full");
   const [copied, setCopied] = useState(false);
+  
+  const hasData = !!models.normal;
 
   const fullCode = useMemo(
     () => buildJavaCode(models, hardware),
@@ -191,28 +285,17 @@ export default function CodeExporter({ models, hardware, datasetCounts }: Props)
 
   const displayCode = useMemo(() => {
     if (tab === "full") return fullCode;
+    const isA = tab === "angle";
+    const field = isA ? "angleModel" : "velocityModel";
+    const deg = isA ? (models.normal?.angleDegree ?? 4) : (models.normal?.velocityDegree ?? 4);
+    
+    return `// ${tab.toUpperCase()} SECOND ORDER ANALYSIS
+Equation: ${hasData ? generateEquation(models.normal?.[field] ?? null, deg) : "0.0"}
 
-    const field = tab === "angle" ? "angleModel" : "velocityModel";
-    const nd = models.normal?.degree ?? 3;
-    const cd = models.min?.degree ?? 2;
-    const xd = models.max?.degree ?? 2;
-    const prefix = tab === "angle" ? "angle" : "velocity";
-    const unit = tab === "angle" ? "°" : "m/s";
-
-    return `// ${prefix} equations  (output: ${unit})
-
-// Normal regime — degree-${nd} polynomial
-${prefix}Normal(d, vr) =
-  ${generateEquation(models.normal?.[field] ?? null, nd)}
-
-// Min-angle clamped regime — degree-${cd} polynomial
-${prefix}Min(d, vr) =
-  ${generateEquation(models.min?.[field] ?? null, cd)}
-
-// Max-angle clamped regime — degree-${xd} polynomial
-${prefix}Max(d, vr) =
-  ${generateEquation(models.max?.[field] ?? null, xd)}`;
-  }, [tab, fullCode, models]);
+d/d(d)   = ${hasData ? generateDerivativeEquation(models.normal?.[field] ?? null, deg, 'd') : "0.0"}
+d^2/d(d)^2 = ${hasData ? generateSecondDerivativeEquation(models.normal?.[field] ?? null, deg, 'd', 'd') : "0.0"}
+d^2/d(d)d(vr) = ${hasData ? generateSecondDerivativeEquation(models.normal?.[field] ?? null, deg, 'd', 'vr') : "0.0"}`;
+  }, [tab, fullCode, models, hasData]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(displayCode);
@@ -225,46 +308,43 @@ ${prefix}Max(d, vr) =
     () => [
       {
         regime: "Normal",
-        degree: models.normal?.degree ?? "—",
+        angleDegree: models.normal?.angleDegree ?? "—",
+        velDegree: models.normal?.velocityDegree ?? "—",
         angleTerms: termCount(models.normal?.angleModel ?? null),
         velTerms: termCount(models.normal?.velocityModel ?? null),
         points: datasetCounts?.normal ?? 0,
       },
       {
         regime: "Min angle",
-        degree: models.min?.degree ?? "—",
+        angleDegree: models.min?.angleDegree ?? "—",
+        velDegree: models.min?.velocityDegree ?? "—",
         angleTerms: termCount(models.min?.angleModel ?? null),
         velTerms: termCount(models.min?.velocityModel ?? null),
         points: datasetCounts?.min ?? 0,
       },
       {
         regime: "Max angle",
-        degree: models.max?.degree ?? "—",
+        angleDegree: models.max?.angleDegree ?? "—",
+        velDegree: models.max?.velocityDegree ?? "—",
         angleTerms: termCount(models.max?.angleModel ?? null),
         velTerms: termCount(models.max?.velocityModel ?? null),
         points: datasetCounts?.max ?? 0,
       },
     ],
-    [models, datasetCounts]
+    [models, datasetCounts],
   );
 
   return (
-    <div
-      className="tab-config-card"
-      style={{ marginTop: 20, borderLeft: "3px solid #00ccff" }}
-    >
+    <div className="tab-config-card" style={{ 
+      marginTop: 20, 
+      borderLeft: `3px solid ${hasData ? "#00ccff" : "#444"}`,
+      background: "#0d0d12"
+    }}>
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 14,
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
-        <h3 style={{ color: "#00ccff", margin: 0 }}>Generated FRC constants</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h3 style={{ color: hasData ? "#00ccff" : "#888", margin: 0, fontSize: '0.9rem' }}>
+          {hasData ? "Generated Ballistics" : "Java Template (Awaiting Calibration)"}
+        </h3>
         <button
           onClick={handleCopy}
           className="calculate-btn"
@@ -317,7 +397,10 @@ ${prefix}Max(d, vr) =
               {s.regime}
             </div>
             <div style={{ color: "#888" }}>
-              Degree: <span style={{ color: "#ccc" }}>{s.degree}</span>
+              Angle Deg: <span style={{ color: "#ccc" }}>{s.angleDegree}</span>
+            </div>
+            <div style={{ color: "#888" }}>
+              Vel Deg: <span style={{ color: "#ccc" }}>{s.velDegree}</span>
             </div>
             <div style={{ color: "#888" }}>
               Angle terms: <span style={{ color: "#ccc" }}>{s.angleTerms}</span>
@@ -327,7 +410,10 @@ ${prefix}Max(d, vr) =
             </div>
             {s.points > 0 && (
               <div style={{ color: "#888" }}>
-                Points: <span style={{ color: "#ccc" }}>{s.points.toLocaleString()}</span>
+                Points:{" "}
+                <span style={{ color: "#ccc" }}>
+                  {s.points.toLocaleString()}
+                </span>
               </div>
             )}
           </div>
@@ -381,10 +467,24 @@ ${prefix}Max(d, vr) =
           maxHeight: 480,
           overflowY: "auto",
           margin: 0,
-        }}
+        }} 
       >
-        <code>{displayCode}</code>
+        <code style={{ color: hasData ? "#d4d4d4" : "#666" }}>
+          {displayCode}
+        </code>
       </pre>
+      
+      {!hasData && (
+        <div style={{ 
+          fontSize: "0.7rem", 
+          color: "#00ccff", 
+          marginTop: 8, 
+          textAlign: "center",
+          fontStyle: "italic" 
+        }}>
+          Note: Equations above are placeholders. Generate a surface to populate weights.
+        </div>
+      )}
     </div>
   );
 }

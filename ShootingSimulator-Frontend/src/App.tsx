@@ -162,7 +162,7 @@ export default function App() {
     <div className="app-container">
       <header className="app-header">
         <div className="header-left">
-          <h1 className="app-title">REBUILT Target Simulator</h1>
+          <h1 className="app-title">Shooting Simulator</h1>
           <p className="app-subtitle">
             Live trajectory calculation and hardware constraint mapping
           </p>
