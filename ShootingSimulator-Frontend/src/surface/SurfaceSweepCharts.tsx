@@ -1,167 +1,257 @@
-import { useMemo } from 'react';
-import PlotlyComponent from 'react-plotly.js';
-import { getPolynomialFeatures, type ModelState } from './CodeExporter';
+import PlotlyComponent from "react-plotly.js";
 
 interface SurfaceSweepChartsProps {
   data: {
-    distances?: number[];        // 1D array of X coordinates (e.g., [1, 2, 3...])
-    radialVels?: number[];       // 1D array of Y coordinates (e.g., [-4, -2, 0, 2, 4])
-    angleMatrix?: number[][];    // 2D array of Z coordinates for angles
-    velocityMatrix?: number[][]; // 2D array of Z coordinates for velocities
-  },
-  models: {
-    normal: ModelState | null,
-    min: ModelState | null,
-    max: ModelState | null,
-  },
-  hardware: { minAngle: number; maxAngle: number };
+    distances?: number[];
+    radialVels?: number[];
+    angleMatrix?: number[][];
+    velocityMatrix?: number[][];
+  };
+  values: {
+    angle: number[][];
+    velocity: number[][];
+  } | null;
+  /** Absolute angle error per grid cell, same shape as angleMatrix */
+  residuals: number[][] | null;
 }
 
 const Plot = (PlotlyComponent as any).default || PlotlyComponent;
 
-export default function SurfaceSweepCharts({ data, models, hardware }: SurfaceSweepChartsProps) {
-  if (!models || !data || !data.angleMatrix || !data.velocityMatrix) {
-    return <div style={{ color: '#888', padding: '20px', textAlign: 'center' }}>Awaiting 3D surface data...</div>;
+// Shared scene configuration to reduce repetition
+const makeScene = (zTitle: string): Partial<Plotly.Scene> => ({
+  xaxis: {
+    title: { text: "Distance (m)" },
+    gridcolor: "#2a2a35",
+    backgroundcolor: "#12121a",
+    showbackground: true,
+    tickfont: { color: "#888", size: 10 },
+  },
+  yaxis: {
+    title: { text: "Radial vel (m/s)" },
+    gridcolor: "#2a2a35",
+    backgroundcolor: "#12121a",
+    showbackground: true,
+    tickfont: { color: "#888", size: 10 },
+  },
+  zaxis: {
+    title: { text: zTitle },
+    gridcolor: "#2a2a35",
+    backgroundcolor: "#12121a",
+    showbackground: true,
+    tickfont: { color: "#888", size: 10 },
+  },
+  camera: { eye: { x: 1.6, y: 1.6, z: 1.1 } },
+});
+
+const baseLayout: Partial<Plotly.Layout> = {
+  autosize: true,
+  paper_bgcolor: "transparent",
+  plot_bgcolor: "transparent",
+  font: { color: "#ccc", family: "monospace" },
+  margin: { l: 0, r: 0, b: 0, t: 28 },
+  legend: {
+    x: 0.02,
+    y: 0.98,
+    bgcolor: "#1a1a22cc",
+    bordercolor: "#333",
+    borderwidth: 1,
+    font: { size: 11 },
+  },
+};
+
+const plotConfig = {
+  displayModeBar: true,
+  modeBarButtonsToRemove: [
+    "toImage",
+    "sendDataToCloud",
+    "hoverClosest3d",
+  ] as any[],
+  displaylogo: false,
+  responsive: true,
+};
+
+export default function SurfaceSweepCharts({
+  data,
+  values,
+  residuals,
+}: SurfaceSweepChartsProps) {
+  if (!data?.angleMatrix || !data?.velocityMatrix) {
+    return (
+      <div
+        style={{
+          color: "#555",
+          padding: "40px 20px",
+          textAlign: "center",
+          background: "#0d0d12",
+          borderRadius: 10,
+          border: "1px dashed #2a2a35",
+          fontSize: "0.9rem",
+        }}
+      >
+        Awaiting 3D surface data…
+      </div>
+    );
   }
 
-  const predicted = useMemo(() => {
-    if (!models || !data.distances || !data.radialVels) return null;
-
-    const angle: number[][] = [];
-    const velocity: number[][] = [];
-
-    for (let i = 0; i < data.distances.length; i++) {
-      const rowA: number[] = [];
-      const rowV: number[] = [];
-
-      for (let j = 0; j < data.radialVels.length; j++) {
-        const d = data.distances[i];
-        const vr = data.radialVels[j];
-
-        // 1. Determine which model to use
-        // First, get the prediction from the 'normal' model to check boundaries
-        const normalFeatures = getPolynomialFeatures(d, vr, models.normal?.degree ?? 3).features;
-        const normalAngle = models.normal?.angleModel.predict([normalFeatures])[0][0] ?? 0;
-
-        let modelToUse: ModelState | null;
-        
-        // 2. Select the regime based on the normal prediction
-        if (normalAngle <= hardware.minAngle) {
-          modelToUse = models.min;
-        } else if (normalAngle >= hardware.maxAngle) {
-          modelToUse = models.max;
-        } else {
-          modelToUse = models.normal;
-        }
-
-        // 3. Perform prediction using the selected model
-        if (modelToUse) {
-          const features = getPolynomialFeatures(d, vr, modelToUse.degree).features;
-          rowA.push(modelToUse.angleModel.predict([features])[0][0]);
-          rowV.push(modelToUse.velocityModel.predict([features])[0][0]);
-        } else {
-          rowA.push(normalAngle);
-          rowV.push(0); // Fallback
-        }
-      }
-      angle.push(rowA);
-      velocity.push(rowV);
-    }
-
-    return { angle, velocity };
-  }, [models, data]);
-
-  // Dark theme layout configuration for Plotly
-  const layoutTemplate: Partial<Plotly.Layout> = {
-    autosize: true,
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-    font: { color: '#ffffff' },
-    margin: { l: 0, r: 0, b: 0, t: 30 },
-    scene: {
-      xaxis: { title: { text: 'Distance (m)' }, gridcolor: '#333', backgroundcolor: '#1c1c22', showbackground: true },
-      yaxis: { title: { text: 'Radial Vel (m/s)' }, gridcolor: '#333', backgroundcolor: '#1c1c22', showbackground: true },
-      zaxis: { gridcolor: '#333', backgroundcolor: '#1c1c22', showbackground: true },
-      camera: { eye: { x: 1.5, y: 1.5, z: 1.2 } }
-    }
-  };
+  const polynomialSurfaceTrace = (z: number[][], name: string) => ({
+    z,
+    x: data.distances,
+    y: data.radialVels,
+    type: "surface" as const,
+    colorscale: "RdBu",
+    name,
+    opacity: 0.55,
+    showscale: false,
+    contours: {
+      z: { show: true, usecolormap: true, project: { z: true } },
+    },
+  });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', gap: '20px', height: '100%' }}>
-      
-      {/* 3D Angle Surface */}
-      <div className="view-panel" style={{ flex: 1, minHeight: '400px', minWidth: 0 }}>
-        <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#fff' }}>Optimal Angle Surface</h3>
-        <Plot
-          data={[
-            {
-              z: data.angleMatrix,
-              x: data.distances,
-              y: data.radialVels,
-              type: 'surface',
-              colorscale: 'Viridis',
-              name: 'Raw Data',
-              colorbar: { title: 'Angle', len: 0.5 }
-            },
-            ...(predicted ? [{
-              z: predicted.angle,
-              x: data.distances,
-              y: data.radialVels,
-              type: 'surface',
-              colorscale: 'RdBu',
-              name: 'Polynomial',
-              opacity: 0.5,
-              showscale: false,
-            }] : [])
-          ]}
-          layout={{
-            ...layoutTemplate,
-            scene: { 
-              ...layoutTemplate.scene, 
-              zaxis: { ...layoutTemplate.scene?.zaxis, title: { text: 'Angle (°)' } }
-            }
-          }}
-          useResizeHandler={true}
-          style={{ width: '100%', height: '100%' }}
-        />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Top row: angle + velocity side by side */}
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        {/* ── Angle surface ── */}
+        <div
+          className="view-panel"
+          style={{ flex: "1 1 360px", minHeight: 420 }}
+        >
+          <PanelLabel>Optimal angle surface</PanelLabel>
+          <Plot
+            data={[
+              {
+                z: data.angleMatrix,
+                x: data.distances,
+                y: data.radialVels,
+                type: "surface",
+                colorscale: "Viridis",
+                name: "Simulated",
+                colorbar: {
+                  title: { text: "°", side: "right" },
+                  thickness: 12,
+                  len: 0.7,
+                  tickfont: { color: "#888", size: 10 },
+                },
+              },
+              ...(values
+                ? [polynomialSurfaceTrace(values.angle, "Polynomial")]
+                : []),
+            ]}
+            layout={{
+              ...baseLayout,
+              scene: makeScene("Angle (°)"),
+            }}
+            config={plotConfig}
+            useResizeHandler
+            style={{ width: "100%", height: "100%" }}
+          />
+        </div>
+
+        {/* ── Velocity surface ── */}
+        <div
+          className="view-panel"
+          style={{ flex: "1 1 360px", minHeight: 420 }}
+        >
+          <PanelLabel>Optimal velocity surface</PanelLabel>
+          <Plot
+            data={[
+              {
+                z: data.velocityMatrix,
+                x: data.distances,
+                y: data.radialVels,
+                type: "surface",
+                colorscale: "Plasma",
+                name: "Simulated",
+                colorbar: {
+                  title: { text: "m/s", side: "right" },
+                  thickness: 12,
+                  len: 0.7,
+                  tickfont: { color: "#888", size: 10 },
+                },
+              },
+              ...(values
+                ? [polynomialSurfaceTrace(values.velocity, "Polynomial")]
+                : []),
+            ]}
+            layout={{
+              ...baseLayout,
+              scene: makeScene("Velocity (m/s)"),
+            }}
+            config={plotConfig}
+            useResizeHandler
+            style={{ width: "100%", height: "100%" }}
+          />
+        </div>
       </div>
 
-      {/* 3D Velocity Surface */}
-      <div className="view-panel" style={{ flex: 1, minHeight: '400px', minWidth: 0 }}>
-        <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#fff' }}>Optimal Velocity Surface</h3>
-        <Plot
-          data={[
-            {
-              z: data.velocityMatrix,
-              x: data.distances,
-              y: data.radialVels,
-              type: 'surface',
-              colorscale: 'Plasma',
-              colorbar: { title: { text: 'Velocity (m/s)' }, thickness: 15, len: 0.8 }
-            },
-            ...(predicted ? [{
-              z: predicted.velocity,
-              x: data.distances,
-              y: data.radialVels,
-              type: 'surface',
-              colorscale: 'RdBu',
-              name: 'Polynomial',
-              opacity: 0.5,
-              showscale: false,
-            }] : [])
-          ]}
-          layout={{
-            ...layoutTemplate,
-            scene: { 
-              ...layoutTemplate.scene, 
-              zaxis: { ...layoutTemplate.scene?.zaxis, title: { text: 'Velocity (m/s)' } }
-            }
-          }}
-          useResizeHandler={true}
-          style={{ width: '100%', height: '100%' }}
-        />
-      </div>
-
+      {/* Bottom row: residual heatmap (only once polynomial is fitted) */}
+      {residuals && (
+        <div className="view-panel" style={{ minHeight: 280 }}>
+          <PanelLabel>
+            Angle residual map{" "}
+            <span style={{ color: "#555", fontWeight: 400 }}>
+              |predicted − simulated| in degrees
+            </span>
+          </PanelLabel>
+          <Plot
+            data={[
+              {
+                z: residuals,
+                x: data.distances,
+                y: data.radialVels,
+                type: "heatmap",
+                colorscale: [
+                  [0, "#003300"],
+                  [0.05, "#00aa44"],
+                  [0.25, "#ffd740"],
+                  [1, "#ff5252"],
+                ],
+                colorbar: {
+                  title: { text: "Error (°)", side: "right" },
+                  thickness: 12,
+                  tickfont: { color: "#888", size: 10 },
+                },
+                hoverongaps: false,
+                zsmooth: "best",
+              },
+            ]}
+            layout={{
+              ...baseLayout,
+              margin: { l: 60, r: 80, b: 50, t: 10 },
+              xaxis: {
+                title: { text: "Distance (m)" },
+                color: "#888",
+                gridcolor: "#1e1e28",
+              },
+              yaxis: {
+                title: { text: "Radial vel (m/s)" },
+                color: "#888",
+                gridcolor: "#1e1e28",
+              },
+            }}
+            config={plotConfig}
+            useResizeHandler
+            style={{ width: "100%", height: 260 }}
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+function PanelLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h3
+      style={{
+        margin: "0 0 8px 0",
+        fontSize: "0.85rem",
+        fontWeight: 500,
+        color: "#aaa",
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+      }}
+    >
+      {children}
+    </h3>
   );
 }
