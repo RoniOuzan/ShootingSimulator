@@ -12,6 +12,38 @@ import CodeExporter, {
 } from "./CodeExporter";
 import SurfaceSweepCharts from "./SurfaceSweepCharts";
 
+// ── Configuration Constants ──────────────────────────────────────────────────
+export const REGIME_MARGIN = 0.05; // Margin (degrees) to separate normal regime from clamped min/max bounds
+
+export const POLYNOMIAL_DEGREES = {
+  NORMAL: { ANGLE: 5, VELOCITY: 5 },
+  MIN: { ANGLE: null, VELOCITY: 3 },
+  MAX: { ANGLE: null, VELOCITY: 3 },
+};
+
+export const FIT_THRESHOLDS = {
+  EXCELLENT: { ANGLE_MAX_ERR: 0.15, VEL_MAX_ERR: 0.05, COLOR: "#00e676", LABEL: "✓ Excellent" },
+  ACCEPTABLE: { ANGLE_MAX_ERR: 0.5, VEL_MAX_ERR: 0.2, COLOR: "#ffd740", LABEL: "⚠ Acceptable" },
+  POOR: { COLOR: "#ff5252", LABEL: "✗ Poor fit" },
+};
+
+export const QUALITY_COLOR = (maxAngleErr: number, maxVelErr: number) => {
+  if (
+    maxAngleErr <= FIT_THRESHOLDS.EXCELLENT.ANGLE_MAX_ERR &&
+    maxVelErr <= FIT_THRESHOLDS.EXCELLENT.VEL_MAX_ERR
+  ) {
+    return FIT_THRESHOLDS.EXCELLENT.COLOR;
+  }
+  if (
+    maxAngleErr <= FIT_THRESHOLDS.ACCEPTABLE.ANGLE_MAX_ERR &&
+    maxVelErr <= FIT_THRESHOLDS.ACCEPTABLE.VEL_MAX_ERR
+  ) {
+    return FIT_THRESHOLDS.ACCEPTABLE.COLOR;
+  }
+  return FIT_THRESHOLDS.POOR.COLOR;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface Props {
   isConnected: boolean;
   surfaceData: any;
@@ -44,20 +76,31 @@ export interface ValidationResult {
   } | null;
 }
 
-function fitRegime(data: DataPoint[], angleDegree: number, velocityDegree: number) {
+function fitRegime(
+  data: DataPoint[],
+  angleDegree: number | null,
+  velocityDegree: number
+) {
   if (data.length === 0) return null;
-  const XAngle = data.map((p) =>
-    getPolynomialFeatures(p.distance, p.radialVelocity, angleDegree).features
-  );
+
   const XVelocity = data.map((p) =>
     getPolynomialFeatures(p.distance, p.radialVelocity, velocityDegree).features
   );
-  const yAngle = data.map((p) => [p.bestAngle]);
   const yVelocity = data.map((p) => [p.bestExitVelocity]);
-  return {
-    angleModel: new MultivariateLinearRegression(XAngle, yAngle, {
+
+  let angleModel = null;
+  if (angleDegree !== null) {
+    const XAngle = data.map((p) =>
+      getPolynomialFeatures(p.distance, p.radialVelocity, angleDegree).features
+    );
+    const yAngle = data.map((p) => [p.bestAngle]);
+    angleModel = new MultivariateLinearRegression(XAngle, yAngle, {
       intercept: false,
-    }),
+    });
+  }
+
+  return {
+    angleModel,
     velocityModel: new MultivariateLinearRegression(XVelocity, yVelocity, {
       intercept: false,
     }),
@@ -68,7 +111,8 @@ function fitRegime(data: DataPoint[], angleDegree: number, velocityDegree: numbe
 
 function computeRegimeValidation(
   data: DataPoint[],
-  model: ModelState | null
+  model: ModelState | null,
+  constantAngle: number | null = null
 ): RegimeValidation | null {
   if (!model || data.length === 0) return null;
 
@@ -84,9 +128,22 @@ function computeRegimeValidation(
     let ssTot = 0;
 
     for (const p of data) {
-      const features = getPolynomialFeatures(p.distance, p.radialVelocity, degree).features;
-      const raw = innerModel.predict([features]);
-      const predicted = raw?.[0]?.[0];
+      let predicted: number;
+
+      if (isAngle && constantAngle !== null) {
+        predicted = constantAngle;
+      } else if (innerModel !== null && degree !== null) {
+        const features = getPolynomialFeatures(
+          p.distance,
+          p.radialVelocity,
+          degree
+        ).features;
+        const raw = innerModel.predict([features]);
+        predicted = raw?.[0]?.[0];
+      } else {
+        continue;
+      }
+
       if (predicted == null || !isFinite(predicted)) continue;
 
       const err = Math.abs(predicted - p[field]);
@@ -119,12 +176,6 @@ function computeRegimeValidation(
   };
 }
 
-export const QUALITY_COLOR = (maxAngleErr: number, maxVelErr: number) => {
-  if (maxAngleErr < 0.1 && maxVelErr < 0.05) return "#00e676";
-  if (maxAngleErr < 0.5 && maxVelErr < 0.2) return "#ffd740";
-  return "#ff5252";
-};
-
 export default function SurfaceSweepView({
   isConnected,
   surfaceData,
@@ -137,18 +188,9 @@ export default function SurfaceSweepView({
   const [minDist, setMinDist] = usePersistedState("surface_minDist", 1);
   const [maxDist, setMaxDist] = usePersistedState("surface_maxDist", 8);
   const [distStep, setDistStep] = usePersistedState("surface_distStep", 0.2);
-  const [minRadialVel, setMinRadialVel] = usePersistedState(
-    "surface_minRadialVel",
-    -4
-  );
-  const [maxRadialVel, setMaxRadialVel] = usePersistedState(
-    "surface_maxRadialVel",
-    4
-  );
-  const [radialVelStep, setRadialVelStep] = usePersistedState(
-    "surface_radialVelStep",
-    0.2
-  );
+  const [minRadialVel, setMinRadialVel] = usePersistedState("surface_minRadialVel", -4);
+  const [maxRadialVel, setMaxRadialVel] = usePersistedState("surface_maxRadialVel", 4);
+  const [radialVelStep, setRadialVelStep] = usePersistedState("surface_radialVelStep", 0.2);
 
   // ── Dataset bucketing ────────────────────────────────────────────────────
   const exportDataset = useMemo((): DatasetState => {
@@ -159,14 +201,12 @@ export default function SurfaceSweepView({
     const { distances, radialVels, angleMatrix, velocityMatrix } = surfaceData;
     
     for (let i = 0; i < distances.length; i++) {
-      // 1. Guard against missing rows in the matrix
       const angleRow = angleMatrix[i];
       const velRow = velocityMatrix?.[i];
       
       if (!angleRow) continue; 
 
       for (let j = 0; j < radialVels.length; j++) {
-        // 2. Safely access the specific point
         const angle = angleRow[j];
         const vel = velRow ? velRow[j] : null;
 
@@ -179,10 +219,9 @@ export default function SurfaceSweepView({
           bestExitVelocity: vel,
         };
 
-        const MARGIN = 0.05;
-        if (angle <= sharedConfig.hardware.minAngle + MARGIN) {
+        if (angle <= sharedConfig.hardware.minAngle + REGIME_MARGIN) {
           dataset.min.push(point);
-        } else if (angle >= sharedConfig.hardware.maxAngle - MARGIN) {
+        } else if (angle >= sharedConfig.hardware.maxAngle - REGIME_MARGIN) {
           dataset.max.push(point);
         } else {
           dataset.normal.push(point);
@@ -193,18 +232,20 @@ export default function SurfaceSweepView({
   }, [surfaceData, sharedConfig.hardware.minAngle, sharedConfig.hardware.maxAngle]);
 
   // ── Model fitting ─────────────────────────────────────────────────────────
-  // Degree-4 for normal gives enough flexibility to capture the curved
-  // surface without overfitting. Clamped regimes stay at degree-2 since
-  // they're nearly planar. A regime needs at least (degree+1)*(degree+2)/2
-  // points to be overdetermined; fall back to lower degree if needed.
   const models = useMemo(() => {
-    const safeFit = (data: DataPoint[], prefAngleDeg: number, prefVelDeg: number) => {
+    const safeFit = (
+      data: DataPoint[],
+      prefAngleDeg: number | null,
+      prefVelDeg: number
+    ) => {
       if (data.length === 0) return null;
       
       const minRequired = (d: number) => ((d + 1) * (d + 2)) / 2;
 
       let aDeg = prefAngleDeg;
-      while (aDeg > 1 && data.length < minRequired(aDeg)) aDeg--;
+      if (aDeg !== null) {
+        while (aDeg > 1 && data.length < minRequired(aDeg)) aDeg--;
+      }
 
       let vDeg = prefVelDeg;
       while (vDeg > 1 && data.length < minRequired(vDeg)) vDeg--;
@@ -213,31 +254,38 @@ export default function SurfaceSweepView({
     };
 
     return {
-      normal: safeFit(exportDataset.normal, 4, 4),
-      min: safeFit(exportDataset.min, 1, 2),
-      max: safeFit(exportDataset.max, 1, 2),
+      normal: safeFit(exportDataset.normal, POLYNOMIAL_DEGREES.NORMAL.ANGLE, POLYNOMIAL_DEGREES.NORMAL.VELOCITY),
+      min: safeFit(exportDataset.min, POLYNOMIAL_DEGREES.MIN.ANGLE, POLYNOMIAL_DEGREES.MIN.VELOCITY),
+      max: safeFit(exportDataset.max, POLYNOMIAL_DEGREES.MAX.ANGLE, POLYNOMIAL_DEGREES.MAX.VELOCITY),
     };
   }, [exportDataset]);
 
   // ── Predicted surface values ──────────────────────────────────────────────
   const values = useMemo(() => {
-    if (
-      !models.normal ||
-      !surfaceData?.distances?.length ||
-      !surfaceData?.radialVels?.length
-    )
+    if (!models.normal || !surfaceData?.distances?.length || !surfaceData?.radialVels?.length)
       return null;
 
     const angle: number[][] = [];
     const velocity: number[][] = [];
 
-    // Helper: safely call predict and return null on any failure.
-    const safePredict = (model: ModelState, d: number, vr: number): [number, number] | null => {
+    const safePredict = (
+      model: ModelState,
+      d: number,
+      vr: number,
+      cAngle: number | null
+    ): [number, number] | null => {
       try {
-        const fA = getPolynomialFeatures(d, vr, model.angleDegree).features;
+        let a: number | null = null;
+        if (model.angleModel && model.angleDegree !== null) {
+          const fA = getPolynomialFeatures(d, vr, model.angleDegree).features;
+          a = model.angleModel.predict([fA])[0][0];
+        } else if (cAngle !== null) {
+          a = cAngle;
+        }
+
         const fV = getPolynomialFeatures(d, vr, model.velocityDegree).features;
-        const a = model.angleModel.predict([fA])[0][0];
         const v = model.velocityModel.predict([fV])[0][0];
+
         if (a == null || v == null || !isFinite(a) || !isFinite(v)) return null;
         return [a, v];
       } catch {
@@ -245,14 +293,9 @@ export default function SurfaceSweepView({
       }
     };
 
-    // Precompute the MARGIN used during bucketing so regime selection is consistent
-    const MARGIN = 0.05;
     const { minAngle, maxAngle } = sharedConfig.hardware;
     const hasAngleMatrix = !!surfaceData.angleMatrix;
 
-    // Plotly expects z[row][col] where row is y (Radial Vel) and col is x (Distance).
-    // The solver sends data as [distance_index][vel_index]. 
-    // We must generate the prediction matrix in the [vel][dist] shape for Plotly.
     for (let j = 0; j < surfaceData.radialVels.length; j++) {
       const rowA: number[] = [];
       const rowV: number[] = [];
@@ -261,43 +304,46 @@ export default function SurfaceSweepView({
         const d = surfaceData.distances[i];
         const vr = surfaceData.radialVels[j];
 
-        // Use the ACTUAL simulated angle to decide regime — this is the ground
-        // truth bucket the point belongs to, and matches exactly how exportDataset
-        // was bucketed. Using the normal model's extrapolated prediction here was
-        // the cause of regime mismatch in regions the normal model never trained on.
         const actualAngle: number | null = hasAngleMatrix
           ? (surfaceData.angleMatrix[i]?.[j] ?? null)
           : null;
 
         let regimeModel: ModelState | null;
+        let cAngle: number | null = null;
+
         if (actualAngle !== null) {
-          if (actualAngle <= minAngle + MARGIN) {
+          if (actualAngle <= minAngle + REGIME_MARGIN) {
             regimeModel = models.min;
-          } else if (actualAngle >= maxAngle - MARGIN) {
+            cAngle = minAngle;
+          } else if (actualAngle >= maxAngle - REGIME_MARGIN) {
             regimeModel = models.max;
+            cAngle = maxAngle;
           } else {
             regimeModel = models.normal;
           }
         } else {
-          // No ground truth available — fall back to normal model for regime detection
-          const normalResult = safePredict(models.normal!, d, vr);
+          const normalResult = safePredict(models.normal!, d, vr, null);
           const normalAngle = normalResult?.[0] ?? 0;
-          if (normalAngle <= minAngle) regimeModel = models.min;
-          else if (normalAngle >= maxAngle) regimeModel = models.max;
-          else regimeModel = models.normal;
+          if (normalAngle <= minAngle) {
+            regimeModel = models.min;
+            cAngle = minAngle;
+          } else if (normalAngle >= maxAngle) {
+            regimeModel = models.max;
+            cAngle = maxAngle;
+          } else {
+            regimeModel = models.normal;
+          }
         }
 
-        // Try the selected regime model
-        let result: [number, number] | null = regimeModel
-          ? safePredict(regimeModel, d, vr)
-          : null;
+        let result: [number, number] | null = regimeModel ? safePredict(regimeModel, d, vr, cAngle) : null;
 
-        // Fallback cascade: normal → clamp angle to hardware bounds with normal velocity
         if (!result && regimeModel !== models.normal) {
-          result = safePredict(models.normal!, d, vr);
+          result = safePredict(models.normal!, d, vr, null);
+          if (result && cAngle !== null) {
+            result[0] = cAngle;
+          }
         }
         if (!result) {
-          // Last resort: use actual values so the surface stays complete
           const fa = actualAngle ?? 0;
           const fv = surfaceData.velocityMatrix?.[i]?.[j] ?? 0;
           result = [fa, fv];
@@ -347,11 +393,11 @@ export default function SurfaceSweepView({
       return { normal: null, min: null, max: null, overall: null };
     }
 
+    const { minAngle, maxAngle } = sharedConfig.hardware;
     const normal = computeRegimeValidation(exportDataset.normal, models.normal);
-    const min = computeRegimeValidation(exportDataset.min, models.min);
-    const max = computeRegimeValidation(exportDataset.max, models.max);
+    const min = computeRegimeValidation(exportDataset.min, models.min, minAngle);
+    const max = computeRegimeValidation(exportDataset.max, models.max, maxAngle);
 
-    // Overall across all points — guard every index access for NaN safety
     let aMaxErr = 0, aSumSq = 0;
     let vMaxErr = 0, vSumSq = 0;
     let allCount = 0;
@@ -389,7 +435,7 @@ export default function SurfaceSweepView({
         : null;
 
     return { normal, min, max, overall };
-  }, [exportDataset, models, values, surfaceData]);
+  }, [exportDataset, models, values, surfaceData, sharedConfig.hardware]);
 
   const handleCalculate = () => {
     if (!isConnected || isCalculating) return;
@@ -429,7 +475,6 @@ export default function SurfaceSweepView({
   return (
     <div className="surface-view">
       <div className="charts-area">
-        {/* ── Header ── */}
         <div className="charts-header">
           <div className="status-indicator">
             <span
@@ -480,74 +525,25 @@ export default function SurfaceSweepView({
         </div>
       </div>
 
-      {/* ── Sidebar ── */}
       <div className="tab-sidebar">
         <h2 className="sidebar-title">Surface settings</h2>
 
         <div className="tab-config-card">
           <h3>Distance range (X-axis)</h3>
           <div style={{ display: "flex", gap: 12 }}>
-            <ControlSlider
-              label="Min"
-              value={minDist}
-              min={0.5}
-              max={maxDist - 1}
-              step={0.5}
-              unit="m"
-              onChange={setMinDist}
-            />
-            <ControlSlider
-              label="Max"
-              value={maxDist}
-              min={minDist + 1}
-              max={20}
-              step={0.5}
-              unit="m"
-              onChange={setMaxDist}
-            />
+            <ControlSlider label="Min" value={minDist} min={0.5} max={maxDist - 1} step={0.5} unit="m" onChange={setMinDist} />
+            <ControlSlider label="Max" value={maxDist} min={minDist + 1} max={20} step={0.5} unit="m" onChange={setMaxDist} />
           </div>
-          <ControlSlider
-            label="Step size"
-            value={distStep}
-            min={0.05}
-            max={1}
-            step={0.05}
-            unit="m"
-            onChange={setDistStep}
-          />
+          <ControlSlider label="Step size" value={distStep} min={0.05} max={1} step={0.05} unit="m" onChange={setDistStep} />
         </div>
 
         <div className="tab-config-card">
           <h3>Radial velocity (Y-axis)</h3>
           <div style={{ display: "flex", gap: 12 }}>
-            <ControlSlider
-              label="Min"
-              value={minRadialVel}
-              min={-6}
-              max={maxRadialVel - 0.5}
-              step={0.5}
-              unit="m/s"
-              onChange={setMinRadialVel}
-            />
-            <ControlSlider
-              label="Max"
-              value={maxRadialVel}
-              min={minRadialVel + 0.5}
-              max={6}
-              step={0.5}
-              unit="m/s"
-              onChange={setMaxRadialVel}
-            />
+            <ControlSlider label="Min" value={minRadialVel} min={-6} max={maxRadialVel - 0.5} step={0.5} unit="m/s" onChange={setMinRadialVel} />
+            <ControlSlider label="Max" value={maxRadialVel} min={minRadialVel + 0.5} max={6} step={0.5} unit="m/s" onChange={setMaxRadialVel} />
           </div>
-          <ControlSlider
-            label="Step size"
-            value={radialVelStep}
-            min={0.05}
-            max={1}
-            step={0.05}
-            unit="m/s"
-            onChange={setRadialVelStep}
-          />
+          <ControlSlider label="Step size" value={radialVelStep} min={0.05} max={1} step={0.05} unit="m/s" onChange={setRadialVelStep} />
         </div>
 
         <div className="sweep-info">

@@ -15,9 +15,9 @@ export interface DatasetState {
 }
 
 export interface ModelState {
-  angleModel: MultivariateLinearRegression;
+  angleModel: MultivariateLinearRegression | null;
   velocityModel: MultivariateLinearRegression;
-  angleDegree: number;
+  angleDegree: number | null;
   velocityDegree: number;
 }
 
@@ -72,9 +72,9 @@ function buildTermString(
 
 function generateEquation(
   model: MultivariateLinearRegression | null,
-  degree: number,
+  degree: number | null,
 ): string {
-  if (!model) return "0.0";
+  if (!model || degree === null) return "0.0";
   const { names } = getPolynomialFeatures(1, 1, degree);
   const weights = model.weights;
 
@@ -94,16 +94,12 @@ function termCount(model: MultivariateLinearRegression | null): number {
 }
 
 // ── Derivative Term Builder ──────────────────────────────────────────────────
-/**
- * Computes partial derivatives of the polynomial equation.
- * If targetVar is 'd', we apply power rule to d components.
- */
 function generateDerivativeEquation(
   model: MultivariateLinearRegression | null,
-  degree: number,
+  degree: number | null,
   targetVar: 'd' | 'vr'
 ): string {
-  if (!model) return "0.0";
+  if (!model || degree === null) return "0.0";
   const { names } = getPolynomialFeatures(1, 1, degree);
   const weights = model.weights;
   const terms: string[] = [];
@@ -130,16 +126,13 @@ function generateDerivativeEquation(
   return terms.length > 0 ? terms.join("") : "0.0";
 }
 
-/**
- * Computes the second partial derivatives of the polynomial.
- */
 function generateSecondDerivativeEquation(
   model: MultivariateLinearRegression | null,
-  degree: number,
+  degree: number | null,
   var1: 'd' | 'vr',
   var2: 'd' | 'vr'
 ): string {
-  if (!model) return "0.0";
+  if (!model || degree === null) return "0.0";
   const { names } = getPolynomialFeatures(1, 1, degree);
   const weights = model.weights;
   const terms: string[] = [];
@@ -152,11 +145,9 @@ function generateSecondDerivativeEquation(
     let currPD = pD;
     let currPVR = pVR;
 
-    // Apply first derivative power rule
     if (var1 === 'd') { if (currPD > 0) { derivativeCoef *= currPD; currPD--; } else continue; }
     else { if (currPVR > 0) { derivativeCoef *= currPVR; currPVR--; } else continue; }
 
-    // Apply second derivative power rule
     if (var2 === 'd') { if (currPD > 0) { derivativeCoef *= currPD; currPD--; } else continue; }
     else { if (currPVR > 0) { derivativeCoef *= currPVR; currPVR--; } else continue; }
 
@@ -173,69 +164,102 @@ function buildJavaCode(
   const hasData = !!models.normal;
   const nAd = models.normal?.angleDegree ?? 4;
   const nVd = models.normal?.velocityDegree ?? 4;
+  
+  // Extract degrees for min and max velocity regimes
+  const minVd = models.min?.velocityDegree ?? 2;
+  const maxVd = models.max?.velocityDegree ?? 2;
 
-  const getEq = (m: any, d: number) => hasData ? generateEquation(m, d) : "0.0";
-  const getD1 = (m: any, d: number, v: 'd' | 'vr') => hasData ? generateDerivativeEquation(m, d, v) : "0.0";
-  const getD2 = (m: any, d: number, v1: 'd' | 'vr', v2: 'd' | 'vr') => hasData ? generateSecondDerivativeEquation(m, d, v1, v2) : "0.0";
+  const getEq = (m: any, d: number | null) => hasData ? generateEquation(m, d) : "0.0";
+  const getD1 = (m: any, d: number | null, v: 'd' | 'vr') => hasData ? generateDerivativeEquation(m, d, v) : "0.0";
+  const getD2 = (m: any, d: number | null, v1: 'd' | 'vr', v2: 'd' | 'vr') => hasData ? generateSecondDerivativeEquation(m, d, v1, v2) : "0.0";
 
   return `package frc.robot.util;
 
 /**
- * Auto-generated Ballistic Controller with Hessian support for curvature compensation.
+ * Interface for interchangeable ballistics profiles.
  */
-public final class ShooterBallistics {
+public interface ShooterProfile {
+    double calculateAngle(double d, double vr);
+    double getAngleDerivativeWrtDistance(double d, double vr);
+    double getAngleDerivativeWrtRadialVelocity(double d, double vr);
+    double getAngleSecondDerivativeWrtDistance(double d, double vr);
+    double getAngleMixedDerivative(double d, double vr);
+    
+    double calculateVelocity(double d, double vr);
+    double getVelocityDerivativeWrtDistance(double d, double vr);
+    double getVelocitySecondDerivativeWrtDistance(double d, double vr);
+    
+    double predictAngle(double d, double vr, double accel, double dt);
+}
+
+/**
+ * Auto-generated Ballistic Profile with Hessian support for curvature compensation.
+ */
+public class GeneratedShooterProfile implements ShooterProfile {
 
     // ── Hardware Constraints ─────────────────────────────────────────────────
-    public static final double MIN_SAFE_ANGLE = ${hardware.minAngle.toFixed(2)};
-    public static final double MAX_SAFE_ANGLE = ${hardware.maxAngle.toFixed(2)};
+    public final double MIN_SAFE_ANGLE = ${hardware.minAngle.toFixed(2)};
+    public final double MAX_SAFE_ANGLE = ${hardware.maxAngle.toFixed(2)};
 
-    private ShooterBallistics() {}
+    public GeneratedShooterProfile() {}
 
     // ── Angle Prediction ─────────────────────────────────────────────────────
 
-    public static double calculateAngle(double d, double vr) {
-        double normal = ${getEq(models.normal?.angleModel, nAd)};
-        if (normal <= MIN_SAFE_ANGLE) return ${getEq(models.min?.angleModel, 1)};
-        if (normal >= MAX_SAFE_ANGLE) return ${getEq(models.max?.angleModel, 1)};
-        return normal;
+    @Override
+    public double calculateAngle(double d, double vr) {
+        double angle = ${getEq(models.normal?.angleModel, nAd)};
+        return MathUtil.clamp(angle, MIN_SAFE_ANGLE, MAX_SAFE_ANGLE);
     }
 
-    /** 1st Derivative: dA/dd */
-    public static double getAngledD(double d, double vr) {
+    /** 1st Partial Derivative: ∂Angle / ∂Distance */
+    @Override
+    public double getAngleDerivativeWrtDistance(double d, double vr) {
         return ${getD1(models.normal?.angleModel, nAd, 'd')};
     }
 
-    /** 1st Derivative: dA/dvr */
-    public static double getAngleDVR(double d, double vr) {
+    /** 1st Partial Derivative: ∂Angle / ∂RadialVelocity */
+    @Override
+    public double getAngleDerivativeWrtRadialVelocity(double d, double vr) {
         return ${getD1(models.normal?.angleModel, nAd, 'vr')};
     }
 
-    /** 2nd Derivative: d^2A/dd^2 */
-    public static double getAngledD2(double d, double vr) {
+    /** 2nd Partial Derivative: ∂²Angle / ∂Distance² */
+    @Override
+    public double getAngleSecondDerivativeWrtDistance(double d, double vr) {
         return ${getD2(models.normal?.angleModel, nAd, 'd', 'd')};
     }
 
-    /** Mixed Partial Derivative: d^2A/d(d)d(vr) */
-    public static double getAngledDdVR(double d, double vr) {
+    /** Mixed Partial Derivative: ∂²Angle / ∂Distance∂RadialVelocity */
+    @Override
+    public double getAngleMixedDerivative(double d, double vr) {
         return ${getD2(models.normal?.angleModel, nAd, 'd', 'vr')};
     }
 
     // ── Velocity Prediction ──────────────────────────────────────────────────
 
-    public static double calculateVelocity(double d, double vr) {
+    @Override
+    public double calculateVelocity(double d, double vr) {
         double angle = calculateAngle(d, vr);
-        if (angle <= MIN_SAFE_ANGLE) return ${getEq(models.min?.velocityModel, 2)};
-        if (angle >= MAX_SAFE_ANGLE) return ${getEq(models.max?.velocityModel, 2)};
+        if (angle <= MIN_SAFE_ANGLE) return ${getEq(models.min?.velocityModel, minVd)};
+        if (angle >= MAX_SAFE_ANGLE) return ${getEq(models.max?.velocityModel, maxVd)};
         return ${getEq(models.normal?.velocityModel, nVd)};
     }
 
-    /** 1st Derivative: dV/dd */
-    public static double getVelocitydD(double d, double vr) {
+    /** 1st Partial Derivative: ∂Velocity / ∂Distance */
+    @Override
+    public double getVelocityDerivativeWrtDistance(double d, double vr) {
+        double angle = calculateAngle(d, vr);
+        if (angle <= MIN_SAFE_ANGLE) return ${getD1(models.min?.velocityModel, minVd, 'd')};
+        if (angle >= MAX_SAFE_ANGLE) return ${getD1(models.max?.velocityModel, maxVd, 'd')};
         return ${getD1(models.normal?.velocityModel, nVd, 'd')};
     }
 
-    /** 2nd Derivative: d^2V/dd^2 */
-    public static double getVelocitydD2(double d, double vr) {
+    /** 2nd Partial Derivative: ∂²Velocity / ∂Distance² */
+    @Override
+    public double getVelocitySecondDerivativeWrtDistance(double d, double vr) {
+        double angle = calculateAngle(d, vr);
+        if (angle <= MIN_SAFE_ANGLE) return ${getD2(models.min?.velocityModel, minVd, 'd', 'd')};
+        if (angle >= MAX_SAFE_ANGLE) return ${getD2(models.max?.velocityModel, maxVd, 'd', 'd')};
         return ${getD2(models.normal?.velocityModel, nVd, 'd', 'd')};
     }
 
@@ -245,14 +269,17 @@ public final class ShooterBallistics {
      * Calculates the estimated optimal angle adjusting for latency and acceleration.
      * Uses a Taylor expansion: f(t+dt) ≈ f(t) + f'(t)dt + 0.5f''(t)dt^2
      */
-    public static double predictAngle(double d, double vr, double accel, double dt) {
+    @Override
+    public double predictAngle(double d, double vr, double accel, double dt) {
         double current = calculateAngle(d, vr);
         
-        // First order change (Chain rule)
-        double dAdt = (getAngledD(d, vr) * -vr) + (getAngleDVR(d, vr) * accel);
+        // First order change (Chain rule via Jacobian)
+        double dAdt = (getAngleDerivativeWrtDistance(d, vr) * -vr) + 
+                      (getAngleDerivativeWrtRadialVelocity(d, vr) * accel);
         
-        // Second order change (High precision curvature compensation)
-        double d2Adt2 = (getAngledD2(d, vr) * vr * vr) + (getAngledDdVR(d, vr) * -vr * accel);
+        // Second order change (High precision curvature compensation via Hessian)
+        double d2Adt2 = (getAngleSecondDerivativeWrtDistance(d, vr) * vr * vr) + 
+                        (getAngleMixedDerivative(d, vr) * -vr * accel);
 
         return current + (dAdt * dt) + (0.5 * d2Adt2 * dt * dt);
     }
@@ -292,9 +319,9 @@ export default function CodeExporter({
     return `// ${tab.toUpperCase()} SECOND ORDER ANALYSIS
 Equation: ${hasData ? generateEquation(models.normal?.[field] ?? null, deg) : "0.0"}
 
-d/d(d)   = ${hasData ? generateDerivativeEquation(models.normal?.[field] ?? null, deg, 'd') : "0.0"}
-d^2/d(d)^2 = ${hasData ? generateSecondDerivativeEquation(models.normal?.[field] ?? null, deg, 'd', 'd') : "0.0"}
-d^2/d(d)d(vr) = ${hasData ? generateSecondDerivativeEquation(models.normal?.[field] ?? null, deg, 'd', 'vr') : "0.0"}`;
+∂/∂d       = ${hasData ? generateDerivativeEquation(models.normal?.[field] ?? null, deg, 'd') : "0.0"}
+∂²/∂d²     = ${hasData ? generateSecondDerivativeEquation(models.normal?.[field] ?? null, deg, 'd', 'd') : "0.0"}
+∂²/∂d∂vr   = ${hasData ? generateSecondDerivativeEquation(models.normal?.[field] ?? null, deg, 'd', 'vr') : "0.0"}`;
   }, [tab, fullCode, models, hasData]);
 
   const handleCopy = async () => {
@@ -316,17 +343,17 @@ d^2/d(d)d(vr) = ${hasData ? generateSecondDerivativeEquation(models.normal?.[fie
       },
       {
         regime: "Min angle",
-        angleDegree: models.min?.angleDegree ?? "—",
+        angleDegree: models.min?.angleDegree === null ? "Const" : (models.min?.angleDegree ?? "—"),
         velDegree: models.min?.velocityDegree ?? "—",
-        angleTerms: termCount(models.min?.angleModel ?? null),
+        angleTerms: models.min?.angleDegree === null ? 1 : termCount(models.min?.angleModel ?? null),
         velTerms: termCount(models.min?.velocityModel ?? null),
         points: datasetCounts?.min ?? 0,
       },
       {
         regime: "Max angle",
-        angleDegree: models.max?.angleDegree ?? "—",
+        angleDegree: models.max?.angleDegree === null ? "Const" : (models.max?.angleDegree ?? "—"),
         velDegree: models.max?.velocityDegree ?? "—",
-        angleTerms: termCount(models.max?.angleModel ?? null),
+        angleTerms: models.max?.angleDegree === null ? 1 : termCount(models.max?.angleModel ?? null),
         velTerms: termCount(models.max?.velocityModel ?? null),
         points: datasetCounts?.max ?? 0,
       },
@@ -337,12 +364,12 @@ d^2/d(d)d(vr) = ${hasData ? generateSecondDerivativeEquation(models.normal?.[fie
   return (
     <div className="tab-config-card" style={{ 
       marginTop: 20, 
-      borderLeft: `3px solid ${hasData ? "#00ccff" : "#444"}`,
+      borderLeft: `3px solid ${hasData ? "var(--accent-team)" : "#444"}`,
       background: "#0d0d12"
     }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h3 style={{ color: hasData ? "#00ccff" : "#888", margin: 0, fontSize: '0.9rem' }}>
+        <h3 style={{ color: hasData ? "var(--accent-team)" : "#888", margin: 0 }}>
           {hasData ? "Generated Ballistics" : "Java Template (Awaiting Calibration)"}
         </h3>
         <button
@@ -352,8 +379,8 @@ d^2/d(d)d(vr) = ${hasData ? generateSecondDerivativeEquation(models.normal?.[fie
             padding: "5px 14px",
             fontSize: "0.8rem",
             background: copied ? "#00ccff22" : "transparent",
-            color: copied ? "#00ccff" : "#aaa",
-            border: `1px solid ${copied ? "#00ccff" : "#333"}`,
+            color: copied ? "var(--accent-team)" : "#aaa",
+            border: `1px solid ${copied ? "var(--accent-team)" : "#333"}`,
             borderRadius: 6,
             cursor: "pointer",
             transition: "all 0.2s",
@@ -387,7 +414,7 @@ d^2/d(d)d(vr) = ${hasData ? generateSecondDerivativeEquation(models.normal?.[fie
           >
             <div
               style={{
-                color: "#00ccff",
+                color: "var(--accent-team)",
                 fontWeight: 600,
                 marginBottom: 4,
                 fontSize: "0.7rem",
@@ -443,7 +470,7 @@ d^2/d(d)d(vr) = ${hasData ? generateSecondDerivativeEquation(models.normal?.[fie
               border: "none",
               cursor: "pointer",
               background: tab === id ? "#1a1a28" : "transparent",
-              color: tab === id ? "#00ccff" : "#666",
+              color: tab === id ? "var(--accent-team)" : "#666",
               fontWeight: tab === id ? 600 : 400,
               transition: "all 0.15s",
             }}
@@ -477,7 +504,7 @@ d^2/d(d)d(vr) = ${hasData ? generateSecondDerivativeEquation(models.normal?.[fie
       {!hasData && (
         <div style={{ 
           fontSize: "0.7rem", 
-          color: "#00ccff", 
+          color: "var(--accent-team)", 
           marginTop: 8, 
           textAlign: "center",
           fontStyle: "italic" 

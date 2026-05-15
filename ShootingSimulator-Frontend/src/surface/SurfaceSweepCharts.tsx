@@ -1,7 +1,13 @@
 import PlotlyComponent from "react-plotly.js";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ModelState } from "./CodeExporter";
-import { type ValidationResult, type RegimeValidation, QUALITY_COLOR } from "./SurfaceSweepView";
+import { 
+  type ValidationResult, 
+  type RegimeValidation, 
+  QUALITY_COLOR, 
+  FIT_THRESHOLDS, 
+  POLYNOMIAL_DEGREES 
+} from "./SurfaceSweepView";
 
 interface SurfaceSweepChartsProps {
   data: {
@@ -14,7 +20,6 @@ interface SurfaceSweepChartsProps {
     angle: number[][];
     velocity: number[][];
   } | null;
-  /** Absolute angle error per grid cell, same shape as angleMatrix */
   residuals: {
     angle: (number | null)[][] | null;
     velocity: (number | null)[][] | null;
@@ -29,7 +34,6 @@ interface SurfaceSweepChartsProps {
 
 const Plot = (PlotlyComponent as any).default || PlotlyComponent;
 
-// Shared scene configuration to reduce repetition
 const makeScene = (zTitle: string): Partial<Plotly.Scene> => ({
   xaxis: {
     title: { text: "Distance (m)" },
@@ -61,6 +65,7 @@ const baseLayout: Partial<Plotly.Layout> = {
   plot_bgcolor: "transparent",
   font: { color: "#ccc", family: "monospace" },
   margin: { l: 0, r: 0, b: 0, t: 28 },
+  hovermode: "closest",
   legend: {
     x: 0.02,
     y: 0.98,
@@ -82,14 +87,19 @@ const plotConfig = {
   responsive: true,
 };
 
+const errorColorscale = [
+  [0, "#003300"],
+  [0.05, "#00aa44"],
+  [0.25, "#ffd740"],
+  [1, "#ff5252"],
+];
+
 export default function SurfaceSweepCharts({
   data,
-  values,
   residuals,
   validation,
   models,
 }: SurfaceSweepChartsProps) {
-  const [showResiduals, setShowResiduals] = useState(false);
   const { distances, radialVels, angleMatrix, velocityMatrix } = data;
 
   if (!distances || !radialVels || !angleMatrix || !velocityMatrix) {
@@ -110,9 +120,6 @@ export default function SurfaceSweepCharts({
     );
   }
 
-  // Plotly surface expects z[row][col] where row is y (Radial Vel) and col is x (Distance).
-  // The solver sends data as [distance_index][vel_index].
-  // We must transpose the simulated matrices for visual alignment.
   const transposedData = useMemo(() => {
     const distCount = distances!.length;
     const velCount = radialVels!.length;
@@ -134,100 +141,68 @@ export default function SurfaceSweepCharts({
     return { angle: transposedAngle, velocity: transposedVel };
   }, [distances, radialVels, angleMatrix, velocityMatrix]);
 
-  const polynomialSurfaceTrace = (z: number[][], name: string) => ({
-    z,
-    x: distances,
-    y: radialVels,
-    type: "surface" as const,
-    colorscale: "RdBu",
-    name,
-    opacity: 0.55,
-    showscale: false,
-    contours: {
-      z: { show: true, usecolormap: true, project: { z: true } },
-    },
-  });
+  const angleHoverText = useMemo(() => {
+    const safeAngleResiduals = residuals?.angle || transposedData.angle.map(row => row.map(() => 0));
+    
+    return transposedData.angle.map((row, j) =>
+      row.map((zVal, i) => {
+        if (zVal === null) return "";
+        const err = safeAngleResiduals[j][i];
+        const errStr = err !== null ? `${err.toFixed(3)}°` : "N/A";
+        return `Distance: ${distances[i]}m<br>Radial Vel: ${radialVels[j]}m/s<br>Angle: ${zVal.toFixed(2)}°<br>Error: ${errStr}`;
+      })
+    );
+  }, [transposedData.angle, residuals?.angle, distances, radialVels]);
 
-  const renderHeatmap = (
-    z: (number | null)[][],
-    title: string,
-    unit: string,
-    max: number,
-  ) => (
-    <div style={{ flex: "1 1 300px", minWidth: 0 }}>
-      <div style={{ marginBottom: 8, paddingLeft: 4 }}>
-        <PanelLabel>{title}</PanelLabel>
-        <div style={{ fontSize: "0.7rem", color: "#555", marginTop: -6 }}>
-          |predicted - simulated| in {unit}
-        </div>
-      </div>
-      <Plot
-        data={[
-          {
-            z,
-            x: distances,
-            y: radialVels,
-            type: "heatmap",
-            zmin: 0,
-            zmax: max,
-            colorscale: [
-              [0, "#003300"],
-              [0.05, "#00aa44"],
-              [0.25, "#ffd740"],
-              [1, "#ff5252"],
-            ],
-            colorbar: {
-              thickness: 10,
-              len: 0.8,
-              tickfont: { color: "#666", size: 9 },
-            },
-            hoverongaps: false,
-            zsmooth: "best",
-          },
-        ]}
-        layout={{
-          ...baseLayout,
-          height: 220,
-          margin: { l: 35, r: 50, b: 35, t: 5 },
-          xaxis: { gridcolor: "#1e1e28", tickfont: { size: 9 } },
-          yaxis: { gridcolor: "#1e1e28", tickfont: { size: 9 } },
-        }}
-        config={plotConfig}
-        useResizeHandler
-        style={{ width: "100%", height: 220 }}
-      />
-    </div>
-  );
+  const velHoverText = useMemo(() => {
+    const safeVelResiduals = residuals?.velocity || transposedData.velocity.map(row => row.map(() => 0));
+
+    return transposedData.velocity.map((row, j) =>
+      row.map((zVal, i) => {
+        if (zVal === null) return "";
+        const err = safeVelResiduals[j][i];
+        const errStr = err !== null ? `${err.toFixed(3)}m/s` : "N/A";
+        return `Distance: ${distances[i]}m<br>Radial Vel: ${radialVels[j]}m/s<br>Velocity: ${zVal.toFixed(2)}m/s<br>Error: ${errStr}`;
+      })
+    );
+  }, [transposedData.velocity, residuals?.velocity, distances, radialVels]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Top row: angle + velocity side by side */}
+      {/* Accuracy Panel (Always Visible) */}
+      {validation.overall && (
+        <AccuracyPanel validation={validation} models={models} />
+      )}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        
         {/* ── Angle surface ── */}
         <div
           className="view-panel"
-          style={{ flex: "1 1 360px", minHeight: 420 }}
+          style={{ flex: "1 1 360px", minHeight: 600 }}
         >
           <PanelLabel>Optimal angle surface</PanelLabel>
           <Plot
             data={[
               {
                 z: transposedData.angle,
+                surfacecolor: residuals?.angle || undefined,
+                text: angleHoverText,
+                hoverinfo: "text",
+                cmin: 0,
+                cmax: 0.5,
                 x: distances,
                 y: radialVels,
                 type: "surface",
-                colorscale: "Viridis",
+                colorscale: errorColorscale,
                 name: "Simulated",
                 colorbar: {
-                  title: { text: "°", side: "right" },
+                  title: { text: "Error (°)", side: "right" },
                   thickness: 12,
                   len: 0.7,
                   tickfont: { color: "#888", size: 10 },
                 },
-              },
-              ...(values
-                ? [polynomialSurfaceTrace(values.angle, "Polynomial")]
-                : []),
+                hovertemplate: "%{text}<extra></extra>",
+              }
             ]}
             layout={{
               ...baseLayout,
@@ -242,28 +217,31 @@ export default function SurfaceSweepCharts({
         {/* ── Velocity surface ── */}
         <div
           className="view-panel"
-          style={{ flex: "1 1 360px", minHeight: 420 }}
+          style={{ flex: "1 1 360px", minHeight: 600 }}
         >
           <PanelLabel>Optimal velocity surface</PanelLabel>
           <Plot
             data={[
               {
                 z: transposedData.velocity,
+                surfacecolor: residuals?.velocity || undefined,
+                text: velHoverText,
+                hoverinfo: "text",
+                cmin: 0,
+                cmax: 0.2,
                 x: distances,
                 y: radialVels,
                 type: "surface",
-                colorscale: "Plasma",
+                colorscale: errorColorscale,
                 name: "Simulated",
                 colorbar: {
-                  title: { text: "m/s", side: "right" },
+                  title: { text: "Error (m/s)", side: "right" },
                   thickness: 12,
                   len: 0.7,
                   tickfont: { color: "#888", size: 10 },
                 },
-              },
-              ...(values
-                ? [polynomialSurfaceTrace(values.velocity, "Polynomial")]
-                : []),
+                hovertemplate: "%{text}<extra></extra>",
+              }
             ]}
             layout={{
               ...baseLayout,
@@ -275,91 +253,6 @@ export default function SurfaceSweepCharts({
           />
         </div>
       </div>
-
-      {/* Residuals Card Section */}
-      {residuals && (residuals.angle || residuals.velocity) && (
-        <div
-          style={{
-            background: "#0d0d12", // Matched to your "Awaiting data" background
-            borderRadius: 10,
-            border: "1px solid #2a2a35",
-            overflow: "hidden",
-          }}
-        >
-          <button
-            onClick={() => setShowResiduals(!showResiduals)}
-            style={{
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              padding: "14px 16px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              cursor: "pointer",
-              outline: "none",
-            }}
-          >
-            <span
-              style={{
-                color: "#aaa",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-              }}
-            >
-              Model Fidelity Residuals
-            </span>
-            <div
-              style={{
-                color: "#555",
-                fontSize: "0.6rem",
-                transform: showResiduals ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-              }}
-            >
-              ▼
-            </div>
-          </button>
-
-          <div
-            style={{
-              maxHeight: showResiduals ? "1200px" : "0px",
-              opacity: showResiduals ? 1 : 0,
-              transition: "max-height 0.3s ease-in-out, opacity 0.3s ease",
-              overflow: "hidden",
-              background: "rgba(255,255,255,0.02)", // Subtle lift
-            }}
-          >
-            <div
-              style={{
-                padding: "20px 16px",
-                borderTop: "1px solid #1a1a24",
-              }}
-            >
-              {/* Accuracy Stats Integration */}
-              {validation.overall && (
-                <div style={{ marginBottom: 24 }}>
-                  <AccuracyPanel validation={validation} models={models} />
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-                {residuals.angle &&
-                  renderHeatmap(residuals.angle, "Angle Error", "°", 0.5)}
-                {residuals.velocity &&
-                  renderHeatmap(
-                    residuals.velocity,
-                    "Velocity Error",
-                    "m/s",
-                    0.2,
-                  )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -372,7 +265,7 @@ function RegimeBadge({
 }: {
   label: string;
   data: RegimeValidation | null;
-  angleDegree: number;
+  angleDegree: number | null;
   velDegree: number;
 }) {
   if (!data) return null;
@@ -410,7 +303,7 @@ function RegimeBadge({
             textTransform: "none",
           }}
         >
-          deg {angleDegree}/{velDegree}
+          {angleDegree === null ? "Const" : `deg ${angleDegree}`}/{velDegree}
         </span>
       </div>
       <table
@@ -499,12 +392,20 @@ function AccuracyPanel({
     parseFloat(overall.angleMaxError),
     parseFloat(overall.velMaxError),
   );
-  const isGood =
-    parseFloat(overall.angleMaxError) < 0.1 &&
-    parseFloat(overall.velMaxError) < 0.05;
+  
+  const isExcellent =
+    parseFloat(overall.angleMaxError) <= FIT_THRESHOLDS.EXCELLENT.ANGLE_MAX_ERR &&
+    parseFloat(overall.velMaxError) <= FIT_THRESHOLDS.EXCELLENT.VEL_MAX_ERR;
+    
+  const isAcceptable =
+    parseFloat(overall.angleMaxError) <= FIT_THRESHOLDS.ACCEPTABLE.ANGLE_MAX_ERR &&
+    parseFloat(overall.velMaxError) <= FIT_THRESHOLDS.ACCEPTABLE.VEL_MAX_ERR;
 
   return (
-    <div style={{ borderLeft: `2px solid ${overallColor}`, paddingLeft: 16 }}>
+    <div className="tab-config-card" style={{ 
+      marginTop: 20, 
+      background: "#0d0d12"
+    }}>
       <div
         style={{
           display: "flex",
@@ -513,19 +414,13 @@ function AccuracyPanel({
           marginBottom: 12,
         }}
       >
-        <div
-          style={{
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            color: "#ccc",
-            textTransform: "uppercase",
-          }}
+        <h2
+          style={{ color: `${overallColor}`, margin: 0 }}
         >
-          Polynomial fit accuracy
-        </div>
+          Polynomial Fit Accuracy
+        </h2>
         <span
           style={{
-            fontSize: "0.65rem",
             padding: "2px 8px",
             borderRadius: 12,
             background: `${overallColor}15`,
@@ -534,12 +429,11 @@ function AccuracyPanel({
             fontWeight: 600,
           }}
         >
-          {isGood
-            ? "✓ Excellent"
-            : parseFloat(overall.angleMaxError) < 0.5 &&
-                parseFloat(overall.velMaxError) < 0.2
-              ? "⚠ Acceptable"
-              : "✗ Poor fit"}
+          {isExcellent
+            ? FIT_THRESHOLDS.EXCELLENT.LABEL
+            : isAcceptable
+            ? FIT_THRESHOLDS.ACCEPTABLE.LABEL
+            : FIT_THRESHOLDS.POOR.LABEL}
         </span>
       </div>
 
@@ -549,20 +443,20 @@ function AccuracyPanel({
         <RegimeBadge
           label="Normal"
           data={validation.normal}
-          angleDegree={models.normal?.angleDegree ?? 4}
-          velDegree={models.normal?.velocityDegree ?? 4}
+          angleDegree={models.normal?.angleDegree ?? POLYNOMIAL_DEGREES.NORMAL.ANGLE}
+          velDegree={models.normal?.velocityDegree ?? POLYNOMIAL_DEGREES.NORMAL.VELOCITY}
         />
         <RegimeBadge
           label="Min angle"
           data={validation.min}
-          angleDegree={models.min?.angleDegree ?? 1}
-          velDegree={models.min?.velocityDegree ?? 2}
+          angleDegree={models.min?.angleDegree ?? POLYNOMIAL_DEGREES.MIN.ANGLE}
+          velDegree={models.min?.velocityDegree ?? POLYNOMIAL_DEGREES.MIN.VELOCITY}
         />
         <RegimeBadge
           label="Max angle"
           data={validation.max}
-          angleDegree={models.max?.angleDegree ?? 1}
-          velDegree={models.max?.velocityDegree ?? 2}
+          angleDegree={models.max?.angleDegree ?? POLYNOMIAL_DEGREES.MAX.ANGLE}
+          velDegree={models.max?.velocityDegree ?? POLYNOMIAL_DEGREES.MAX.VELOCITY}
         />
       </div>
 
