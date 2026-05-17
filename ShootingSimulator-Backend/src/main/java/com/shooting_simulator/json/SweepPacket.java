@@ -1,10 +1,7 @@
 package com.shooting_simulator.json;
 
 import com.shooting_simulator.SimulatorServer;
-import com.shooting_simulator.simulation.PhysicalValues;
-import com.shooting_simulator.simulation.TargetAxis;
-import com.shooting_simulator.simulation.Trajectory;
-import com.shooting_simulator.simulation.TrajectoryChooser;
+import com.shooting_simulator.simulation.*;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
@@ -23,6 +20,7 @@ public class SweepPacket implements DataPacket {
 
     public SweepBounds sweepBounds;
     public PhysicalValues physicalValues;
+    public CostWeights costConfig;
 
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
@@ -54,7 +52,8 @@ public class SweepPacket implements DataPacket {
                     targetPos,
                     TargetAxis.valueOf(this.targetAxis),
                     this.minHitAngle,
-                    this.maxHitAngle
+                    this.maxHitAngle,
+                    this.costConfig
             );
 
             Trajectory best = chooser.getBestTrajectory();

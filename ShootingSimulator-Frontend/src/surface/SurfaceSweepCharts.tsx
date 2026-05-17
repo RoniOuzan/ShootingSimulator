@@ -96,6 +96,7 @@ const errorColorscale = [
 
 export default function SurfaceSweepCharts({
   data,
+  values,
   residuals,
   validation,
   models,
@@ -166,6 +167,23 @@ export default function SurfaceSweepCharts({
       })
     );
   }, [transposedData.velocity, residuals?.velocity, distances, radialVels]);
+  
+  const polynomialSurfaceTrace = (z: number[][], name: string) => ({
+    z,
+    x: distances,
+    y: radialVels,
+    type: "surface" as const,
+    colorscale: [[0, "#ffffff"], [1, "#ffffff"]],
+    name,
+    opacity: 0.15,
+    showscale: false,
+    hoverinfo: "skip" as const, // Prevents this invisible layer from catching the mouse raycaster
+    contours: {
+      x: { show: true, color: "#ffffff", width: 1 },
+      y: { show: true, color: "#ffffff", width: 1 },
+      z: { show: false },
+    },
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -202,7 +220,10 @@ export default function SurfaceSweepCharts({
                   tickfont: { color: "#888", size: 10 },
                 },
                 hovertemplate: "%{text}<extra></extra>",
-              }
+              },
+              ...(values
+                ? [polynomialSurfaceTrace(values.angle, "Polynomial")]
+                : []),
             ]}
             layout={{
               ...baseLayout,
@@ -241,7 +262,10 @@ export default function SurfaceSweepCharts({
                   tickfont: { color: "#888", size: 10 },
                 },
                 hovertemplate: "%{text}<extra></extra>",
-              }
+              },
+              ...(values
+                ? [polynomialSurfaceTrace(values.velocity, "Polynomial")]
+                : []),
             ]}
             layout={{
               ...baseLayout,

@@ -46,6 +46,7 @@ export default function DistanceSweepView({
           ...sharedConfig.hardware,
           ...sharedConfig.aerodynamics,
         },
+        costConfig: sharedConfig.cost,
       },
     };
 

@@ -40,6 +40,19 @@ export interface SharedConfig {
   target: TargetParams;
   aerodynamics: AerodynamicParams;
   hardware: HardwareLimits;
+  cost: CostConfig;
+}
+
+export type CostPreset = "ROBUST" | "SLOW_SHOT" | "FAST_ARRIVAL" | "SWISH" | "REBUILT_MIXED" | "CUSTOM";
+
+export interface CostConfig {
+  preset: CostPreset;
+  robustnessWeight: number;
+  initialVelocityWeight: number;
+  impactVelocityWeight: number;
+  timeOfFlightWeight: number;
+  entryAngleWeight: number;
+  targetImpactAngle: number;
 }
 
 export interface Sample {

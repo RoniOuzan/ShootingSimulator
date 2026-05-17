@@ -187,3 +187,30 @@
 .btn-toggle.active-mode {
   color: #111; /* Dark text for high contrast against the bright sliding pill */
 }
+
+.config-card.cost {
+  border-left: 2px solid #a855f7; /* Purple accent for Cost Function */
+}
+
+.preset-grid .preset-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-grid .preset-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.preset-grid .preset-btn.active {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: #a855f7;
+  color: #d8b4fe;
+}

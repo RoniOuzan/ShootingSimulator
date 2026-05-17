@@ -65,6 +65,7 @@ export default function TrajectoryVisualizer({
           ...sharedConfig.hardware,
           ...sharedConfig.aerodynamics,
         },
+        costConfig: sharedConfig.cost,
       },
     };
 

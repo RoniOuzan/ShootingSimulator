@@ -1,4 +1,4 @@
-import type { SharedConfig } from "../types";
+import type { SharedConfig, CostPreset } from "../types";
 import ControlSlider from "./ControlSlider";
 import "./SharedConfigSidebar.css";
 
@@ -12,13 +12,47 @@ interface Props {
   onToggleCollapse: () => void;
 }
 
+const PRESETS: Record<Exclude<CostPreset, "CUSTOM">, Omit<SharedConfig["cost"], "preset">> = {
+  ROBUST: { 
+    robustnessWeight: 1.0, initialVelocityWeight: 0.0, impactVelocityWeight: 0.0, timeOfFlightWeight: 0.0, entryAngleWeight: 0.0, targetImpactAngle: 0 
+  },
+  SLOW_SHOT: { 
+    robustnessWeight: 0.4, initialVelocityWeight: 1, impactVelocityWeight: 0.3, timeOfFlightWeight: 0.0, entryAngleWeight: 0.0, targetImpactAngle: 0 
+  },
+  FAST_ARRIVAL: { 
+    robustnessWeight: 0.5, initialVelocityWeight: 0.0, impactVelocityWeight: 0.0, timeOfFlightWeight: 1.0, entryAngleWeight: 0.0, targetImpactAngle: 0 
+  },
+  SWISH: { // Prioritizes a clean entry angle straight down (-90) to maximize effective target area
+    robustnessWeight: 0.5, initialVelocityWeight: 0.0, impactVelocityWeight: 0.0, timeOfFlightWeight: 0.0, entryAngleWeight: 1.5, targetImpactAngle: -90 
+  },
+  REBUILT_MIXED: { 
+    robustnessWeight: 1.0, initialVelocityWeight: 0.7, impactVelocityWeight: 0.1, timeOfFlightWeight: 0.1, entryAngleWeight: 0.2, targetImpactAngle: -45 
+  },
+};
+
 export default function SharedConfigSidebar({
   config,
   updateConfig,
   isCollapsed,
   onToggleCollapse,
 }: Props) {
-  const { origin, target, aerodynamics, hardware } = config;
+  const { 
+    origin, 
+    target, 
+    aerodynamics, 
+    hardware, 
+    cost = {
+      preset: 'REBUILT_MIXED'
+    } 
+  } = config;
+
+  const handlePresetChange = (preset: CostPreset) => {
+    if (preset === "CUSTOM") {
+      updateConfig("cost", { preset: "CUSTOM" });
+    } else {
+      updateConfig("cost", { preset, ...PRESETS[preset] });
+    }
+  };
 
   return (
     <div className={`shared-sidebar ${isCollapsed ? "collapsed" : ""}`}>
@@ -266,6 +300,35 @@ export default function SharedConfigSidebar({
                 }
               />
             </div>
+          </div>
+
+          <div className="config-card cost">
+            <h3 className="card-title">
+              <span className="icon">⚖️</span> Evaluation Cost Function
+            </h3>
+            
+            <div className="preset-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+              <button className={`preset-btn ${cost.preset === 'ROBUST' ? 'active' : ''}`} onClick={() => handlePresetChange('ROBUST')}>Most Robust</button>
+              <button className={`preset-btn ${cost.preset === 'SWISH' ? 'active' : ''}`} onClick={() => handlePresetChange('SWISH')}>Clean Swish</button>
+              <button className={`preset-btn ${cost.preset === 'FAST_ARRIVAL' ? 'active' : ''}`} onClick={() => handlePresetChange('FAST_ARRIVAL')}>Fast Arrival</button>
+              <button className={`preset-btn ${cost.preset === 'SLOW_SHOT' ? 'active' : ''}`} onClick={() => handlePresetChange('SLOW_SHOT')}>Slowest Impact</button>
+              <button className={`preset-btn ${cost.preset === 'REBUILT_MIXED' ? 'active' : ''}`} onClick={() => handlePresetChange('REBUILT_MIXED')}>Balanced Mix</button>
+              <button className={`preset-btn ${cost.preset === 'CUSTOM' ? 'active' : ''}`} onClick={() => handlePresetChange('CUSTOM')}>Custom Weights</button>
+            </div>
+
+            {cost.preset === 'CUSTOM' && (
+              <div className="custom-weights-animate" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <ControlSlider label="Robustness Penalty" value={cost.robustnessWeight} min={0} max={2} step={0.05} unit="x" onChange={(v) => updateConfig("cost", { robustnessWeight: v })} />
+                <ControlSlider label="Initial Vel Penalty" value={cost.initialVelocityWeight} min={0} max={1} step={0.01} unit="x" onChange={(v) => updateConfig("cost", { initialVelocityWeight: v })} />
+                <ControlSlider label="Impact Vel Penalty" value={cost.impactVelocityWeight} min={0} max={1} step={0.01} unit="x" onChange={(v) => updateConfig("cost", { impactVelocityWeight: v })} />
+                <ControlSlider label="Flight Time Penalty" value={cost.timeOfFlightWeight} min={0} max={1} step={0.1} unit="x" onChange={(v) => updateConfig("cost", { timeOfFlightWeight: v })} />
+                
+                <div className="card-divider" />
+                
+                <ControlSlider label="Desired Impact Angle" value={cost.targetImpactAngle} min={target.minHitAngle} max={target.maxHitAngle} step={1} unit="°" onChange={(v) => updateConfig("cost", { targetImpactAngle: v })} />
+                <ControlSlider label="Angle Error Penalty" value={cost.entryAngleWeight} min={0} max={1} step={0.05} unit="x" onChange={(v) => updateConfig("cost", { entryAngleWeight: v })} />
+              </div>
+            )}
           </div>
 
           {/* Reset Button */}

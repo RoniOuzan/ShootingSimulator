@@ -23,6 +23,7 @@ public class CalculatePacket implements DataPacket {
     
     // Limits
     public PhysicalValues physicalValues;
+    public CostWeights costConfig;
 
     public double minHitAngle;
     public double maxHitAngle;
@@ -39,7 +40,7 @@ public class CalculatePacket implements DataPacket {
     }
 
     private ResultsPayload getResultsPayload(Translation2d initialPos, Translation2d target) {
-        TrajectoryChooser chooser = new TrajectoryChooser(this.physicalValues, initialPos, this.radialVelocity, target, TargetAxis.valueOf(this.targetAxis), this.minHitAngle, this.maxHitAngle);
+        TrajectoryChooser chooser = new TrajectoryChooser(this.physicalValues, initialPos, this.radialVelocity, target, TargetAxis.valueOf(this.targetAxis), this.minHitAngle, this.maxHitAngle, this.costConfig);
 
         List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
          List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 10);
@@ -48,7 +49,7 @@ public class CalculatePacket implements DataPacket {
          List<Trajectory> downsampledTrajectories = new ArrayList<>();
 
          for (Trajectory t : rawTrajectories) {
-             downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 10), t.getHitSample(), t.isHitTarget(), t.getInitialShootingVelocity(), t.isFlat()));
+             downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 10), t.getTime(), t.getHitSample(), t.isHitTarget(), t.getInitialShootingVelocity(), t.isFlat()));
          }
 
         return new ResultsPayload(downsampledTrajectories, chooser.findBestTrajectory(), downsampledRobustness, chooser.getCostSweep());

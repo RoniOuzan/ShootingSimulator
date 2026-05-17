@@ -34,6 +34,15 @@ const DEFAULT_CONFIG: SharedConfig = {
     estimatedAngleError: 0.005,
     estimatedVelocityError: 0.0008,
   },
+  cost: {
+    preset: "REBUILT_MIXED",
+    robustnessWeight: 1.0,
+    initialVelocityWeight: 0.05,
+    impactVelocityWeight: 0.1,
+    timeOfFlightWeight: 0.5,
+    entryAngleWeight: 0.2,
+    targetImpactAngle: -50,
+  }
 };
 
 export default function App() {

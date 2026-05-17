@@ -11,16 +11,21 @@ import lombok.Getter;
 @Getter
 public class TrajectoryChooser {
 
-    private static final double EXIT_VELOCITY_DT = 0.000_001;
-    private static final double ANGLE_DT = 0.000_001;
+    private static final double EXIT_VELOCITY_DT = 0.000_01;
+    private static final double ANGLE_DT = 0.000_01;
 
     private static final double ANGLE_DT_DIVIDER = 100;
 
-    private static final double MISS_TARGET_COST = 3;
+    private static final double MISS_TARGET_COST = 1000000;
+    private static final double SCALE_ROBUSTNESS = 1000.0; // 0.001m of variance = 1.0 penalty point
+    private static final double SCALE_VELOCITY = 0.1;      // 10 m/s = 1.0 penalty point
+    private static final double SCALE_TIME = 1.0;          // 1 second of flight = 1.0 penalty point
+    private static final double SCALE_ANGLE = 0.05;        // 20 degrees off target angle = 1.0 penalty point
 
     private static final boolean[] SHOT_PHASES = {true, false};
 
     private final PhysicalValues physicalValues;
+    private final CostWeights costWeights;
 
     private final TrajectoryBuilder builder;
     private final Translation2d target;
@@ -31,8 +36,9 @@ public class TrajectoryChooser {
     private List<Trajectory> trajectories;
     private Trajectory bestTrajectory;
 
-    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle) {
+    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights) {
         this.physicalValues = physicalValues;
+        this.costWeights = costWeights;
 
         this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, target, targetAxis, minHitAngle, maxHitAngle, physicalValues);
         this.target = target;
@@ -169,8 +175,33 @@ public class TrajectoryChooser {
         return cost;
     }
 
+    /**
+     * Calculates the true real-world cost of a trajectory based on multi-objective weights.
+     * Lower cost is better.
+     */
     public double calculateTrajectoryCost(Trajectory trajectory) {
-        return Math.hypot(calculateMaxErrorForExitVelocity(trajectory), calculateMaxErrorForAngle(trajectory));
+        // Robustness (Normalized: 0.001m error -> 1.0 baseline penalty)
+        double rawRobustness = Math.hypot(calculateMaxErrorForExitVelocity(trajectory), calculateMaxErrorForAngle(trajectory));
+        double robustPenalty = rawRobustness * SCALE_ROBUSTNESS;
+
+        // Effort (Normalized: 10 m/s -> 1.0 baseline penalty)
+        double initialVelPenalty = trajectory.getInitialShootingVelocity().getNorm() * SCALE_VELOCITY;
+
+        // Impact Dynamics (Normalized)
+        double impactVelPenalty = trajectory.getHitSample().getVelocity().getNorm() * SCALE_VELOCITY;
+        double timeOfFlightPenalty = trajectory.getTime() * SCALE_TIME;
+
+        // Entry Angle (Normalized: 20 degrees off -> 1.0 baseline penalty)
+        Rotation2d impactAngle = trajectory.getHitSample().getVelocity().getAngle();
+        double rawAngleError = Math.abs(impactAngle.getDegrees() - this.costWeights.targetImpactAngle());
+        double entryAnglePenalty = rawAngleError * SCALE_ANGLE;
+
+        // Apply UI weights and sum the standardized penalties
+        return (robustPenalty * this.costWeights.robustnessWeight()) +
+                (initialVelPenalty * this.costWeights.initialVelocityWeight()) +
+                (impactVelPenalty * this.costWeights.impactVelocityWeight()) +
+                (timeOfFlightPenalty * this.costWeights.timeOfFlightWeight()) +
+                (entryAnglePenalty * this.costWeights.entryAngleWeight());
     }
 
     private double calculateMaxErrorForExitVelocity(Trajectory trajectory) {
@@ -179,7 +210,6 @@ public class TrajectoryChooser {
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
-
         return this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition());
     }
 
@@ -190,7 +220,6 @@ public class TrajectoryChooser {
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
-
         return this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition());
     }
 
