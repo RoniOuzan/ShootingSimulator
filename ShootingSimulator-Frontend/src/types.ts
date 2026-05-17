@@ -43,7 +43,7 @@ export interface SharedConfig {
   cost: CostConfig;
 }
 
-export type CostPreset = "ROBUST" | "SLOW_SHOT" | "FAST_ARRIVAL" | "SWISH" | "REBUILT_MIXED" | "CUSTOM";
+export type CostPreset = "ROBUST" | "SLOW_SHOT" | "FAST_ARRIVAL" | "SWISH" | "BALANCED" | "CUSTOM";
 
 export interface CostConfig {
   preset: CostPreset;

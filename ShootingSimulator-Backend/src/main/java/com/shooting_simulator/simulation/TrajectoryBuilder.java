@@ -63,7 +63,7 @@ public class TrajectoryBuilder {
 
         Translation2d position = this.initialPosition;
         Translation2d velocity = initialShootingVelocity.plus(new Translation2d(this.radialVelocity, 0));
-        samples.add(new Sample(position, velocity));
+        samples.add(new Sample(position, velocity, new Translation2d(), 0));
 
         double time = 0;
         while (shouldCalculateTrajectory(position)) {
@@ -79,10 +79,8 @@ public class TrajectoryBuilder {
             // Check for crossing
             if (isPassedTarget(position, nextPosition, nextVelocity, isFlat)) {
                 // Add the perfect sample and STOP
-                LastSample lastSample = calculateLastSample(position, velocity, acceleration);
-                hitSample = lastSample.sample;
+                hitSample = calculateLastSample(position, velocity, acceleration, time);
                 samples.add(hitSample);
-                time += lastSample.time;
 
                 // Only stops if vertical because in horizontal it can pass the y twice
                 if (this.targetAxis == TargetAxis.VERTICAL)
@@ -92,12 +90,11 @@ public class TrajectoryBuilder {
             // Standard update if no crossing
             position = nextPosition;
             velocity = nextVelocity;
-            samples.add(new Sample(position, velocity));
-
             time += PERIOD;
+            samples.add(new Sample(position, velocity, acceleration, time));
         }
 
-        return new Trajectory(samples, time, hitSample, this.isInsideTarget(hitSample), initialShootingVelocity, isFlat);
+        return new Trajectory(samples, hitSample, this.isInsideTarget(hitSample), initialShootingVelocity, isFlat);
     }
 
     private boolean isPassedTarget(Translation2d prev, Translation2d next, Translation2d velocity, boolean isFlat) {
@@ -117,7 +114,7 @@ public class TrajectoryBuilder {
         return position.getY() >= 0;
     }
 
-    private LastSample calculateLastSample(Translation2d position, Translation2d velocity, Translation2d acceleration) {
+    private Sample calculateLastSample(Translation2d position, Translation2d velocity, Translation2d acceleration, double time) {
         double delta = this.targetAxis.getTargetAxis(this.target) - this.targetAxis.getTargetAxis(position);
 
         // Solve: 0.5*a*t^2 + v*t - delta = 0
@@ -140,11 +137,8 @@ public class TrajectoryBuilder {
 
         Translation2d exactVelocity = velocity.plus(acceleration.times(exactT));
 
-        Sample sample = new Sample(exactPosition, exactVelocity);
-        return new LastSample(sample, exactT);
+        return new Sample(exactPosition, exactVelocity, acceleration, time + exactT);
     }
-
-    private record LastSample(Sample sample, double time) {}
 
     private boolean isInHitAngleRange(Rotation2d angle) {
         return angle.getDegrees() >= this.minHitAngle && angle.getDegrees() <= this.maxHitAngle;

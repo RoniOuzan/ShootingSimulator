@@ -49,7 +49,7 @@ public class CalculatePacket implements DataPacket {
          List<Trajectory> downsampledTrajectories = new ArrayList<>();
 
          for (Trajectory t : rawTrajectories) {
-             downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 10), t.getTime(), t.getHitSample(), t.isHitTarget(), t.getInitialShootingVelocity(), t.isFlat()));
+             downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 10), t.getHitSample(), t.isHitTarget(), t.getInitialShootingVelocity(), t.isFlat()));
          }
 
         return new ResultsPayload(downsampledTrajectories, chooser.findBestTrajectory(), downsampledRobustness, chooser.getCostSweep());

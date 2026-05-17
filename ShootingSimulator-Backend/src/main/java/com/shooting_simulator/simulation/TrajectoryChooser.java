@@ -17,10 +17,10 @@ public class TrajectoryChooser {
     private static final double ANGLE_DT_DIVIDER = 100;
 
     private static final double MISS_TARGET_COST = 1000000;
-    private static final double SCALE_ROBUSTNESS = 1000.0; // 0.001m of variance = 1.0 penalty point
-    private static final double SCALE_VELOCITY = 0.1;      // 10 m/s = 1.0 penalty point
-    private static final double SCALE_TIME = 1.0;          // 1 second of flight = 1.0 penalty point
-    private static final double SCALE_ANGLE = 0.05;        // 20 degrees off target angle = 1.0 penalty point
+    private static final double SCALE_ROBUSTNESS = 500.0;
+    private static final double SCALE_VELOCITY = 0.1;
+    private static final double SCALE_TIME = 1.0;
+    private static final double SCALE_ANGLE = 0.04;
 
     private static final boolean[] SHOT_PHASES = {true, false};
 
@@ -180,23 +180,21 @@ public class TrajectoryChooser {
      * Lower cost is better.
      */
     public double calculateTrajectoryCost(Trajectory trajectory) {
-        // Robustness (Normalized: 0.001m error -> 1.0 baseline penalty)
-        double rawRobustness = Math.hypot(calculateMaxErrorForExitVelocity(trajectory), calculateMaxErrorForAngle(trajectory));
-        double robustPenalty = rawRobustness * SCALE_ROBUSTNESS;
+        double robustPenalty = Math.hypot(calculateMaxErrorForExitVelocity(trajectory), calculateMaxErrorForAngle(trajectory));
 
         // Effort (Normalized: 10 m/s -> 1.0 baseline penalty)
         double initialVelPenalty = trajectory.getInitialShootingVelocity().getNorm() * SCALE_VELOCITY;
 
         // Impact Dynamics (Normalized)
         double impactVelPenalty = trajectory.getHitSample().getVelocity().getNorm() * SCALE_VELOCITY;
-        double timeOfFlightPenalty = trajectory.getTime() * SCALE_TIME;
+        double timeOfFlightPenalty = trajectory.getHitSample().getTime() * SCALE_TIME;
 
         // Entry Angle (Normalized: 20 degrees off -> 1.0 baseline penalty)
         Rotation2d impactAngle = trajectory.getHitSample().getVelocity().getAngle();
         double rawAngleError = Math.abs(impactAngle.getDegrees() - this.costWeights.targetImpactAngle());
         double entryAnglePenalty = rawAngleError * SCALE_ANGLE;
 
-        // Apply UI weights and sum the standardized penalties
+        // Apply UI weights and sum
         return (robustPenalty * this.costWeights.robustnessWeight()) +
                 (initialVelPenalty * this.costWeights.initialVelocityWeight()) +
                 (impactVelPenalty * this.costWeights.impactVelocityWeight()) +
@@ -210,7 +208,7 @@ public class TrajectoryChooser {
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
-        return this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition());
+        return SCALE_ROBUSTNESS * (this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition()));
     }
 
     private double calculateMaxErrorForAngle(Trajectory trajectory) {
@@ -220,7 +218,7 @@ public class TrajectoryChooser {
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
-        return this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition());
+        return SCALE_ROBUSTNESS * (this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition()));
     }
 
     private List<Trajectory> calculateTrajectories() {

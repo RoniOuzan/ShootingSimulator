@@ -9,16 +9,14 @@ import lombok.Getter;
 @Getter
 public class Trajectory {
     private final List<Sample> samples;
-    private final double time;
     private final Sample hitSample;
     private final boolean isHitTarget;
     private final boolean isReachedTargetHeight;
     private final Translation2d initialShootingVelocity;
     private final boolean isFlat;
 
-    public Trajectory(List<Sample> samples, double time, Sample hitSample, boolean isHitTarget, Translation2d initialShootingVelocity, boolean isFlat) {
+    public Trajectory(List<Sample> samples, Sample hitSample, boolean isHitTarget, Translation2d initialShootingVelocity, boolean isFlat) {
         this.samples = samples;
-        this.time = time;
         this.initialShootingVelocity = initialShootingVelocity;
         this.isHitTarget = isHitTarget;
         this.isReachedTargetHeight = hitSample != null;
