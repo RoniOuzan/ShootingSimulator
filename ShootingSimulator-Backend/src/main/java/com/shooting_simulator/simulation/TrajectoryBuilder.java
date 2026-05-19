@@ -62,7 +62,7 @@ public class TrajectoryBuilder {
         final Translation2d initialShootingVelocity = new Translation2d(exitVelocity, angle);
 
         Translation2d position = this.initialPosition;
-        Translation2d velocity = initialShootingVelocity.plus(new Translation2d(this.radialVelocity, 0));
+        Translation2d velocity = initialShootingVelocity.plus(new Translation2d(-this.radialVelocity, 0));
         samples.add(new Sample(position, velocity, new Translation2d(), 0));
 
         double time = 0;
