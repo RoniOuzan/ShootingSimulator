@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import type { SharedConfig, SimulationResults, Translation2d } from "../types";
 
 interface CanvasProps {
-  targetX: number;
-  setTargetX: (val: number) => void;
+  initialX: number;
+  setInitialX: (x: number) => void;
   sharedConfig: SharedConfig;
   updateConfig: <K extends keyof SharedConfig>(section: K, updates: Partial<SharedConfig[K]>) => void;
   results: SimulationResults;
@@ -11,16 +11,15 @@ interface CanvasProps {
   setZoom: (val: number) => void;
   pan: Translation2d;
   setPan: React.Dispatch<React.SetStateAction<Translation2d>>;
-  isLockedX: boolean;
   isLockedY: boolean;
   isLockedOriginX: boolean;
   isLockedOriginY: boolean;
 }
 
 export default function TrajectoryCanvas({
-  targetX, setTargetX, sharedConfig, updateConfig, results,
+  initialX, setInitialX, sharedConfig, updateConfig, results,
   zoom, setZoom, pan, setPan,
-  isLockedX, isLockedY, isLockedOriginX, isLockedOriginY
+  isLockedY, isLockedOriginX, isLockedOriginY
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -100,16 +99,16 @@ export default function TrajectoryCanvas({
     clickStartPos.current = { x: mouseX, y: mouseY };
     const worldCoords = toWorld(mouseX, mouseY, canvas.height);
 
-    if (isHoveringDot(worldCoords, targetX, sharedConfig.target.targetY)) {
+    if (isHoveringDot(worldCoords, 0, sharedConfig.target.targetY)) {
       setIsDraggingTarget(true);
       dragOffset.current = {
-        x: targetX - worldCoords.x,
+        x: -worldCoords.x,
         y: sharedConfig.target.targetY - worldCoords.y,
       };
-    } else if (isHoveringDot(worldCoords, sharedConfig.origin.initialX, sharedConfig.origin.initialY)) {
+    } else if (isHoveringDot(worldCoords, initialX, sharedConfig.origin.initialY)) {
       setIsDraggingOrigin(true);
       dragOffset.current = {
-        x: sharedConfig.origin.initialX - worldCoords.x,
+        x: initialX - worldCoords.x,
         y: sharedConfig.origin.initialY - worldCoords.y,
       };
     } else {
@@ -125,29 +124,27 @@ export default function TrajectoryCanvas({
     const { x: mouseX, y: mouseY } = getMouseCoords(e, canvas);
     const worldCoords = toWorld(mouseX, mouseY, canvas.height);
 
-    setIsHoveringTarget(isHoveringDot(worldCoords, targetX, sharedConfig.target.targetY));
-    setIsHoveringOrigin(isHoveringDot(worldCoords, sharedConfig.origin.initialX, sharedConfig.origin.initialY));
+    setIsHoveringTarget(isHoveringDot(worldCoords, 0, sharedConfig.target.targetY));
+    setIsHoveringOrigin(isHoveringDot(worldCoords, initialX, sharedConfig.origin.initialY));
 
     if (isDraggingTarget) {
-      if (!isLockedX)
-        setTargetX(Number((worldCoords.x + dragOffset.current.x).toFixed(2)));
-
       const newY = !isLockedY
         ? Math.max(0, Number((worldCoords.y + dragOffset.current.y).toFixed(2)))
         : sharedConfig.target.targetY;
+
       if (newY !== sharedConfig.target.targetY) {
         updateConfig("target", { targetY: newY });
       }
     } else if (isDraggingOrigin) {
-      const newX = !isLockedOriginX
-        ? Number((worldCoords.x + dragOffset.current.x).toFixed(2))
-        : sharedConfig.origin.initialX;
+      if (!isLockedOriginX)
+        setInitialX(Number((worldCoords.x + dragOffset.current.x).toFixed(2)));
+
       const newY = !isLockedOriginY
         ? Math.max(0, Number((worldCoords.y + dragOffset.current.y).toFixed(2)))
         : sharedConfig.origin.initialY;
 
-      if (newX !== sharedConfig.origin.initialX || newY !== sharedConfig.origin.initialY) {
-        updateConfig("origin", { initialX: newX, initialY: newY });
+      if (newY !== sharedConfig.origin.initialY) {
+        updateConfig("origin", { initialY: newY });
       }
     } else if (isPanning) {
       const dx = mouseX - lastMouse.current.x;
@@ -169,11 +166,10 @@ export default function TrajectoryCanvas({
       if (dragDistance < 5) {
         const worldCoords = toWorld(mouseX, mouseY, canvas.height);
         if (isHoveringOrigin && !isDraggingTarget) {
-          const newX = !isLockedOriginX ? Number(worldCoords.x.toFixed(2)) : sharedConfig.origin.initialX;
+          if (!isLockedOriginX) setInitialX(Number(worldCoords.x.toFixed(2)));
           const newY = !isLockedOriginY ? Math.max(0, Number(worldCoords.y.toFixed(2))) : sharedConfig.origin.initialY;
-          updateConfig("origin", { initialX: newX, initialY: newY });
+          updateConfig("origin", { initialY: newY });
         } else if (!isDraggingOrigin && !isDraggingTarget) {
-          if (!isLockedX) setTargetX(Number(worldCoords.x.toFixed(2)));
           const newY = !isLockedY ? Math.max(0, Number(worldCoords.y.toFixed(2))) : sharedConfig.target.targetY;
           updateConfig("target", { targetY: newY });
         }
@@ -225,7 +221,7 @@ export default function TrajectoryCanvas({
     }
 
     // Draw Origin
-    const originScreen = toScreen(sharedConfig.origin.initialX, sharedConfig.origin.initialY, canvas.height);
+    const originScreen = toScreen(initialX, sharedConfig.origin.initialY, canvas.height);
     if (isHoveringOrigin || isDraggingOrigin) {
       ctx.shadowColor = "rgba(68, 136, 255, 0.6)";
       ctx.shadowBlur = 15;
@@ -237,24 +233,23 @@ export default function TrajectoryCanvas({
 
     ctx.fillStyle = "#888";
     ctx.font = "14px system-ui, sans-serif";
-    ctx.fillText(`Launcher (${sharedConfig.origin.initialX.toFixed(1)}, ${sharedConfig.origin.initialY.toFixed(1)})`, originScreen.x + 12, originScreen.y + 4);
+    ctx.fillText(`Launcher (${initialX.toFixed(1)}, ${sharedConfig.origin.initialY.toFixed(1)})`, originScreen.x + 12, originScreen.y + 4);
 
     // Draw Target Dot
-    const targetScreen = toScreen(targetX, sharedConfig.target.targetY, canvas.height);
-    const isTargetLocked = isLockedX && isLockedY;
+    const targetScreen = toScreen(0, sharedConfig.target.targetY, canvas.height);
 
     if (isHoveringTarget || isDraggingTarget) {
-      ctx.shadowColor = isTargetLocked ? "rgba(255, 153, 0, 0.8)" : "rgba(255, 68, 68, 0.8)";
+      ctx.shadowColor = isLockedY ? "rgba(255, 153, 0, 0.8)" : "rgba(255, 68, 68, 0.8)";
       ctx.shadowBlur = 15;
     }
 
-    ctx.fillStyle = isTargetLocked ? "#ff9900" : "#ff4444";
+    ctx.fillStyle = isLockedY ? "#ff9900" : "#ff4444";
     ctx.beginPath(); ctx.arc(targetScreen.x, targetScreen.y, 6, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = "#888";
-    ctx.fillText(`Target (${targetX.toFixed(1)}, ${sharedConfig.target.targetY.toFixed(1)})`, targetScreen.x + 12, targetScreen.y + 4);
+    ctx.fillText(`Target (0, ${sharedConfig.target.targetY.toFixed(1)})`, targetScreen.x + 12, targetScreen.y + 4);
 
     // Draw Trajectories
     ctx.lineWidth = 1.5;
@@ -280,14 +275,12 @@ export default function TrajectoryCanvas({
       });
       ctx.stroke();
     }
-  }, [sharedConfig.origin.initialX, sharedConfig.origin.initialY, targetX, sharedConfig.target.targetY, results, zoom, pan, isHoveringTarget, isDraggingTarget, isLockedX, isLockedY, isHoveringOrigin, isDraggingOrigin]);
+  }, [initialX, sharedConfig.origin.initialY, sharedConfig.target.targetY, results, zoom, pan, isHoveringTarget, isDraggingTarget, isLockedY, isHoveringOrigin, isDraggingOrigin]);
 
   // Dynamic Cursor
   let cursorStyle = "default";
   if (isDraggingTarget) {
-    if (isLockedX && isLockedY) cursorStyle = "not-allowed";
-    else if (isLockedX) cursorStyle = "ns-resize";
-    else if (isLockedY) cursorStyle = "ew-resize";
+    if (isLockedY) cursorStyle = "ew-resize";
     else cursorStyle = "grabbing";
   } else if (isDraggingOrigin) {
     if (isLockedOriginX && isLockedOriginY) cursorStyle = "not-allowed";
@@ -295,7 +288,7 @@ export default function TrajectoryCanvas({
     else if (isLockedOriginY) cursorStyle = "ew-resize";
     else cursorStyle = "grabbing";
   } else if (isHoveringTarget) {
-    cursorStyle = (isLockedX && isLockedY) ? "not-allowed" : "grab";
+    cursorStyle = isLockedY ? "not-allowed" : "grab";
   } else if (isHoveringOrigin) {
     cursorStyle = (isLockedOriginX && isLockedOriginY) ? "not-allowed" : "grab";
   } else if (isPanning) {

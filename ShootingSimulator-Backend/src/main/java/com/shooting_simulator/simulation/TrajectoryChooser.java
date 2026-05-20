@@ -2,6 +2,7 @@ package com.shooting_simulator.simulation;
 
 import java.util.*;
 
+import com.shooting_simulator.simulation.obstacles.Obstacle;
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
@@ -30,19 +31,21 @@ public class TrajectoryChooser {
     private final TrajectoryBuilder builder;
     private final Translation2d target;
     private final TargetAxis targetAxis;
+    private final List<Obstacle> obstacles;
 
     private final List<RobustnessPoint> robustnessSweep;
     private final List<Translation2d> costSweep;
     private List<Trajectory> trajectories;
     private Trajectory bestTrajectory;
 
-    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights) {
+    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
         this.physicalValues = physicalValues;
         this.costWeights = costWeights;
 
-        this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, target, targetAxis, minHitAngle, maxHitAngle, physicalValues);
-        this.target = target;
+        this.target = new Translation2d(0, targetY);
+        this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target, targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
         this.targetAxis = targetAxis;
+        this.obstacles = obstacles;
 
         this.robustnessSweep = new ArrayList<>();
         this.costSweep = new ArrayList<>();

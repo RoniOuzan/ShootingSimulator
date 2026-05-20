@@ -2,6 +2,7 @@ package com.shooting_simulator.json;
 
 import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.simulation.*;
+import com.shooting_simulator.simulation.obstacles.Obstacle;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
@@ -24,12 +25,11 @@ public class SurfacePacket implements DataPacket {
     public SweepBounds sweepBounds;
     public PhysicalValues physicalValues;
     public CostWeights costConfig;
+    public List<Obstacle> obstacles;
 
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
         System.out.println("Simulating Surface...");
-
-        Translation2d initialPos = new Translation2d(0, this.initialY);
 
         double distanceStep = this.sweepBounds.distStep();
         double radialVelocityStep = this.sweepBounds.radialVelStep();
@@ -70,10 +70,11 @@ public class SurfacePacket implements DataPacket {
 
             double x = distances.get(dIdx);
             double radialVelocity = radialVels.get(rIdx);
-            Translation2d targetPos = new Translation2d(x, this.targetY);
+
+            Translation2d initialPos = new Translation2d(-x, this.initialY);
 
             // FIX 3: Pass indices in the correct order [dIdx][rIdx]
-            calculatePoint(initialPos, radialVelocity, targetPos, axis, angleData, velocityData, dIdx, rIdx, successCount);
+            calculatePoint(initialPos, radialVelocity, targetY, axis, angleData, velocityData, dIdx, rIdx, successCount);
 
             // ... Progress tracking (no changes needed) ...
             int completed = currentStep.incrementAndGet();
@@ -102,18 +103,19 @@ public class SurfacePacket implements DataPacket {
         server.sendPacket(conn, "surfaceResults", payload);
     }
 
-    private void calculatePoint(Translation2d initialPos, double radialVelocity, Translation2d targetPos,
+    private void calculatePoint(Translation2d initialPos, double radialVelocity, double targetY,
                                 TargetAxis axis, Double[][] angleData, Double[][] velocityData,
                                 int dIdx, int rIdx, AtomicInteger successCount) {
         TrajectoryChooser chooser = new TrajectoryChooser(
                 this.physicalValues,
                 initialPos,
                 radialVelocity,
-                targetPos,
+                targetY,
                 axis,
                 this.minHitAngle,
                 this.maxHitAngle,
-                this.costConfig
+                this.costConfig,
+                this.obstacles
         );
 
         Trajectory best = chooser.getBestTrajectory();

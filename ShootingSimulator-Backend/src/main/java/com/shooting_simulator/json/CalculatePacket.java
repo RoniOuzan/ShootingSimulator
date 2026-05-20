@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.shooting_simulator.simulation.*;
+import com.shooting_simulator.simulation.obstacles.Obstacle;
 import org.java_websocket.WebSocket;
 
 import com.shooting_simulator.SimulatorServer;
@@ -16,7 +17,6 @@ public class CalculatePacket implements DataPacket {
 
     public double radialVelocity;
     
-    public double targetX;
     public double targetY;
 
     public String targetAxis;
@@ -24,6 +24,7 @@ public class CalculatePacket implements DataPacket {
     // Limits
     public PhysicalValues physicalValues;
     public CostWeights costConfig;
+    public List<Obstacle> obstacles;
 
     public double minHitAngle;
     public double maxHitAngle;
@@ -32,15 +33,24 @@ public class CalculatePacket implements DataPacket {
     public void handle(WebSocket conn, SimulatorServer server) {
         // Setup target and tolerances based on React's request
         Translation2d initialPos = new Translation2d(this.initialX, this.initialY);
-        Translation2d target = new Translation2d(this.targetX, this.targetY);
-        ResultsPayload payload = getResultsPayload(initialPos, target);
+        ResultsPayload payload = getResultsPayload(initialPos, this.targetY);
 
         // Send the results back to the React client that requested it!
         server.sendPacket(conn, "results", payload);
     }
 
-    private ResultsPayload getResultsPayload(Translation2d initialPos, Translation2d target) {
-        TrajectoryChooser chooser = new TrajectoryChooser(this.physicalValues, initialPos, this.radialVelocity, target, TargetAxis.valueOf(this.targetAxis), this.minHitAngle, this.maxHitAngle, this.costConfig);
+    private ResultsPayload getResultsPayload(Translation2d initialPos, double targetY) {
+        TrajectoryChooser chooser = new TrajectoryChooser(
+                this.physicalValues,
+                initialPos,
+                this.radialVelocity,
+                targetY,
+                TargetAxis.valueOf(this.targetAxis),
+                this.minHitAngle,
+                this.maxHitAngle,
+                this.costConfig,
+                this.obstacles
+        );
 
         List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
          List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 10);

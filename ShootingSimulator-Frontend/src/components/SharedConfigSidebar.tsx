@@ -68,10 +68,7 @@ export default function SharedConfigSidebar({
           {/* Origin Parameters */}
           <div className="config-card origin">
             <h3 className="card-title"><span className="icon">📍</span> Initial Position</h3>
-            <div className="card-row">
-              <ControlSlider label="X Position" value={origin.initialX} min={-10} max={10} step={0.1} unit="m" onChange={(v) => updateConfig("origin", { initialX: v })} />
-              <ControlSlider label="Y Height" value={origin.initialY} min={0} max={5} step={0.1} unit="m" onChange={(v) => updateConfig("origin", { initialY: v })} />
-            </div>
+            <ControlSlider label="Y Height" value={origin.initialY} min={0} max={5} step={0.1} unit="m" onChange={(v) => updateConfig("origin", { initialY: v })} />
             <ControlSlider label="Radial Velocity" value={origin.radialVelocity} min={-4} max={4} step={0.1} unit="m/s" onChange={(v) => updateConfig("origin", { radialVelocity: v })} />
           </div>
 

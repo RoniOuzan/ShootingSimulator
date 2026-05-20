@@ -444,7 +444,6 @@ export default function SurfaceSweepView({
         type: "surface",
         data: {
           targetAxis: sharedConfig.target.targetAxis,
-          initialX: sharedConfig.origin.initialX,
           initialY: sharedConfig.origin.initialY,
           targetY: sharedConfig.target.targetY,
           minHitAngle: sharedConfig.target.minHitAngle,

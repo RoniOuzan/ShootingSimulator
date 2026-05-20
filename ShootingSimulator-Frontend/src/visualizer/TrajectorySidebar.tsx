@@ -3,10 +3,8 @@ import type { SimulationResults } from "../types";
 
 interface SidebarProps {
   results: SimulationResults;
-  targetX: number;
-  setTargetX: (val: number) => void;
-  isLockedX: boolean;
-  setIsLockedX: (val: boolean) => void;
+  initialX: number;
+  setInitialX: (val: number) => void;
   isLockedY: boolean;
   setIsLockedY: (val: boolean) => void;
   isLockedOriginX: boolean;
@@ -16,8 +14,7 @@ interface SidebarProps {
 }
 
 export default function TrajectorySidebar({
-  results, targetX, setTargetX,
-  isLockedX, setIsLockedX, isLockedY, setIsLockedY,
+  results, initialX, setInitialX, isLockedY, setIsLockedY,
   isLockedOriginX, setIsLockedOriginX, isLockedOriginY, setIsLockedOriginY
 }: SidebarProps) {
   return (
@@ -50,17 +47,6 @@ export default function TrajectorySidebar({
         <div style={{ marginBottom: "15px" }}>
           <span className="hint" style={{ display: "block", marginBottom: "8px" }}>Target Axis:</span>
           <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              onClick={() => setIsLockedX(!isLockedX)}
-              className={`calculate-btn ${isLockedX ? "locked" : ""}`}
-              style={{
-                flex: 1, background: isLockedX ? "rgba(255, 153, 0, 0.2)" : "#333",
-                border: isLockedX ? "1px solid #ff9900" : "1px solid transparent",
-                color: isLockedX ? "#ff9900" : "#fff",
-              }}
-            >
-              {isLockedX ? "🔒 X" : "🔓 X"}
-            </button>
             <button
               onClick={() => setIsLockedY(!isLockedY)}
               className={`calculate-btn ${isLockedY ? "locked" : ""}`}
@@ -105,14 +91,14 @@ export default function TrajectorySidebar({
       </div>
 
       <div className="tab-config-card">
-        <h3>Target</h3>
+        <h3>Initial</h3>
         <ControlSlider
-          label="Target X"
-          value={targetX}
-          min={1} max={18} step={0.1}
+          label="Initial X"
+          value={initialX}
+          min={-10} max={0} step={0.1}
           unit="m"
-          disabled={isLockedX}
-          onChange={setTargetX}
+          disabled={isLockedOriginX}
+          onChange={setInitialX}
         />
       </div>
     </div>

@@ -25,7 +25,7 @@ export default function TrajectoryVisualizer({
   updateConfig,
 }: Props) {
   // Persisted States
-  const [targetX, setTargetX] = usePersistedState("traj_targetX", 3.0);
+  const [initialX, setInitialX] = usePersistedState("traj_initialX", -4.0);
   const [isLockedOriginX, setIsLockedOriginX] = usePersistedState(
     "traj_lockOriginX",
     false,
@@ -34,12 +34,11 @@ export default function TrajectoryVisualizer({
     "traj_lockOriginY",
     false,
   );
-  const [isLockedX, setIsLockedX] = usePersistedState("traj_lockX", false);
   const [isLockedY, setIsLockedY] = usePersistedState("traj_lockY", false);
 
   // Viewport States
-  const DEFAULT_ZOOM = 80;
-  const DEFAULT_PAN = { x: 350, y: 50 };
+  const DEFAULT_ZOOM = 120;
+  const DEFAULT_PAN = { x: 800, y: 50 };
   const [zoom, setZoom] = useState<number>(DEFAULT_ZOOM);
   const [pan, setPan] = useState<Translation2d>(DEFAULT_PAN);
 
@@ -55,10 +54,9 @@ export default function TrajectoryVisualizer({
       data: {
         targetAxis: sharedConfig.target.targetAxis,
         initialY: sharedConfig.origin.initialY,
-        initialX: sharedConfig.origin.initialX,
+        initialX: initialX,
         radialVelocity: sharedConfig.origin.radialVelocity,
         targetY: sharedConfig.target.targetY,
-        targetX,
         minHitAngle: sharedConfig.target.minHitAngle,
         maxHitAngle: sharedConfig.target.maxHitAngle,
         physicalValues: {
@@ -86,7 +84,7 @@ export default function TrajectoryVisualizer({
         COOLDOWN_MS - (now - lastSendTime.current),
       );
     }
-  }, [isConnected, sharedConfig, targetX, sendMessage]);
+  }, [isConnected, sharedConfig, sendMessage]);
 
   const resetView = () => {
     setZoom(DEFAULT_ZOOM);
@@ -132,8 +130,8 @@ export default function TrajectoryVisualizer({
             }}
           >
             <TrajectoryCanvas
-              targetX={targetX}
-              setTargetX={setTargetX}
+              initialX={initialX}
+              setInitialX={setInitialX}
               sharedConfig={sharedConfig}
               updateConfig={updateConfig}
               results={results}
@@ -141,7 +139,6 @@ export default function TrajectoryVisualizer({
               setZoom={setZoom}
               pan={pan}
               setPan={setPan}
-              isLockedX={isLockedX}
               isLockedY={isLockedY}
               isLockedOriginX={isLockedOriginX}
               isLockedOriginY={isLockedOriginY}
@@ -204,10 +201,8 @@ export default function TrajectoryVisualizer({
 
       <TrajectorySidebar
         results={results}
-        targetX={targetX}
-        setTargetX={setTargetX}
-        isLockedX={isLockedX}
-        setIsLockedX={setIsLockedX}
+        initialX={initialX}
+        setInitialX={setInitialX}
         isLockedY={isLockedY}
         setIsLockedY={setIsLockedY}
         isLockedOriginX={isLockedOriginX}

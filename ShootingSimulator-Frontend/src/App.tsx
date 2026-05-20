@@ -9,7 +9,6 @@ import type { SharedConfig, SimulationResults } from "./types";
 
 const DEFAULT_CONFIG: SharedConfig = {
   origin: {
-    initialX: 0,
     initialY: 0,
     radialVelocity: 0,
   },

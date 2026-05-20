@@ -2,6 +2,7 @@ package com.shooting_simulator.json;
 
 import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.simulation.*;
+import com.shooting_simulator.simulation.obstacles.Obstacle;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
@@ -21,11 +22,10 @@ public class SweepPacket implements DataPacket {
     public SweepBounds sweepBounds;
     public PhysicalValues physicalValues;
     public CostWeights costConfig;
+    public List<Obstacle> obstacles;
 
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
-        Translation2d initialPos = new Translation2d(0, this.initialY);
-
         List<DistancePoint> sweepData = new ArrayList<>();
 
         double minDistance = (sweepBounds != null) ? sweepBounds.minDist() : 1.0;
@@ -43,17 +43,18 @@ public class SweepPacket implements DataPacket {
         Double prevVel = null;
 
         for (double x = minDistance; x <= maxDistance; x += distanceStep) {
-            Translation2d targetPos = new Translation2d(x, this.targetY);
+            Translation2d initialPos = new Translation2d(-x, this.initialY);
 
             TrajectoryChooser chooser = new TrajectoryChooser(
                     this.physicalValues,
                     initialPos,
                     this.radialVelocity,
-                    targetPos,
+                    this.targetY,
                     TargetAxis.valueOf(this.targetAxis),
                     this.minHitAngle,
                     this.maxHitAngle,
-                    this.costConfig
+                    this.costConfig,
+                    this.obstacles
             );
 
             Trajectory best = chooser.getBestTrajectory();

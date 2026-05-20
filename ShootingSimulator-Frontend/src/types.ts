@@ -30,7 +30,6 @@ export interface TargetParams {
 }
 
 export interface OriginParams {
-  initialX: number;
   initialY: number;
   radialVelocity: number;
 }

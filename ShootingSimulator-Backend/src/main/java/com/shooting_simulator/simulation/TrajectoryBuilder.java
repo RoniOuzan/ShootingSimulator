@@ -1,9 +1,11 @@
 package com.shooting_simulator.simulation;
 
 import com.shooting_simulator.Constants;
+import com.shooting_simulator.simulation.obstacles.Obstacle;
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
+import com.shooting_simulator.util.math.geometry.Translation3d;
 import lombok.Getter;
 
 import java.util.ArrayList;
@@ -23,8 +25,9 @@ public class TrajectoryBuilder {
     private final double maxHitAngle;
 
     private final PhysicalValues physicalValues;
+    private final List<Obstacle> obstacles;
 
-    public TrajectoryBuilder(Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues) {
+    public TrajectoryBuilder(Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues, List<Obstacle> obstacles) {
         this.initialPosition = initialPosition;
         this.radialVelocity = radialVelocity;
         this.target = target;
@@ -32,6 +35,7 @@ public class TrajectoryBuilder {
         this.minHitAngle = minHitAngle;
         this.maxHitAngle = maxHitAngle;
         this.physicalValues = physicalValues;
+        this.obstacles = obstacles == null ? new ArrayList<>() : obstacles;
     }
 
     public boolean isInsideTarget(Sample sample) {
@@ -76,6 +80,10 @@ public class TrajectoryBuilder {
 
             Translation2d nextVelocity = velocity.plus(acceleration.times(PERIOD));
 
+            if (isCollidingObstacle(position, nextPosition)) {
+                break;
+            }
+
             // Check for crossing
             if (isPassedTarget(position, nextPosition, nextVelocity, isFlat)) {
                 // Add the perfect sample and STOP
@@ -107,6 +115,10 @@ public class TrajectoryBuilder {
         } else {
             return velocity.getY() < 0 && prev.getY() >= this.target.getY() && next.getY() < this.target.getY();
         }
+    }
+
+    private boolean isCollidingObstacle(Translation2d prev, Translation2d next) {
+        return this.obstacles.parallelStream().anyMatch(obstacle -> obstacle.isColliding(prev, next));
     }
 
     private boolean shouldCalculateTrajectory(Translation2d position) {
