@@ -2,7 +2,7 @@ package com.shooting_simulator.simulation.obstacles;
 
 import com.shooting_simulator.util.math.geometry.Translation2d;
 
-public class CircleObstacle implements Obstacle {
+public class CircleObstacle extends Obstacle {
     private final Translation2d center;
     private final double radiusSq;
 

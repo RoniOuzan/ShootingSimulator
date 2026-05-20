@@ -40,6 +40,7 @@ export interface SharedConfig {
   aerodynamics: AerodynamicParams;
   hardware: HardwareLimits;
   cost: CostConfig;
+  obstacles: ObstacleConfig[];
 }
 
 export type CostPreset = "ROBUST" | "SLOW_SHOT" | "FAST_ARRIVAL" | "SWISH" | "BALANCED" | "CUSTOM";
@@ -92,6 +93,10 @@ export interface Translation2d {
   x: number;
   y: number;
 }
+
+export type ObstacleConfig =
+  | { type: "CIRCLE"; id: string; name: string; center: Translation2d; radius: number }
+  | { type: "POLYGON"; id: string; name: string; vertices: Translation2d[] };
 
 export function angle(vector: Translation2d | undefined): number {
   if (!vector) return 0;

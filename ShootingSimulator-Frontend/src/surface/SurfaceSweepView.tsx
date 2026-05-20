@@ -461,6 +461,7 @@ export default function SurfaceSweepView({
             ...sharedConfig.aerodynamics,
           },
           costConfig: sharedConfig.cost,
+          obstacles: sharedConfig.obstacles, 
         },
       },
       true

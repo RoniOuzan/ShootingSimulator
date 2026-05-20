@@ -1,0 +1,389 @@
+/* --- Overlay and Modal Shell --- */
+.env-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.env-editor-modal {
+  background: var(--bg-card, #1a1a20);
+  border: 1px solid var(--border-strong, #333);
+  border-radius: 12px;
+  width: 90vw;
+  max-width: 80%;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+
+/* --- Header --- */
+.env-editor-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-strong, #333);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0,0,0,0.2);
+}
+
+.env-editor-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-primary, #fff);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-strong, #333);
+  margin: 0 8px;
+}
+
+/* Header Buttons */
+.add-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle, #444);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-btn.circle { color: #fed7aa; border-color: #fb923c; }
+.add-btn.circle:hover { background: rgba(251, 146, 60, 0.2); }
+
+.add-btn.poly { color: #fecaca; border-color: #ef4444; }
+.add-btn.poly:hover { background: rgba(239, 68, 68, 0.2); }
+
+.reset-cam-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle, #444);
+  color: var(--text-secondary, #aaa);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reset-cam-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+.close-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-subtle, #444);
+  color: var(--text-primary, #fff);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.close-btn:hover { background: #ef4444; border-color: #ef4444; }
+
+
+/* --- Body Layout (Canvas Left, Props Right) --- */
+.env-editor-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* --- Main Canvas Area --- */
+.env-editor-canvas-container {
+  flex: 1;
+  background: #0d0d12;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.env-svg {
+  flex: 1;
+  width: 100%;
+  background: #111116;
+  border-right: 1px solid var(--border-strong, #333);
+  cursor: grab;
+}
+
+.env-svg.panning {
+  cursor: grabbing !important;
+}
+
+.env-svg text {
+  pointer-events: none;
+  user-select: none;
+}
+
+.env-editor-footer {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-strong, #333);
+  background: rgba(0,0,0,0.2);
+  color: var(--text-secondary, #aaa);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* --- Properties Sidebar --- */
+.env-editor-properties {
+  width: 300px;
+  background: var(--bg-card, #1a1a20);
+  border-left: 1px solid var(--border-strong, #333);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.env-editor-properties h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary, #fff);
+  border-bottom: 1px solid var(--border-subtle, #444);
+  padding-bottom: 8px;
+}
+
+.no-props {
+  color: var(--text-secondary, #aaa);
+  font-size: 0.85rem;
+  font-style: italic;
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* Property Cards */
+.prop-card {
+  background: var(--bg-base, #111115);
+  border: 1px solid var(--border-subtle, #444);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+/* Colored Top borders based on type */
+.prop-card.CIRCLE { border-top: 3px solid #fb923c; }
+.prop-card.POLYGON { border-top: 3px solid #ef4444; }
+
+/* Selected State */
+.prop-card.selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+}
+
+.prop-card.CIRCLE.selected { border-top: 3px solid #3b82f6; }
+.prop-card.POLYGON.selected { border-top: 3px solid #3b82f6; }
+
+.prop-header {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle, #444);
+}
+
+.prop-card.selected .prop-header {
+  background: rgba(59, 130, 246, 0.1);
+  border-bottom-color: rgba(59, 130, 246, 0.3);
+}
+
+.prop-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.prop-name-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-primary, #fff);
+  font-size: 0.85rem;
+  font-weight: 600;
+  width: 100%;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.prop-name-input:focus {
+  background: rgba(0,0,0,0.3);
+  border-color: var(--accent-team, #00ff88);
+  outline: none;
+}
+
+.del-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.7;
+}
+
+.del-btn:hover { opacity: 1; }
+
+.prop-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Number Input Rows */
+.number-row {
+  display: flex;
+  gap: 8px;
+}
+
+.number-row.full {
+  width: 100%;
+}
+
+.num-box {
+  flex: 1;
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-strong, #333);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.num-box:focus-within {
+  border-color: var(--accent-team, #00ff88);
+}
+
+.num-box.full { width: 100%; }
+
+.num-box label {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 8px;
+  font-size: 0.7rem;
+  color: var(--text-secondary, #aaa);
+  font-weight: 600;
+  border-right: 1px solid var(--border-strong, #333);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.num-box input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: monospace;
+  font-size: 0.85rem;
+  padding: 6px 8px;
+  text-align: right;
+  outline: none;
+}
+
+.num-box input:focus {
+  background: rgba(0, 255, 136, 0.05);
+  color: var(--accent-team, #00ff88);
+}
+
+/* Polygon Specific Inputs */
+.poly-vertex-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vertex-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.v-label {
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: #ef4444;
+  width: 20px;
+  text-align: center;
+}
+
+.prop-card.selected .v-label {
+  color: #3b82f6;
+}
+
+.num-box.mini label { padding: 4px; font-size: 0.65rem; }
+.num-box.mini input { padding: 4px; font-size: 0.8rem; }
+
+.del-v-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  color: #fecaca;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.del-v-btn:hover { background: #ef4444; color: #fff; }
+
+.add-v-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--border-strong, #444);
+  color: var(--text-secondary, #aaa);
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.add-v-btn:hover {
+  border-color: #ef4444;
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.05);
+}

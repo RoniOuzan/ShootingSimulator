@@ -41,7 +41,8 @@ const DEFAULT_CONFIG: SharedConfig = {
     timeOfFlightWeight: 0.5,
     entryAngleWeight: 0.2,
     targetImpactAngle: -50,
-  }
+  },
+  obstacles: [],
 };
 
 export default function App() {
@@ -154,17 +155,25 @@ export default function App() {
 
   // Update shared config helper
   const updateConfig = useCallback(
-    <K extends keyof SharedConfig>(
-      section: K,
-      updates: Partial<SharedConfig[K]>,
-    ) => {
-      setSharedConfig((prev) => ({
+  <K extends keyof SharedConfig>(
+    section: K,
+    updates: Partial<SharedConfig[K]> | SharedConfig[K], // Allow direct assignment
+  ) => {
+    setSharedConfig((prev) => {
+      if (section === "obstacles") {
+        return {
+          ...prev,
+          [section]: updates,
+        };
+      }
+      return {
         ...prev,
         [section]: { ...(prev[section] as any), ...updates },
-      }));
-    },
-    [setSharedConfig],
-  );
+      };
+    });
+  },
+  [setSharedConfig],
+);
 
   return (
     <div className="app-container">

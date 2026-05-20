@@ -3,8 +3,8 @@ import { usePersistedState } from "../hooks/usePersistedState";
 import type { SharedConfig, SimulationResults, Translation2d } from "../types";
 import CostChart from "./CostChart";
 import RobustnessChart from "./RobustnessChart";
-import TrajectoryCanvas from "./TrajectoryCanvas";
 import TrajectorySidebar from "./TrajectorySidebar";
+import { TrajectoryCanvas } from "./TrajectoryCanvas";
 
 interface Props {
   isConnected: boolean;
@@ -64,6 +64,7 @@ export default function TrajectoryVisualizer({
           ...sharedConfig.aerodynamics,
         },
         costConfig: sharedConfig.cost,
+        obstacles: sharedConfig.obstacles, 
       },
     };
 
@@ -84,7 +85,7 @@ export default function TrajectoryVisualizer({
         COOLDOWN_MS - (now - lastSendTime.current),
       );
     }
-  }, [isConnected, sharedConfig, sendMessage]);
+  }, [isConnected, sharedConfig, sendMessage, initialX]);
 
   const resetView = () => {
     setZoom(DEFAULT_ZOOM);

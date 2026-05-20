@@ -16,7 +16,7 @@ interface CanvasProps {
   isLockedOriginY: boolean;
 }
 
-export default function TrajectoryCanvas({
+export function TrajectoryCanvas({
   initialX, setInitialX, sharedConfig, updateConfig, results,
   zoom, setZoom, pan, setPan,
   isLockedY, isLockedOriginX, isLockedOriginY
@@ -220,6 +220,40 @@ export default function TrajectoryCanvas({
       }
     }
 
+    // --- Draw Obstacles ---
+    if (sharedConfig.obstacles) {
+      sharedConfig.obstacles.forEach((obs) => {
+        if (obs.type === "CIRCLE") {
+          const centerScreen = toScreen(obs.center.x, obs.center.y, canvas.height);
+          const screenRadius = obs.radius * zoom; // scale radius from meters to pixels
+
+          ctx.beginPath();
+          ctx.arc(centerScreen.x, centerScreen.y, screenRadius, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(251, 146, 60, 0.4)"; // Orange translucent
+          ctx.fill();
+          ctx.strokeStyle = "#fb923c";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        } else if (obs.type === "POLYGON" && obs.vertices.length > 0) {
+          ctx.beginPath();
+          obs.vertices.forEach((v, i) => {
+            const screenV = toScreen(v.x, v.y, canvas.height);
+            if (i === 0) {
+              ctx.moveTo(screenV.x, screenV.y);
+            } else {
+              ctx.lineTo(screenV.x, screenV.y);
+            }
+          });
+          ctx.closePath();
+          ctx.fillStyle = "rgba(239, 68, 68, 0.4)"; // Red translucent
+          ctx.fill();
+          ctx.strokeStyle = "#ef4444";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      });
+    }
+
     // Draw Origin
     const originScreen = toScreen(initialX, sharedConfig.origin.initialY, canvas.height);
     if (isHoveringOrigin || isDraggingOrigin) {
@@ -275,7 +309,8 @@ export default function TrajectoryCanvas({
       });
       ctx.stroke();
     }
-  }, [initialX, sharedConfig.origin.initialY, sharedConfig.target.targetY, results, zoom, pan, isHoveringTarget, isDraggingTarget, isLockedY, isHoveringOrigin, isDraggingOrigin]);
+  // Added sharedConfig.obstacles to dependency array so it redraws when they are changed/added
+  }, [initialX, sharedConfig.origin.initialY, sharedConfig.target.targetY, sharedConfig.obstacles, results, zoom, pan, isHoveringTarget, isDraggingTarget, isLockedY, isHoveringOrigin, isDraggingOrigin]);
 
   // Dynamic Cursor
   let cursorStyle = "default";

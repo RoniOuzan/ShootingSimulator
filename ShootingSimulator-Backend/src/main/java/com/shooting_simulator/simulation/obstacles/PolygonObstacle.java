@@ -3,7 +3,7 @@ package com.shooting_simulator.simulation.obstacles;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import java.util.List;
 
-public class PolygonObstacle implements Obstacle {
+public class PolygonObstacle extends Obstacle {
     private final List<Translation2d> vertices;
     
     // Bounding box for extremely fast fail-checks
