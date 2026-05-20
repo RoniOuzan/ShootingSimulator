@@ -91,10 +91,6 @@ public abstract class ShootingModel {
         return getVelocityNormalDerivativeRadialVelocity(distanceMeters, radialVelocityMps);
     }
 
-    // =========================================================================
-    // STATE GENERATOR (THE MANAGER)
-    // =========================================================================
-
     /**
      * Packages the generated equations into a single preset.
      * Applies the Multivariable Chain Rule to convert spatial/velocity partial derivatives
@@ -124,14 +120,14 @@ public abstract class ShootingModel {
         double tangentialAccelerationMpsSq = decomposedAcceleration.getY();
 
         // Calculate Base Targets
-        double pitch = getAngle(distanceMeters, radialVelocityMps);
-        double flywheelVelocity = getVelocity(pitch, distanceMeters, radialVelocityMps);
+        double pitchDegrees = getAngle(distanceMeters, radialVelocityMps);
+        double flywheelVelocityMps = getVelocity(pitchDegrees, distanceMeters, radialVelocityMps);
         double flightTimeSeconds = getFlightTime(distanceMeters, radialVelocityMps);
 
         // Multivariable Chain Rule for Time Derivatives (d/dt)
         // dθ/dt = (∂θ/∂d * dd/dt) + (∂θ/∂v_r * dv_r/dt)
         double pitchVelDegPerSec = getPitchVelocity(distanceMeters, radialVelocityMps, radialAccelerationMpsSq);
-        double flywheelAcceleration = getVelocityAcceleration(pitch, distanceMeters, radialVelocityMps, radialAccelerationMpsSq);
+        double flywheelAccelerationMpsSq = getVelocityAcceleration(pitchDegrees, distanceMeters, radialVelocityMps, radialAccelerationMpsSq);
 
         // Tangential Yaw Calculation (Isolating lateral drift)
         Rotation2d angleToTarget = target.minus(origin).getAngle();
@@ -144,12 +140,12 @@ public abstract class ShootingModel {
         double yawVelocityRadPerSec = getYawVelocity(distanceMeters, radialVelocityMps, tangentialVelocityMps, tangentialAccelerationMpsSq, flightTimeSeconds);
 
         return new ShootingPreset(
-                Rotation2d.fromDegrees(pitchVelDegPerSec),
+                Rotation2d.fromDegrees(pitchDegrees),
                 yaw,
-                flywheelVelocity,
+                flywheelVelocityMps,
                 pitchVelDegPerSec,
                 yawVelocityRadPerSec,
-                flywheelAcceleration,
+                flywheelAccelerationMpsSq,
                 flightTimeSeconds
         );
     }

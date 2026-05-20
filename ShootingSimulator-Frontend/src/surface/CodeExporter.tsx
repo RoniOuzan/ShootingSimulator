@@ -1,5 +1,6 @@
 import MultivariateLinearRegression from "ml-regression-multivariate-linear";
 import { useMemo, useState } from "react";
+import "./CodeExporter.css"; // IMPORTANT: Import the new CSS file
 
 export interface DataPoint {
   distance: number;
@@ -122,7 +123,7 @@ function generateDerivativeEquation(
 
 // ── Java Generators ──────────────────────────────────────────────────────────
 
-const BASE_PACKAGE = "package frc.robot.aiming;";
+const BASE_PACKAGE = "package frc.robot.subsystems.shooting;";
 
 function buildPresetCode(): string {
   return `${BASE_PACKAGE}
@@ -156,8 +157,8 @@ public class ShootingPreset {
 function buildAbstractModelCode(): string {
   return `${BASE_PACKAGE}
 
-import com.shooting_simulator.util.math.geometry.Rotation2d;
-import com.shooting_simulator.util.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 
 /**
  * Abstract base class for auto-generated shooter kinematics models.
@@ -183,14 +184,14 @@ public abstract class ShootingModel {
      * Calculates the required shooter pitch angle.
      * @param distanceMeters Distance from the robot to the target in meters.
      * @param radialVelocityMps Radial velocity in meters/sec (negative = closing distance).
-     * @return The target pitch Rotation2d.
+     * @return The target pitch in degrees.
      */
     public abstract double getAngle(double distanceMeters, double radialVelocityMps);
 
-    /** Partial derivative of Pitch with respect to Distance (rad / m). */
+    /** Partial derivative of Pitch with respect to Distance (deg / m). */
     public abstract double getAngleDerivativeDistance(double distanceMeters, double radialVelocityMps);
 
-    /** Partial derivative of Pitch with respect to Radial Velocity (rad / (m/s)). */
+    /** Partial derivative of Pitch with respect to Radial Velocity (deg / (m/s)). */
     public abstract double getAngleDerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);
 
     /**
@@ -220,7 +221,7 @@ public abstract class ShootingModel {
         return getVelocityNormal(distanceMeters, radialVelocityMps);
     }
 
-    // Partial derivatives for Flywheel Velocity (Units depend on your generated model, e.g., RadPerSec / m)
+    // Partial derivatives for Flywheel Velocity
     public abstract double getVelocityNormalDerivativeDistance(double distanceMeters, double radialVelocityMps);
     public abstract double getVelocityMinAngleDerivativeDistance(double distanceMeters, double radialVelocityMps);
     public abstract double getVelocityMaxAngleDerivativeDistance(double distanceMeters, double radialVelocityMps);
@@ -255,12 +256,6 @@ public abstract class ShootingModel {
      * Packages the generated equations into a single preset.
      * Applies the Multivariable Chain Rule to convert spatial/velocity partial derivatives
      * into true time derivatives for feedforward controllers.
-     *
-     * @param origin Current field-relative position of the robot (meters).
-     * @param target Field-relative position of the target (meters).
-     * @param originVelocity Current field-relative velocity vector of the robot (m/s).
-     * @param originAcceleration Current field-relative acceleration vector of the robot (m/s^2).
-     * @return A complete ShootingPreset containing targets and time-derivatives.
      */
     public ShootingPreset getPreset(
             Translation2d origin,
@@ -280,14 +275,13 @@ public abstract class ShootingModel {
         double tangentialAccelerationMpsSq = decomposedAcceleration.getY();
 
         // Calculate Base Targets
-        double pitch = getAngle(distanceMeters, radialVelocityMps);
-        double flywheelVelocity = getVelocity(pitch, distanceMeters, radialVelocityMps);
+        double pitchDegrees = getAngle(distanceMeters, radialVelocityMps);
+        double flywheelVelocityMps = getVelocity(pitchDegrees, distanceMeters, radialVelocityMps);
         double flightTimeSeconds = getFlightTime(distanceMeters, radialVelocityMps);
 
         // Multivariable Chain Rule for Time Derivatives (d/dt)
-        // dθ/dt = (∂θ/∂d * dd/dt) + (∂θ/∂v_r * dv_r/dt)
-        double pitchVelDegPerSec = getPitchVelocity(distanceMeters, radialVelocityMps, radialAccelerationMpsSq);
-        double flywheelAcceleration = getVelocityAcceleration(pitch, distanceMeters, radialVelocityMps, radialAccelerationMpsSq);
+        double pitchVelRadPerSec = getPitchVelocity(distanceMeters, radialVelocityMps, radialAccelerationMpsSq);
+        double flywheelAccelerationMpsSq = getVelocityAcceleration(pitchDegrees, distanceMeters, radialVelocityMps, radialAccelerationMpsSq);
 
         // Tangential Yaw Calculation (Isolating lateral drift)
         Rotation2d angleToTarget = target.minus(origin).getAngle();
@@ -300,12 +294,12 @@ public abstract class ShootingModel {
         double yawVelocityRadPerSec = getYawVelocity(distanceMeters, radialVelocityMps, tangentialVelocityMps, tangentialAccelerationMpsSq, flightTimeSeconds);
 
         return new ShootingPreset(
-                Rotation2d.fromDegrees(pitchVelDegPerSec),
+                Rotation2d.fromDegrees(pitchDegrees),
                 yaw,
-                flywheelVelocity,
-                pitchVelDegPerSec,
+                flywheelVelocityMps,
+                pitchVelRadPerSec,
                 yawVelocityRadPerSec,
-                flywheelAcceleration,
+                flywheelAccelerationMpsSq,
                 flightTimeSeconds
         );
     }
@@ -315,10 +309,11 @@ public abstract class ShootingModel {
     // =========================================================================
 
     private double getPitchVelocity(double distanceMeters, double radialVelocityMps, double radialAccelerationMpsSq) {
-        double dAngleDistance = getAngleDerivativeDistance(distanceMeters, radialVelocityMps);
-        double dAngleRadialVelocity = getAngleDerivativeRadialVelocity(distanceMeters, radialVelocityMps);
+        // Convert the degree-based derivatives into Radians for the WPILib feedforward
+        double dAngleDistanceRad = Math.toRadians(getAngleDerivativeDistance(distanceMeters, radialVelocityMps));
+        double dAngleRadialVelocityRad = Math.toRadians(getAngleDerivativeRadialVelocity(distanceMeters, radialVelocityMps));
 
-        return (dAngleDistance * radialVelocityMps) + (dAngleRadialVelocity * radialAccelerationMpsSq);
+        return (dAngleDistanceRad * radialVelocityMps) + (dAngleRadialVelocityRad * radialAccelerationMpsSq);
     }
 
     private double getVelocityAcceleration(double pitch, double distanceMeters, double radialVelocityMps, double radialAccelerationMpsSq) {
@@ -329,11 +324,8 @@ public abstract class ShootingModel {
     }
 
     private double getYawVelocity(double distanceMeters, double radialVelocityMps, double tangentialVelocityMps, double tangentialAccelerationMpsSq, double flightTimeSeconds) {
-        // Component 1: Base tracking (rotating to track stationary target while strafing)
-        // If we strafe Left (positive), we must rotate Right (negative)
         double baseTrackingRate = -tangentialVelocityMps / distanceMeters;
 
-        // Component 2: The rate of change of our lead angle offset via the quotient rule
         double driftMeters = tangentialVelocityMps * flightTimeSeconds;
         double driftDerivativeMps = tangentialAccelerationMpsSq * flightTimeSeconds;
 
@@ -343,23 +335,14 @@ public abstract class ShootingModel {
         return baseTrackingRate + leadAdjustmentRate;
     }
 
-    /**
-     * Decomposes a global field-relative vector into target-relative radial and tangential components.
-     *
-     * @return A Translation2d where:
-     *         X = Radial component (Negative = towards target, Positive = away).
-     *         Y = Tangential component (Positive = strafing left, Negative = strafing right).
-     */
     private static Translation2d decomposeVelocity(
             Translation2d origin,
             Translation2d target,
             Translation2d globalVector) {
 
-        // Find the vector pointing from the robot to the target
         Translation2d robotToTarget = target.minus(origin);
         Rotation2d angleToTarget = robotToTarget.getAngle();
 
-        // Rotate the vector by the inverse of the target angle to align it with the X/Y axes.
         Translation2d standardRelativeVector = globalVector.rotateBy(angleToTarget.unaryMinus());
 
         // Invert X to enforce the convention that moving towards the target decreases distance (negative velocity)
@@ -383,8 +366,6 @@ function buildGeneratedCode(models: Props["models"], hardware: Props["hardware"]
   const getD1 = (m: any, d: number | null, v: 'd' | 'vr') => hasData ? generateDerivativeEquation(m, d, v) : "0.0";
 
   return `${BASE_PACKAGE}
-
-import edu.wpi.first.math.geometry.Rotation2d;
 
 // THIS FILE IS AUTO-GENERATED BY THE SHOOTER SIMULATOR. DO NOT EDIT MANUALLY.
 public class GeneratedShooterModel extends ShootingModel {
@@ -416,7 +397,7 @@ public class GeneratedShooterModel extends ShootingModel {
 
     @Override
     public double getFlightTime(double d, double vr) {
-        return 0;
+        return d / 15.0; // FRC Placeholder: Distance / Avg Ball Exit Velocity
     }
 
     // =========================================================================
@@ -478,8 +459,8 @@ public class GeneratedShooterModel extends ShootingModel {
 type Tab = "preset" | "model" | "generated";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: "preset", label: "ShootingPreset.java", icon: "☕" },
-  { id: "model", label: "ShootingModel.java", icon: "☕" },
+  { id: "preset", label: "ShootingPreset.java", icon: "📦" },
+  { id: "model", label: "ShootingModel.java", icon: "📐" },
   { id: "generated", label: "GeneratedShooterModel.java", icon: "⚙️" },
 ];
 
@@ -508,106 +489,56 @@ export default function CodeExporter({
   const totalPoints = (datasetCounts?.normal ?? 0) + (datasetCounts?.min ?? 0) + (datasetCounts?.max ?? 0);
 
   return (
-    <div style={{ 
-      marginTop: 20, 
-      display: "flex",
-      flexDirection: "column",
-      borderRadius: 10,
-      overflow: "hidden",
-      border: `1px solid ${hasData ? "#007acc" : "#444"}`, // VSCode Blue accent
-      background: "#1e1e1e",
-      boxShadow: "0 8px 24px rgba(0,0,0,0.4)"
-    }}>
+    <div className="code-exporter-wrapper">
       
-      {/* IDE Tab Bar */}
-      <div style={{ display: "flex", background: "#252526", borderBottom: "1px solid #333", overflowX: "auto" }}>
-        {TABS.map(({ id, label, icon }) => (
-          <div
-            key={id}
-            onClick={() => setTab(id)}
-            style={{
-              padding: "10px 16px",
-              fontSize: "0.85rem",
-              fontFamily: "system-ui, sans-serif",
-              cursor: "pointer",
-              background: tab === id ? "#1e1e1e" : "transparent",
-              color: tab === id ? "#fff" : "#969696",
-              borderTop: `2px solid ${tab === id ? "#007acc" : "transparent"}`,
-              borderRight: "1px solid #333",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              transition: "background 0.2s"
-            }}
-          >
-            <span>{icon}</span>
-            {label}
-          </div>
-        ))}
+      {/* Top Bar Navigation */}
+      <div className="exporter-header">
         
-        {/* Action Buttons Spacer */}
-        <div style={{ flex: 1 }} />
-        
+        {/* Pills Tab Selector */}
+        <div className="exporter-tabs">
+          {TABS.map(({ id, label, icon }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`tab-btn ${tab === id ? 'active' : ''}`}
+            >
+              <span>{icon}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Copy Button */}
         <button
           onClick={handleCopy}
-          style={{
-            margin: "6px 12px",
-            padding: "4px 12px",
-            fontSize: "0.8rem",
-            background: copied ? "#2ea043" : "#0e639c",
-            color: "#fff",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
+          className={`copy-btn ${copied ? 'copied' : ''}`}
         >
-          {copied ? "✓ Copied" : "Copy File"}
+          {copied ? "✓ Copied" : "Copy Source"}
         </button>
       </div>
 
-      {/* Code Area */}
-      <pre
-        style={{
-          margin: 0,
-          padding: "16px",
-          background: "#1e1e1e",
-          color: "#d4d4d4", // VSCode Default text
-          fontSize: "0.85rem",
-          lineHeight: 1.5,
-          overflowX: "auto",
-          height: 480,
-          overflowY: "auto",
-          fontFamily: "'Fira Code', 'Consolas', monospace"
-        }} 
-      >
+      {/* Code Display Area */}
+      <pre className="code-display">
         <code>
           {codes[tab]}
         </code>
       </pre>
 
-      {/* IDE Status Bar */}
-      <div style={{
-        display: "flex",
-        background: "#007acc",
-        color: "#fff",
-        padding: "4px 12px",
-        fontSize: "0.75rem",
-        fontFamily: "system-ui, sans-serif",
-        justifyContent: "space-between"
-      }}>
-        <div style={{ display: "flex", gap: 16 }}>
-          <span>✗ 0 Errors</span>
-          <span>⚠ 0 Warnings</span>
-          <span>REBUILT 2026</span>
+      {/* Dashboard Status Footer */}
+      <div className="exporter-footer">
+        <div className="status-group">
+          <div className={`status-dot ${hasData ? 'calibrated' : 'waiting'}`} />
+          <span className={`status-text ${hasData ? 'calibrated' : 'waiting'}`}>
+            {hasData ? "SYSTEM CALIBRATED" : "AWAITING TRAINING DATA"}
+          </span>
         </div>
-        <div style={{ display: "flex", gap: 16 }}>
-          <span>Status: {hasData ? "Calibrated" : "Template Mode"}</span>
-          {hasData && <span>Dataset: {totalPoints.toLocaleString()} points</span>}
-          <span>UTF-8</span>
-          <span>Java</span>
+        
+        <div className="footer-metrics">
+          {hasData && (
+            <span>
+              Total Dataset: <span className="metric-highlight">{totalPoints.toLocaleString()} points</span>
+            </span>
+          )}
         </div>
       </div>
     </div>

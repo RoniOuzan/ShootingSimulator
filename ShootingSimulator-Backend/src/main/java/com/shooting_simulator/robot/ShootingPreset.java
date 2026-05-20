@@ -1,8 +1,6 @@
 package com.shooting_simulator.robot;
 
 import com.shooting_simulator.util.math.geometry.Rotation2d;
-import com.shooting_simulator.util.math.geometry.Rotation3d;
-import com.shooting_simulator.util.math.geometry.Translation3d;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -19,8 +17,8 @@ public class ShootingPreset {
 
     private final double flightTime;
 
-    public Translation3d getTranslation3d() {
-        return new Translation3d(this.velocity,
-                new Rotation3d(0, -this.pitch.getRadians(), this.yaw.getRadians()));
-    }
+//    public Translation3d getTranslation3d() {
+//        return new Translation3d(this.velocity,
+//                new Rotation3d(0, -this.pitch.getRadians(), this.yaw.getRadians()));
+//    }
 }
