@@ -5,7 +5,6 @@ import com.shooting_simulator.simulation.obstacles.Obstacle;
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
-import com.shooting_simulator.util.math.geometry.Translation3d;
 import lombok.Getter;
 
 import java.util.ArrayList;
@@ -13,7 +12,7 @@ import java.util.List;
 
 @Getter
 public class TrajectoryBuilder {
-    public static final double PERIOD = 0.002;
+    public static final double PERIOD = 0.005;
     private static final double TOLERANCE = 0.001;
 
     private final Translation2d initialPosition;

@@ -1,155 +1,201 @@
+/* --- Base Sidebar Layout --- */
 .shared-sidebar {
   width: 400px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, rgba(17, 17, 20, 0.95) 0%, rgba(24, 24, 28, 0.95) 100%);
-  backdrop-filter: blur(12px);
-  border-right: 1px solid var(--border-subtle);
+  background: rgba(13, 13, 18, 0.7); /* Deep, translucent dark */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: width 0.3s ease;
+  transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   overflow: hidden;
+  box-shadow: 5px 0 30px rgba(0, 0, 0, 0.3);
+  z-index: 50;
 }
 
 .shared-sidebar.collapsed {
   width: 48px;
+  background: rgba(13, 13, 18, 0.9);
 }
 
+/* Custom Sleek Scrollbar */
+.sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* --- Collapse Toggle --- */
 .collapse-toggle {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary, #aaa);
+  padding: 6px 12px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 0.8rem;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   z-index: 10;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
 }
 
 .collapsed .collapse-toggle {
   right: auto;
-  left: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   padding: 8px;
+  border-radius: 50%;
 }
 
 .collapse-toggle:hover {
-  background: var(--bg-card);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
+/* --- Sidebar Content & Headers --- */
 .sidebar-content {
-  padding: 50px 20px 20px;
+  padding: 60px 20px 24px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
 }
 
-.sidebar-title {
-  font-size: 1.3rem;
-  font-weight: 800;
-  margin: 0 0 20px 0;
-  background: linear-gradient(90deg, var(--accent-team), #fff);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+.sidebar-header {
+  margin-bottom: 24px;
 }
 
+.sidebar-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin: 0;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.sidebar-subtitle {
+  font-size: 0.8rem;
+  color: var(--accent-team, #00ff88);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+/* --- Config Cards (Glassmorphism + Glowing Badges) --- */
 .config-card {
-  background: var(--bg-card);
-  padding: 16px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 18px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.config-card:hover {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 16px;
 }
 
-.config-card.origin { border-left: 2px solid var(--accent-team); }
-.config-card.target { border-left: 2px solid #15ff00; }
-.config-card.aerodynamics { border-left: 2px solid #ff0000; }
-.config-card.hardware { border-left: 2px solid var(--accent-cyan); }
-
-.config-card .card-title {
-  margin: 0 0 14px 0;
-  font-size: 1rem;
-  color: var(--text-primary);
+.card-title h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #fff;
   font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* The Glowing Badges */
+.icon-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.config-card .card-title .icon {
-  font-size: 1.1rem;
-}
+.config-card.origin .icon-badge { background: rgba(0, 255, 136, 0.15); box-shadow: 0 0 12px rgba(0, 255, 136, 0.2); border: 1px solid rgba(0, 255, 136, 0.3); }
+.config-card.target .icon-badge { background: rgba(21, 255, 0, 0.15); box-shadow: 0 0 12px rgba(21, 255, 0, 0.2); border: 1px solid rgba(21, 255, 0, 0.3); }
+.config-card.aerodynamics .icon-badge { background: rgba(255, 68, 68, 0.15); box-shadow: 0 0 12px rgba(255, 68, 68, 0.2); border: 1px solid rgba(255, 68, 68, 0.3); }
+.config-card.hardware .icon-badge { background: rgba(0, 255, 255, 0.15); box-shadow: 0 0 12px rgba(0, 255, 255, 0.2); border: 1px solid rgba(0, 255, 255, 0.3); }
+.config-card.cost .icon-badge { background: rgba(168, 85, 247, 0.15); box-shadow: 0 0 12px rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.3); }
+.config-card.obstacles .icon-badge { background: rgba(251, 146, 60, 0.15); box-shadow: 0 0 12px rgba(251, 146, 60, 0.2); border: 1px solid rgba(251, 146, 60, 0.3); }
 
-.config-card .card-row {
+/* Card Internals */
+.card-row {
   display: flex;
-  gap: 12px;
+  gap: 16px;
 }
 
-.config-card .card-divider {
-  border-top: 1px solid var(--border-strong);
-  margin: 12px 0;
+.card-divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 16px 0;
 }
 
-.reset-config-btn {
-  width: 100%;
-  background: transparent;
-  border: 1px solid var(--status-bad);
-  color: var(--status-bad);
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-  margin-top: 8px;
-}
-
-.reset-config-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-}
-
+/* --- Target Axis Toggle --- */
 .target-mode-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-radius: var(--radius-lg, 12px);
-  width: 100%;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px;
+  padding: 6px 12px;
+  margin-top: 8px;
 }
 
 .mode-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-secondary, #aaa);
   font-weight: 600;
-  letter-spacing: 0.5px;
 }
 
 .mode-toggle {
-  position: relative; 
+  position: relative;
   display: flex;
-  background-color: var(--bg-base, #111115);
-  border-radius: var(--radius-lg, 8px);
-  padding: 4px;
-  border: 1px solid var(--border-strong, #2a2a35);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
-  width: 220px; 
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 3px;
+  width: 160px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
 }
 
 .mode-toggle-slider {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 4px;
-  width: calc(50% - 4px); 
-  background: linear-gradient(135deg, var(--accent-team, #00ff88), var(--accent-team-darker, #00cc66));
-  border-radius: var(--radius-md, 6px);
-  box-shadow: 0 4px 12px var(--accent-team-glow, rgba(0, 255, 136, 0.25));
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  top: 3px; bottom: 3px; left: 3px;
+  width: calc(50% - 3px);
+  background: var(--accent-team, #00ff88);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 255, 136, 0.3);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 1;
 }
 
@@ -158,45 +204,35 @@
   flex: 1;
   background: transparent;
   border: none;
-  color: var(--text-secondary, #888);
-  padding: 8px 0;
-  border-radius: var(--radius-md, 6px);
-  font-size: 0.85rem;
+  color: #888;
+  padding: 6px 0;
+  border-radius: 6px;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
-  z-index: 2; 
+  z-index: 2;
   transition: color 0.3s ease;
-  text-align: center;
 }
 
-.btn-toggle:hover:not(.active-mode) {
-  color: var(--text-primary, #fff);
-}
+.btn-toggle:hover:not(.active-mode) { color: #fff; }
+.btn-toggle.active-mode { color: #000; } /* High contrast against bright green slider */
 
-.btn-toggle.active-mode {
-  color: #111; 
-}
 
-/* --- Cost Function Card Enhancements --- */
-.config-card.cost {
-  border-left: 3px solid #a855f7; 
-  background: linear-gradient(145deg, var(--bg-card) 0%, rgba(168, 85, 247, 0.05) 100%);
-}
-
+/* --- Cost Presets Grid --- */
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
-.preset-grid .preset-btn {
-  background: var(--bg-input);
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-  padding: 8px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 0.72rem;
+.preset-btn {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #aaa;
+  padding: 8px 4px;
+  border-radius: 8px;
+  font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -206,127 +242,100 @@
   gap: 4px;
 }
 
-.preset-grid .preset-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border-color: #888;
+.preset-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
 }
 
-.preset-grid .preset-btn.active {
+.preset-btn.active {
   background: rgba(168, 85, 247, 0.15);
-  border-color: #a855f7;
+  border-color: rgba(168, 85, 247, 0.5);
   color: #d8b4fe;
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.1) inset;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.15);
 }
 
-/* Status Header */
 .weights-status-header {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-top: 16px;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px dashed var(--border-strong);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
 }
 
-.status-custom {
-  color: #a855f7;
-}
+.status-custom { color: #d8b4fe; }
+.status-locked { color: #888; }
 
-.status-locked {
-  color: #888;
-}
-
-/* Locked Container Logic */
 .weights-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   transition: all 0.3s ease;
 }
 
 .weights-container.locked {
-  opacity: 0.5;
+  opacity: 0.4;
   pointer-events: none;
-  user-select: none;
   filter: grayscale(0.5);
 }
 
-/* --- Compact Weight Control --- */
+
+/* --- Weight Stepper (Sleek Inputs) --- */
 .weight-control {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-subtle);
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 6px 12px;
+  border-radius: 8px;
   transition: border-color 0.2s;
 }
 
-.weight-control:hover {
-  border-color: var(--border-strong);
+.weight-control:focus-within {
+  border-color: rgba(168, 85, 247, 0.4);
 }
 
 .weight-label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.weight-icon {
-  font-size: 0.9rem;
-  opacity: 0.8;
+  color: #ccc;
 }
 
 .weight-stepper {
   display: flex;
   align-items: center;
-  background: var(--bg-input);
-  border-radius: 4px;
-  border: 1px solid var(--border-strong);
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   overflow: hidden;
 }
 
 .weight-stepper button {
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: #aaa;
   padding: 4px 10px;
   font-size: 0.9rem;
   font-weight: 800;
   cursor: pointer;
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.weight-stepper button:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
+.weight-stepper button:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.weight-stepper button:active { background: rgba(168, 85, 247, 0.3); }
 
-.weight-stepper button:active {
-  background: rgba(168, 85, 247, 0.3);
-}
-
-/* --- NEW EDITABLE INPUT STYLES FOR WEIGHT VALUE --- */
 .weight-input-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 58px;
-  background: rgba(0,0,0,0.3);
-  border-left: 1px solid var(--border-strong);
-  border-right: 1px solid var(--border-strong);
+  width: 50px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .weight-input {
@@ -340,90 +349,117 @@
   text-align: right;
   padding: 4px 0;
   outline: none;
-  -moz-appearance: textfield; /* Hides arrows in Firefox */
-  appearance: textfield; /* Hides arrows in other browsers */
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
-/* Hides up/down arrows in Chrome/Safari */
 .weight-input::-webkit-outer-spin-button,
 .weight-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.weight-input:focus {
-  color: #fff; /* Highlights text white when user clicks to type */
-}
+.weight-input:focus { color: #fff; }
 
 .weight-suffix {
-  color: #d8b4fe;
+  color: #a855f7;
   font-family: monospace;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   padding-right: 4px;
-  padding-left: 1px;
+  padding-left: 2px;
   user-select: none;
 }
-/* ------------------------------------------------ */
 
-/* --- Obstacles List Styles --- */
+
+/* --- Obstacles List --- */
+.open-editor-btn {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.15) 0%, rgba(251, 146, 60, 0.05) 100%);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  color: #fed7aa;
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  margin-bottom: 16px;
+}
+
+.open-editor-btn:hover {
+  background: rgba(251, 146, 60, 0.25);
+  color: #fff;
+  border-color: rgba(251, 146, 60, 0.6);
+  box-shadow: 0 4px 15px rgba(251, 146, 60, 0.2);
+  transform: translateY(-1px);
+}
+
 .obstacles-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 16px;
 }
 
 .no-obstacles {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.4);
   text-align: center;
-  padding: 12px;
+  padding: 16px;
   background: rgba(0,0,0,0.2);
-  border-radius: var(--radius-sm);
-  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  border: 1px dashed rgba(255,255,255,0.1);
 }
 
 .obstacle-item {
   background: rgba(0, 0, 0, 0.2);
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   transition: border-color 0.2s;
 }
 
-.obstacle-item:hover {
-  border-color: #fb923c;
+.obstacle-item:focus-within {
+  border-color: rgba(251, 146, 60, 0.5);
 }
 
 .obstacle-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.obstacle-type {
-  font-size: 1rem;
+.obstacle-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
 }
+
+.obstacle-type { font-size: 1rem; }
 
 .obstacle-name-input {
   flex: 1;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-primary);
-  padding: 4px 6px;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .obstacle-name-input:focus {
+  background: rgba(0,0,0,0.3);
   border-color: #fb923c;
   outline: none;
-  background: var(--bg-input);
 }
 
 .delete-btn {
@@ -431,30 +467,25 @@
   border: none;
   color: #ef4444;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px;
   border-radius: 4px;
   font-size: 0.9rem;
-  font-weight: bold;
-  transition: background 0.2s;
+  opacity: 0.7;
+  transition: all 0.2s;
 }
 
-.delete-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
+.delete-btn:hover { background: rgba(239, 68, 68, 0.15); opacity: 1; }
+
+.obstacle-controls {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px;
+  border-radius: 6px;
 }
 
 .obstacle-info-text {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  padding-left: 6px;
-  margin-bottom: 6px;
-}
-
-.obstacle-drag-hint {
   font-size: 0.75rem;
-  color: #888;
-  font-style: italic;
-  text-align: right;
-  margin-top: 8px;
+  color: #aaa;
+  padding-left: 4px;
 }
 
 .add-obstacle-buttons {
@@ -466,37 +497,38 @@
   flex: 1;
   padding: 8px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #aaa;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .add-obstacle-buttons button:hover {
-  background: rgba(251, 146, 60, 0.1);
-  color: var(--text-primary);
-  border-color: #fb923c;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
-.open-editor-btn {
+/* --- Reset Action --- */
+.reset-config-btn {
   width: 100%;
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.1), rgba(251, 146, 60, 0.2));
-  border: 1px solid #fb923c;
-  color: #fed7aa;
-  padding: 10px;
-  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 12px;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: 700;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-  margin-bottom: 12px;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  margin-top: 10px;
 }
 
-.open-editor-btn:hover {
-  background: rgba(251, 146, 60, 0.3);
-  color: #fff;
-  box-shadow: 0 0 12px rgba(251, 146, 60, 0.2);
+.reset-config-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.6);
 }
