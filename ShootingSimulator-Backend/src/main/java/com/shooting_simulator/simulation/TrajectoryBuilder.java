@@ -48,11 +48,11 @@ public class TrajectoryBuilder {
         return withinXBounds && withinYBounds;
     }
 
-    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean isFlat) {
-        return simulateTrajectory(exitVelocity, angle, true, isFlat);
+    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean checkObstacles, boolean isFlat) {
+        return simulateTrajectory(exitVelocity, angle, true, checkObstacles, isFlat);
     }
 
-    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean checkLimits, boolean isFlat) {
+    public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean checkLimits, boolean checkObstacles, boolean isFlat) {
         if (checkLimits && (angle.getDegrees() < this.physicalValues.minAngle - 1e-3 || angle.getDegrees() > this.physicalValues.maxAngle + 1e-3)) {
             throw new RuntimeException("Angle " + angle.getDegrees() + " is not possible to shoot in this shooter!");
         } else if (checkLimits && (exitVelocity < this.physicalValues.minVel - 1e-3 || exitVelocity > this.physicalValues.maxVel + 1e-3)) {
@@ -79,10 +79,6 @@ public class TrajectoryBuilder {
 
             Translation2d nextVelocity = velocity.plus(acceleration.times(PERIOD));
 
-            if (isCollidingObstacle(position, nextPosition)) {
-                break;
-            }
-
             // Check for crossing
             if (isPassedTarget(position, nextPosition, nextVelocity, isFlat)) {
                 // Add the perfect sample and STOP
@@ -92,6 +88,10 @@ public class TrajectoryBuilder {
                 // Only stops if vertical because in horizontal it can pass the y twice
                 if (this.targetAxis == TargetAxis.VERTICAL)
                     break;
+            }
+
+            if (checkObstacles && isCollidingObstacle(position, nextPosition)) {
+                break;
             }
 
             // Standard update if no crossing

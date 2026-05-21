@@ -1,10 +1,12 @@
 package com.shooting_simulator.simulation.obstacles;
 
 import com.shooting_simulator.util.math.geometry.Translation2d;
+import lombok.ToString;
 
+@ToString
 public class CircleObstacle extends Obstacle {
     private final Translation2d center;
-    private double radius;
+    private final double radius;
 
     public CircleObstacle(String id, String name, Translation2d center, double radius) {
         super(id, name);
@@ -14,39 +16,35 @@ public class CircleObstacle extends Obstacle {
 
     @Override
     public boolean isColliding(Translation2d start, Translation2d end) {
-        double radiusSq = radius * radius;
-
-        // Set up the quadratic equation for a line-to-circle intersection
         double dx = end.getX() - start.getX();
         double dy = end.getY() - start.getY();
-        double fx = start.getX() - center.getX();
-        double fy = start.getY() - center.getY();
 
-        double a = dx * dx + dy * dy;
-        double b = 2 * (fx * dx + fy * dy);
-        double c = (fx * fx + fy * fy) - radiusSq;
+        // Length of the segment squared
+        double lengthSq = (dx * dx) + (dy * dy);
 
-        // Edge case: The projectile hasn't moved (a == 0)
-        if (a == 0) {
-            return c <= 0; // Check if the static point is inside
+        // Edge Case: Projectile hasn't moved at all
+        if (lengthSq == 0.0) {
+            double distSq = Math.pow(start.getX() - center.getX(), 2) +
+                    Math.pow(start.getY() - center.getY(), 2);
+            return distSq <= (radius * radius);
         }
 
-        // Solve the discriminant to see if the line hits the circle
-        double discriminant = b * b - 4 * a * c;
-        if (discriminant < 0) {
-            return false; // Trajectory completely missed
-        }
+        // Project the circle's center onto the line segment to find 't' (percentage along the line)
+        // t = dotProduct(center - start, end - start) / lengthSq
+        double t = ((center.getX() - start.getX()) * dx + (center.getY() - start.getY()) * dy) / lengthSq;
 
-        discriminant = Math.sqrt(discriminant);
-        double t1 = (-b - discriminant) / (2 * a);
-        double t2 = (-b + discriminant) / (2 * a);
+        // Clamp 't' between 0 and 1 so we only check the actual segment, not the infinite line
+        t = Math.max(0, Math.min(1, t));
 
-        // Check if either intersection happened during THIS tick (t between 0 and 1)
-        if (t1 >= 0 && t1 <= 1) return true;
-        if (t2 >= 0 && t2 <= 1) return true;
+        // Find the exact closest point on the segment to the center of the circle
+        double closestX = start.getX() + (t * dx);
+        double closestY = start.getY() + (t * dy);
 
-        // Final Edge Case: The trajectory segment started and ended completely 
-        // inside the circle without crossing the boundary this tick.
-        return c <= 0; 
+        // Calculate the distance from the closest point to the center
+        double distSq = Math.pow(closestX - center.getX(), 2) +
+                Math.pow(closestY - center.getY(), 2);
+
+        // If the closest point on the line is within the radius, it's a collision!
+        return distSq <= (radius * radius);
     }
 }

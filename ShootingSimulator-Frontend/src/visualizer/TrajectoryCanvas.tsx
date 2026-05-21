@@ -171,7 +171,8 @@ export function TrajectoryCanvas({
           updateConfig("origin", { initialY: newY });
         } else if (!isDraggingOrigin && !isDraggingTarget) {
           const newY = !isLockedY ? Math.max(0, Number(worldCoords.y.toFixed(2))) : sharedConfig.target.targetY;
-          updateConfig("target", { targetY: newY });
+          updateConfig("origin", { initialY: newY });
+          setInitialX(Number(worldCoords.x.toFixed(2)));
         }
       }
     }
@@ -229,9 +230,9 @@ export function TrajectoryCanvas({
 
           ctx.beginPath();
           ctx.arc(centerScreen.x, centerScreen.y, screenRadius, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(251, 146, 60, 0.4)"; // Orange translucent
+          ctx.fillStyle = "rgba(68, 239, 68, 0.4)"; // Orange translucent
           ctx.fill();
-          ctx.strokeStyle = "#fb923c";
+          ctx.strokeStyle = "#44ef44";
           ctx.lineWidth = 2;
           ctx.stroke();
         } else if (obs.type === "POLYGON" && obs.vertices.length > 0) {

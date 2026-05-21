@@ -86,32 +86,6 @@ export default function SharedConfigSidebar({
   };
 
   // --- Obstacle Management ---
-  const handleAddObstacle = (type: "CIRCLE" | "POLYGON") => {
-    const id = crypto.randomUUID ? crypto.randomUUID() : `obs_${Date.now()}`;
-    const newObstacle: ObstacleConfig =
-      type === "CIRCLE"
-        ? {
-            type: "CIRCLE",
-            id,
-            name: `Circle ${obstacles.length + 1}`,
-            center: { x: 2, y: 2 },
-            radius: 0.5,
-          }
-        : // Default triangle for polygon
-          {
-            type: "POLYGON",
-            id,
-            name: `Polygon ${obstacles.length + 1}`,
-            vertices: [
-              { x: 2, y: 1 },
-              { x: 3, y: 1 },
-              { x: 2.5, y: 2 },
-            ],
-          };
-
-    updateConfig("obstacles", [...obstacles, newObstacle]);
-  };
-
   const handleUpdateObstacle = (
     index: number,
     updates: Partial<ObstacleConfig>,
@@ -292,11 +266,6 @@ export default function SharedConfigSidebar({
                     )}
                   </div>
                 ))}
-              </div>
-
-              <div className="add-obstacle-buttons">
-                <button onClick={() => handleAddObstacle("CIRCLE")}>+ Circle</button>
-                <button onClick={() => handleAddObstacle("POLYGON")}>+ Polygon</button>
               </div>
             </div>
 

@@ -529,7 +529,7 @@ export default function CodeExporter({
         <div className="status-group">
           <div className={`status-dot ${hasData ? 'calibrated' : 'waiting'}`} />
           <span className={`status-text ${hasData ? 'calibrated' : 'waiting'}`}>
-            {hasData ? "SYSTEM CALIBRATED" : "AWAITING TRAINING DATA"}
+            {hasData ? "SYSTEM SIMULATED" : "AWAITING SIMULATION DATA"}
           </span>
         </div>
         

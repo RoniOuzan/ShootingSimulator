@@ -17,8 +17,8 @@ public class TrajectoryChooser {
 
     private static final double ANGLE_DT_DIVIDER = 100;
 
-    private static final double MISS_TARGET_COST = 1000000;
-    private static final double SCALE_ROBUSTNESS = 200.0;
+    private static final double MISS_TARGET_COST = 100;
+    private static final double SCALE_ROBUSTNESS = 200;
     private static final double SCALE_VELOCITY = 0.1;
     private static final double SCALE_TIME = 1.0;
     private static final double SCALE_ANGLE = 0.04;
@@ -290,18 +290,12 @@ public class TrajectoryChooser {
     }
 
     private Trajectory binarySearchBestVelocityForAngle(double angle, boolean isFlat) {
-        return performBinarySearch(angle, this.physicalValues.minVel, this.physicalValues.maxVel, isFlat);
-    }
+        double min = this.physicalValues.minVel;
+        double max = this.physicalValues.maxVel;
 
-    private boolean canReachTarget(double velocity, double angle, boolean isFlat) {
-        Trajectory trajectory = this.builder.simulateTrajectory(velocity, Rotation2d.fromDegrees(angle), isFlat);
-        return trajectory.isReachedTargetHeight();
-    }
-
-    private Trajectory performBinarySearch(double angle, double min, double max, boolean isFlat) {
         while (max - min > EXIT_VELOCITY_DT) {
             double mid = (min + max) / 2.0;
-            Trajectory trajectory = this.builder.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), isFlat);
+            Trajectory trajectory = this.builder.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), false, isFlat);
 
             if (!trajectory.isReachedTargetHeight()) {
                 min = mid;
@@ -317,7 +311,12 @@ public class TrajectoryChooser {
                 }
             }
         }
-        return this.builder.simulateTrajectory((max + min) / 2.0, Rotation2d.fromDegrees(angle), isFlat);
+        return this.builder.simulateTrajectory((max + min) / 2.0, Rotation2d.fromDegrees(angle), true, isFlat);
+    }
+
+    private boolean canReachTarget(double velocity, double angle, boolean isFlat) {
+        Trajectory trajectory = this.builder.simulateTrajectory(velocity, Rotation2d.fromDegrees(angle), false, isFlat);
+        return trajectory.isReachedTargetHeight();
     }
 
     private double calculateMinAngle() {
@@ -326,16 +325,6 @@ public class TrajectoryChooser {
 
     private double calculateMaxAngle() {
         return this.physicalValues.maxAngle;
-    }
-
-
-    private double getCostDerivative(double angle) {
-        for (RobustnessPoint robustnessPoint : this.robustnessSweep) {
-            if (robustnessPoint.rssDerivative != null && MathUtil.equals(robustnessPoint.angle, angle)) {
-                return robustnessPoint.rssDerivative;
-            }
-        }
-        return Double.NaN;
     }
 
     public record RobustnessPoint(double angle, double vReq, Double velError, Double angleError, Double rssError, Double rssDerivative) implements Comparable<RobustnessPoint> {

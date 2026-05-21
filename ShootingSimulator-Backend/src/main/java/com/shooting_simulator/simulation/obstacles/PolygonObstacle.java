@@ -1,10 +1,13 @@
 package com.shooting_simulator.simulation.obstacles;
 
 import com.shooting_simulator.util.math.geometry.Translation2d;
+import lombok.ToString;
+
 import java.util.List;
 
+@ToString
 public class PolygonObstacle extends Obstacle {
-    private List<Translation2d> vertices;
+    private final List<Translation2d> vertices;
 
     // We use Double objects instead of primitives so they default to 'null' when Gson creates them.
     // The 'transient' keyword tells Gson to ignore these fields when serializing/deserializing.

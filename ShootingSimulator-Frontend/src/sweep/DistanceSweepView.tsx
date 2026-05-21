@@ -25,8 +25,8 @@ export default function DistanceSweepView({
 }: Props) {
   // Tab-specific settings with persistence
   const [minDist, setMinDist] = usePersistedState("sweep_minDist", 1);
-  const [maxDist, setMaxDist] = usePersistedState("sweep_maxDist", 12);
-  const [distStep, setDistStep] = usePersistedState("sweep_distStep", 0.1);
+  const [maxDist, setMaxDist] = usePersistedState("sweep_maxDist", 8);
+  const [distStep, setDistStep] = usePersistedState("sweep_distStep", 0.2);
 
   const handleCalculate = () => {
     if (!isConnected || isCalculating) return;

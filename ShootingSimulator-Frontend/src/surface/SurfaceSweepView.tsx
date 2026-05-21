@@ -482,7 +482,7 @@ export default function SurfaceSweepView({
               className={`status-dot ${isConnected ? "connected" : "disconnected"}`}
             />
             <span className="status-text">
-              {isConnected ? "Solver linked — 3D mode" : "Awaiting connection…"}
+              {isConnected ? "Solver linked" : "Awaiting connection…"}
             </span>
           </div>
           <button
@@ -527,7 +527,7 @@ export default function SurfaceSweepView({
       </div>
 
       <div className="tab-sidebar">
-        <h2 className="sidebar-title">Surface settings</h2>
+        <h2 className="sidebar-title">Surface Settings</h2>
 
         <div className="tab-config-card">
           <h3>Distance range (X-axis)</h3>
