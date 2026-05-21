@@ -334,7 +334,7 @@ export function TrajectoryCanvas({
     <canvas
       ref={canvasRef}
       width={1200}
-      height={500}
+      height={600}
       style={{
         width: "100%",
         height: "100%",

@@ -77,8 +77,8 @@
   transition: all 0.2s;
 }
 
-.add-btn.circle { color: #fed7aa; border-color: #fb923c; }
-.add-btn.circle:hover { background: rgba(251, 146, 60, 0.2); }
+.add-btn.circle { color: #fed7aa; border-color: #44ef44; }
+.add-btn.circle:hover { background: rgba(68, 239, 68, 0.2); }
 
 .add-btn.poly { color: #fecaca; border-color: #ef4444; }
 .add-btn.poly:hover { background: rgba(239, 68, 68, 0.2); }
@@ -196,7 +196,7 @@
 }
 
 /* Colored Top borders based on type */
-.prop-card.CIRCLE { border-top: 3px solid #fb923c; }
+.prop-card.CIRCLE { border-top: 3px solid #44ef44; }
 .prop-card.POLYGON { border-top: 3px solid #ef4444; }
 
 /* Selected State */

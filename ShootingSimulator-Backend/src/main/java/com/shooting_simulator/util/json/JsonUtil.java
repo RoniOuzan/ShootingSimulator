@@ -1,5 +1,7 @@
 package com.shooting_simulator.util.json;
 
+import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.obstacles.ObstacleDeserializer;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import com.shooting_simulator.util.serialization.MapSerializer;
 import com.google.gson.Gson;
@@ -14,6 +16,7 @@ public class JsonUtil {
             .registerTypeAdapter(
                     new TypeToken<Map<Translation2d, Double>>(){}.getType(),
                     new MapSerializer())
+            .registerTypeAdapter(Obstacle.class, new ObstacleDeserializer())
             .serializeSpecialFloatingPointValues()
             .create();
 

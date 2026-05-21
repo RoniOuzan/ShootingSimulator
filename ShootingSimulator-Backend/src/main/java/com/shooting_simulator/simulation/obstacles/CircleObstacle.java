@@ -4,15 +4,18 @@ import com.shooting_simulator.util.math.geometry.Translation2d;
 
 public class CircleObstacle extends Obstacle {
     private final Translation2d center;
-    private final double radiusSq;
+    private double radius;
 
-    public CircleObstacle(Translation2d center, double radius) {
+    public CircleObstacle(String id, String name, Translation2d center, double radius) {
+        super(id, name);
         this.center = center;
-        this.radiusSq = radius * radius; // Pre-calculate square
+        this.radius = radius;
     }
 
     @Override
     public boolean isColliding(Translation2d start, Translation2d end) {
+        double radiusSq = radius * radius;
+
         // Set up the quadratic equation for a line-to-circle intersection
         double dx = end.getX() - start.getX();
         double dy = end.getY() - start.getY();

@@ -30,8 +30,8 @@ const DEFAULT_CONFIG: SharedConfig = {
     maxAngle: 90,
     minVel: 6,
     maxVel: 12,
-    estimatedAngleError: 0.05,
-    estimatedVelocityError: 0.008,
+    estimatedAngleError: 0.01,
+    estimatedVelocityError: 0.002,
   },
   cost: {
     preset: "BALANCED",

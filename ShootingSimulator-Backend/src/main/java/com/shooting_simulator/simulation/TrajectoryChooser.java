@@ -18,7 +18,7 @@ public class TrajectoryChooser {
     private static final double ANGLE_DT_DIVIDER = 100;
 
     private static final double MISS_TARGET_COST = 1000000;
-    private static final double SCALE_ROBUSTNESS = 500.0;
+    private static final double SCALE_ROBUSTNESS = 200.0;
     private static final double SCALE_VELOCITY = 0.1;
     private static final double SCALE_TIME = 1.0;
     private static final double SCALE_ANGLE = 0.04;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CostPreset, SharedConfig, ObstacleConfig } from "../types";
 import ControlSlider from "./ControlSlider";
 import "./SharedConfigSidebar.css";
@@ -183,7 +183,7 @@ export default function SharedConfigSidebar({
               <ControlSlider
                 label="Target Height (Y)"
                 value={target.targetY}
-                min={0.5}
+                min={0}
                 max={5}
                 step={0.05}
                 unit="m"
@@ -608,8 +608,37 @@ function WeightControl({
   step: number;
   onChange: (val: number) => void;
 }) {
+  const [localVal, setLocalVal] = useState(value.toFixed(2));
+
+  // Sync local input state if external value changes (like when clicking a preset)
+  useEffect(() => {
+    if (parseFloat(localVal) !== value) {
+      setLocalVal(value.toFixed(2));
+    }
+  }, [value]);
+
   const handleDecrement = () => onChange(Math.max(0, value - step));
   const handleIncrement = () => onChange(value + step);
+
+  // Update input text immediately as you type
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalVal(e.target.value);
+    const parsed = parseFloat(e.target.value);
+    if (!isNaN(parsed) && parsed >= 0) {
+      onChange(parsed);
+    }
+  };
+
+  // On blur, format the number back to a clean 2 decimal string
+  const handleBlur = () => {
+    const parsed = parseFloat(localVal);
+    if (isNaN(parsed) || parsed < 0) {
+      setLocalVal(value.toFixed(2)); // Revert if invalid text is typed
+    } else {
+      setLocalVal(parsed.toFixed(2));
+      onChange(parsed);
+    }
+  };
 
   return (
     <div className="weight-control">
@@ -618,13 +647,22 @@ function WeightControl({
         {label}
       </div>
       <div className="weight-stepper">
-        <button type="button" onClick={handleDecrement}>
-          -
-        </button>
-        <div className="weight-value">{value.toFixed(2)}x</div>
-        <button type="button" onClick={handleIncrement}>
-          +
-        </button>
+        <button type="button" onClick={handleDecrement}>-</button>
+        
+        {/* New input container replacing the static div */}
+        <div className="weight-input-container">
+          <input
+            type="number"
+            step={step}
+            value={localVal}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className="weight-input"
+          />
+          <span className="weight-suffix">x</span>
+        </div>
+        
+        <button type="button" onClick={handleIncrement}>+</button>
       </div>
     </div>
   );

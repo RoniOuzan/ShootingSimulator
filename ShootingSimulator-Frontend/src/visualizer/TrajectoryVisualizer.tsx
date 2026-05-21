@@ -37,8 +37,8 @@ export default function TrajectoryVisualizer({
   const [isLockedY, setIsLockedY] = usePersistedState("traj_lockY", false);
 
   // Viewport States
-  const DEFAULT_ZOOM = 120;
-  const DEFAULT_PAN = { x: 800, y: 50 };
+  const DEFAULT_ZOOM = 100;
+  const DEFAULT_PAN = { x: 900, y: 50 };
   const [zoom, setZoom] = useState<number>(DEFAULT_ZOOM);
   const [pan, setPan] = useState<Translation2d>(DEFAULT_PAN);
 
@@ -125,7 +125,7 @@ export default function TrajectoryVisualizer({
             style={{
               padding: 0,
               overflow: "hidden",
-              minHeight: "500px",
+              minHeight: "600px",
               border: "1px solid #2a2a35",
               borderRadius: "8px",
             }}

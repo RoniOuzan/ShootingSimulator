@@ -8,8 +8,8 @@ interface Props {
   onClose: () => void;
 }
 
-const GRID_WIDTH_M = 16; 
-const GRID_HEIGHT_M = 6;
+const GRID_WIDTH_M = 11; 
+const GRID_HEIGHT_M = 5;
 
 const DEFAULT_X = -GRID_WIDTH_M + 2;
 const DEFAULT_Y = 0;
@@ -70,7 +70,8 @@ export default function ObstacleManagingModel({ config, updateConfig, onClose }:
       : { type: "POLYGON", id, name, vertices: [
           {x: spawnX - 1, y: spawnY - 1}, 
           {x: spawnX + 1, y: spawnY - 1}, 
-          {x: spawnX, y: spawnY + 1}
+          {x: spawnX + 1, y: spawnY + 1},
+          {x: spawnX - 1, y: spawnY + 1},
         ]};
     
     updateConfig("obstacles", [...obstacles, newObstacle]);
@@ -233,10 +234,10 @@ export default function ObstacleManagingModel({ config, updateConfig, onClose }:
         <div className="env-editor-header">
           <h2>Obstacle Managing</h2>
           <div className="header-controls">
+            <button className="reset-cam-btn" onClick={() => { setPanX(DEFAULT_X); setPanY(DEFAULT_Y); }}>Reset Camera</button>
+            <div className="header-divider" />
             <button className="add-btn circle" onClick={() => handleAddObstacle('CIRCLE')}>+ Circle</button>
             <button className="add-btn poly" onClick={() => handleAddObstacle('POLYGON')}>+ Polygon</button>
-            <div className="header-divider" />
-            <button className="reset-cam-btn" onClick={() => { setPanX(DEFAULT_X); setPanY(DEFAULT_Y); }}>Reset Camera</button>
             <button className="close-btn" onClick={onClose}>✕</button>
           </div>
         </div>
@@ -256,35 +257,34 @@ export default function ObstacleManagingModel({ config, updateConfig, onClose }:
             >
               {gridLines}
 
-              <line x1={startX} y1={0} x2={endX} y2={0} stroke="rgba(255,255,255,0.3)" strokeWidth={0.08} />
-              <line x1={0} y1={startY} x2={0} y2={endY} stroke="rgba(255,255,255,0.3)" strokeWidth={0.08} />
-              <circle cx={0} cy={0} r={0.2} fill="rgba(255,255,255,0.5)" />
-              <text x={0.3} y={0.3} fill="rgba(255,255,255,0.5)" fontSize={0.4} style={{ transform: "scale(1, -1)" }}>0,0</text>
+              <line x1={startX} y1={0} x2={endX} y2={0} stroke="rgba(255,255,255,0.3)" strokeWidth={0.02} />
+              <line x1={0} y1={startY} x2={0} y2={endY} stroke="rgba(255,255,255,0.3)" strokeWidth={0.02} />
 
               <g opacity={0.6}>
-                <rect x={targetX - 0.2} y={targetY - 0.2} width={0.4} height={0.4} fill="#15ff00" stroke="#fff" strokeWidth={0.05} />
+                {/* <rect x={targetX - 0.2} y={targetY - 0.2} width={0.4} height={0.4} fill="#15ff00" stroke="#fff" strokeWidth={0.05} />
                 <line x1={targetX - 0.4} y1={targetY} x2={targetX + 0.4} y2={targetY} stroke="#fff" strokeWidth={0.05} />
-                <line x1={targetX} y1={targetY - 0.4} x2={targetX} y2={targetY + 0.4} stroke="#fff" strokeWidth={0.05} />
+                <line x1={targetX} y1={targetY - 0.4} x2={targetX} y2={targetY + 0.4} stroke="#fff" strokeWidth={0.05} /> */}
+                <circle cx={targetX} cy={targetY} r={0.08} stroke="#fff" strokeWidth={0.02} fill="rgba(255,0,0,0.8)" />
               </g>
 
               {obstacles.map((obs) => {
                 const isSelected = selectedId === obs.id;
-                const strokeColor = isSelected ? "#3b82f6" : (obs.type === "CIRCLE" ? "#fb923c" : "#ef4444");
-                const strokeWidth = isSelected ? 0.08 : 0.05;
+                const strokeColor = isSelected ? "#3b82f6" : (obs.type === "CIRCLE" ? "#44ef44" : "#ef4444");
+                const strokeWidth = isSelected ? 0.03 : 0.02;
 
                 if (obs.type === "CIRCLE") {
                   return (
                     <g key={obs.id}>
                       <circle
                         cx={obs.center.x} cy={obs.center.y} r={obs.radius}
-                        fill={isSelected ? "rgba(59, 130, 246, 0.4)" : "rgba(251, 146, 60, 0.4)"} 
+                        fill={isSelected ? "rgba(59, 130, 246, 0.4)" : "rgba(68, 239, 68, 0.4)"} 
                         stroke={strokeColor} strokeWidth={strokeWidth}
                         style={{ cursor: (dragState?.id === obs.id && dragState.type === "OBSTACLE_CIRCLE") ? "grabbing" : "grab" }}
                         onPointerDown={(e) => handlePointerDownObstacle(e, obs)}
                       />
                       <circle
-                        cx={obs.center.x + obs.radius} cy={obs.center.y} r={0.15}
-                        fill="#fff" stroke={strokeColor} strokeWidth={0.05}
+                        cx={obs.center.x + obs.radius} cy={obs.center.y} r={0.05}
+                        fill="#fff" stroke={strokeColor} strokeWidth={0.015}
                         style={{ cursor: (dragState?.id === obs.id && dragState.type === "OBSTACLE_CIRCLE_RESIZE") ? "grabbing" : "ew-resize" }}
                         onPointerDown={(e) => handlePointerDownCircleResize(e, obs)}
                       />
@@ -304,7 +304,7 @@ export default function ObstacleManagingModel({ config, updateConfig, onClose }:
                       />
                       {obs.vertices.map((v, i) => (
                         <circle
-                          key={`${obs.id}-v${i}`} cx={v.x} cy={v.y} r={0.15} fill="#fff" stroke={strokeColor} strokeWidth={0.05}
+                          key={`${obs.id}-v${i}`} cx={v.x} cy={v.y} r={0.05} fill="#fff" stroke={strokeColor} strokeWidth={0.015}
                           style={{ cursor: (dragState?.type === "OBSTACLE_POLYGON_VERTEX" && dragState.id === obs.id && dragState.vertexIndex === i) ? 'grabbing' : 'crosshair' }}
                           onPointerDown={(e) => handlePointerDownVertex(e, obs, i)}
                         />
@@ -338,7 +338,6 @@ export default function ObstacleManagingModel({ config, updateConfig, onClose }:
                 >
                   <div className="prop-header">
                     <div className="prop-title">
-                      <span className="prop-icon">{obs.type === 'CIRCLE' ? '🔴' : '🛑'}</span>
                       <input 
                         className="prop-name-input" 
                         value={obs.name} 
@@ -383,7 +382,7 @@ export default function ObstacleManagingModel({ config, updateConfig, onClose }:
                               <label>Y</label>
                               <input type="number" step="0.1" value={Number(v.y.toFixed(2))} onChange={e => handleUpdateVertex(obs.id, i, 'y', parseFloat(e.target.value) || 0)} />
                             </div>
-                            {obs.vertices.length > 3 && (
+                            {obs.vertices.length > 2 && (
                               <button className="del-v-btn" onClick={(e) => { e.stopPropagation(); handleRemoveVertex(obs.id, i); }} title="Remove vertex">-</button>
                             )}
                           </div>

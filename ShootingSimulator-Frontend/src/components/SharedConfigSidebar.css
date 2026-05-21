@@ -68,21 +68,10 @@
   margin-bottom: 16px;
 }
 
-.config-card.origin {
-  border-left: 2px solid var(--accent-team);
-}
-
-.config-card.target {
-  border-left: 2px solid #15ff00;
-}
-
-.config-card.aerodynamics {
-  border-left: 2px solid #ff0000;
-}
-
-.config-card.hardware {
-  border-left: 2px solid var(--accent-cyan);
-}
+.config-card.origin { border-left: 2px solid var(--accent-team); }
+.config-card.target { border-left: 2px solid #15ff00; }
+.config-card.aerodynamics { border-left: 2px solid #ff0000; }
+.config-card.hardware { border-left: 2px solid var(--accent-cyan); }
 
 .config-card .card-title {
   margin: 0 0 14px 0;
@@ -141,23 +130,22 @@
 }
 
 .mode-toggle {
-  position: relative; /* Crucial for the absolute slider */
+  position: relative; 
   display: flex;
   background-color: var(--bg-base, #111115);
   border-radius: var(--radius-lg, 8px);
   padding: 4px;
   border: 1px solid var(--border-strong, #2a2a35);
   box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
-  width: 220px; /* Fixed width helps the math for the 50% slide */
+  width: 220px; 
 }
 
-/* The animated background pill */
 .mode-toggle-slider {
   position: absolute;
   top: 4px;
   bottom: 4px;
   left: 4px;
-  width: calc(50% - 4px); /* 50% of parent minus padding */
+  width: calc(50% - 4px); 
   background: linear-gradient(135deg, var(--accent-team, #00ff88), var(--accent-team-darker, #00cc66));
   border-radius: var(--radius-md, 6px);
   box-shadow: 0 4px 12px var(--accent-team-glow, rgba(0, 255, 136, 0.25));
@@ -176,7 +164,7 @@
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
-  z-index: 2; /* Sits above the slider */
+  z-index: 2; 
   transition: color 0.3s ease;
   text-align: center;
 }
@@ -186,7 +174,7 @@
 }
 
 .btn-toggle.active-mode {
-  color: #111; /* Dark text for high contrast against the bright sliding pill */
+  color: #111; 
 }
 
 /* --- Cost Function Card Enhancements --- */
@@ -261,7 +249,6 @@
   transition: all 0.3s ease;
 }
 
-/* This makes the sliders unclickable and visually "faded" when not on Custom */
 .weights-container.locked {
   opacity: 0.5;
   pointer-events: none;
@@ -331,18 +318,53 @@
   background: rgba(168, 85, 247, 0.3);
 }
 
-.weight-value {
-  width: 50px;
-  text-align: center;
-  font-family: monospace;
-  font-size: 0.75rem;
-  color: #d8b4fe; /* Subtle purple to match the cost theme */
-  font-weight: 700;
+/* --- NEW EDITABLE INPUT STYLES FOR WEIGHT VALUE --- */
+.weight-input-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
   background: rgba(0,0,0,0.3);
-  padding: 4px 0;
   border-left: 1px solid var(--border-strong);
   border-right: 1px solid var(--border-strong);
 }
+
+.weight-input {
+  width: 32px;
+  background: transparent;
+  border: none;
+  color: #d8b4fe;
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: right;
+  padding: 4px 0;
+  outline: none;
+  -moz-appearance: textfield; /* Hides arrows in Firefox */
+  appearance: textfield; /* Hides arrows in other browsers */
+}
+
+/* Hides up/down arrows in Chrome/Safari */
+.weight-input::-webkit-outer-spin-button,
+.weight-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.weight-input:focus {
+  color: #fff; /* Highlights text white when user clicks to type */
+}
+
+.weight-suffix {
+  color: #d8b4fe;
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding-right: 4px;
+  padding-left: 1px;
+  user-select: none;
+}
+/* ------------------------------------------------ */
 
 /* --- Obstacles List Styles --- */
 .obstacles-list {
