@@ -5,6 +5,7 @@ import java.util.List;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 
 import lombok.Getter;
+import lombok.ToString;
 
 @Getter
 public class Trajectory {
@@ -38,5 +39,16 @@ public class Trajectory {
             }
         }
         return peak;
+    }
+
+    @Override
+    public String toString() {
+        return "Trajectory{" +
+                "hitSample=" + hitSample +
+                ", isHitTarget=" + isHitTarget +
+                ", isReachedTargetHeight=" + isReachedTargetHeight +
+                ", initialShootingVelocity=" + initialShootingVelocity +
+                ", isFlat=" + isFlat +
+                '}';
     }
 }

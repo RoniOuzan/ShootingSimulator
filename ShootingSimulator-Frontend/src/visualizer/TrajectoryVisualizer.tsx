@@ -135,7 +135,18 @@ export default function TrajectoryVisualizer({
               setInitialX={setInitialX}
               sharedConfig={sharedConfig}
               updateConfig={updateConfig}
-              results={results}
+              trajectoryGroups={[
+                { 
+                  trajectories: results.trajectories, 
+                  color: "rgba(0, 255, 255, 0.1)", 
+                  lineWidth: 1.5 
+                },
+                { 
+                  trajectories: results.bestTrajectory ? [results.bestTrajectory] : [], 
+                  color: "#00ff88", 
+                  lineWidth: 3 
+                }
+              ]}
               zoom={zoom}
               setZoom={setZoom}
               pan={pan}
@@ -194,6 +205,7 @@ export default function TrajectoryVisualizer({
                 data={results.costData}
                 minAngle={sharedConfig.hardware.minAngle}
                 maxAngle={sharedConfig.hardware.maxAngle}
+                maxLimit={10}
               />
             </div>
           </div>

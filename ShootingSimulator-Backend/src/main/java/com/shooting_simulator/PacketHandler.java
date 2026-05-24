@@ -12,9 +12,10 @@ public class PacketHandler {
 
     // Register incoming React packets here
     private final Map<String, Class<? extends DataPacket>> packetTypes = Map.of(
-            "calculate", CalculatePacket.class,
+            "calculate", SimulatorPacket.class,
             "sweep", SweepPacket.class,
-            "surface", SurfacePacket.class
+            "surface", SurfacePacket.class,
+            "optimal", OptimalPacket.class
     );
 
     public PacketHandler(SimulatorServer server) {
@@ -24,6 +25,7 @@ public class PacketHandler {
     public void handlePacket(WebSocket conn, String message) {
         BasePacket base = JsonUtil.fromJson(message, BasePacket.class);
 
+        System.out.println("Got " + base.type);
         Class<? extends DataPacket> clazz = this.packetTypes.get(base.type);
         if (clazz == null) {
             throw new IllegalArgumentException("Unknown packet type: " + base.type);

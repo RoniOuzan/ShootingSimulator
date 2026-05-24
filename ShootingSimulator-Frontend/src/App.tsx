@@ -5,7 +5,8 @@ import TrajectoryVisualizer from "./visualizer/TrajectoryVisualizer";
 import SurfaceSweepView from "./surface/SurfaceSweepView";
 import SharedConfigSidebar from "./components/SharedConfigSidebar";
 import { usePersistedState } from "./hooks/usePersistedState";
-import type { SharedConfig, SimulationResults } from "./types";
+import type { OptimalResults, SharedConfig, SimulationResults } from "./types";
+import OptimalShotView from "./optimal/OptimalShotView";
 
 const DEFAULT_CONFIG: SharedConfig = {
   origin: {
@@ -49,7 +50,7 @@ export default function App() {
   const WS_URL = "ws://localhost:8080";
 
   const [activeTab, setActiveTab] = usePersistedState<
-    "simulator" | "sweep" | "surface"
+    "simulator" | "sweep" | "surface" | "optimal"
   >("activeTab", "simulator");
   const [sidebarCollapsed, setSidebarCollapsed] = usePersistedState(
     "sidebarCollapsed",
@@ -76,6 +77,14 @@ export default function App() {
   });
   const [sweepResults, setSweepResults] = useState<any[]>([]);
   const [surfaceResults, setSurfaceResults] = useState<any>({});
+  const [optimalResults, setOptimalResults] = useState<OptimalResults>({
+    closeTrajectories: [],
+    farTrajectories: [],
+    bestTrajectory: null,
+    bestInfo: null,
+    robustnessData: [],
+    costData: [],
+  });
 
   // Calculation state
   const [isCalculating, setIsCalculating] = useState(false);
@@ -123,6 +132,8 @@ export default function App() {
           setSweepResults(message.data || []);
         } else if (message.type === "surfaceResults") {
           setSurfaceResults(message.data || {});
+        } else if (message.type === "optimalResults") {
+          setOptimalResults(message.data || {});
         }
       } catch (e) {
         console.error("Failed to parse backend response", e);
@@ -207,6 +218,12 @@ export default function App() {
           >
             3D Surface Maps
           </button>
+          <button
+            onClick={() => setActiveTab("optimal")}
+            className={`btn ${activeTab === "optimal" ? "active-orange" : ""}`}
+          >
+            Optimal Shot
+          </button>
         </div>
       </header>
 
@@ -257,6 +274,15 @@ export default function App() {
                 isCalculating={isCalculating}
                 calcProgress={calcProgress}
                 eta={eta}
+              />
+            )}
+            {activeTab === "optimal" && (
+              <OptimalShotView
+                isConnected={isConnected}
+                results={optimalResults}
+                sendMessage={sendMessage}
+                sharedConfig={sharedConfig}
+                updateConfig={updateConfig}
               />
             )}
           </div>

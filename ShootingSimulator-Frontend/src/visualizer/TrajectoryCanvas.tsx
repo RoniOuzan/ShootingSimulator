@@ -1,12 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { SharedConfig, SimulationResults, Translation2d } from "../types";
+import type { SharedConfig, Translation2d } from "../types";
+
+// You can move these interfaces to your types file if preferred
+export interface Trajectory {
+  samples: { position: Translation2d }[];
+}
+
+export interface TrajectoryGroup {
+  trajectories: Trajectory[];
+  color: string;
+  lineWidth?: number; // Optional: allows you to highlight specific paths with thicker lines
+}
 
 interface CanvasProps {
   initialX: number;
   setInitialX: (x: number) => void;
   sharedConfig: SharedConfig;
   updateConfig: <K extends keyof SharedConfig>(section: K, updates: Partial<SharedConfig[K]>) => void;
-  results: SimulationResults;
+  trajectoryGroups: TrajectoryGroup[]; // Changed from results: SimulationResults
   zoom: number;
   setZoom: (val: number) => void;
   pan: Translation2d;
@@ -17,7 +28,7 @@ interface CanvasProps {
 }
 
 export function TrajectoryCanvas({
-  initialX, setInitialX, sharedConfig, updateConfig, results,
+  initialX, setInitialX, sharedConfig, updateConfig, trajectoryGroups,
   zoom, setZoom, pan, setPan,
   isLockedY, isLockedOriginX, isLockedOriginY
 }: CanvasProps) {
@@ -226,11 +237,11 @@ export function TrajectoryCanvas({
       sharedConfig.obstacles.forEach((obs) => {
         if (obs.type === "CIRCLE") {
           const centerScreen = toScreen(obs.center.x, obs.center.y, canvas.height);
-          const screenRadius = obs.radius * zoom; // scale radius from meters to pixels
+          const screenRadius = obs.radius * zoom;
 
           ctx.beginPath();
           ctx.arc(centerScreen.x, centerScreen.y, screenRadius, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(68, 239, 68, 0.4)"; // Orange translucent
+          ctx.fillStyle = "rgba(68, 239, 68, 0.4)"; 
           ctx.fill();
           ctx.strokeStyle = "#44ef44";
           ctx.lineWidth = 2;
@@ -246,7 +257,7 @@ export function TrajectoryCanvas({
             }
           });
           ctx.closePath();
-          ctx.fillStyle = "rgba(239, 68, 68, 0.4)"; // Red translucent
+          ctx.fillStyle = "rgba(239, 68, 68, 0.4)"; 
           ctx.fill();
           ctx.strokeStyle = "#ef4444";
           ctx.lineWidth = 2;
@@ -286,32 +297,24 @@ export function TrajectoryCanvas({
     ctx.fillStyle = "#888";
     ctx.fillText(`Target (0, ${sharedConfig.target.targetY.toFixed(1)})`, targetScreen.x + 12, targetScreen.y + 4);
 
-    // Draw Trajectories
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = "rgba(0, 255, 255, 0.1)";
-    results.trajectories.forEach((path) => {
-      ctx.beginPath();
-      path.samples.forEach((p, index) => {
-        const px = toScreen(p.position.x, p.position.y, canvas.height);
-        if (index === 0) ctx.moveTo(px.x, px.y);
-        else ctx.lineTo(px.x, px.y);
+    // --- Draw Trajectories by Group ---
+    trajectoryGroups.forEach((group) => {
+      // Use the specified line width, or fallback to 1.5
+      ctx.lineWidth = group.lineWidth || 1.5;
+      ctx.strokeStyle = group.color;
+
+      group.trajectories.forEach((path) => {
+        ctx.beginPath();
+        path.samples.forEach((p, index) => {
+          const px = toScreen(p.position.x, p.position.y, canvas.height);
+          if (index === 0) ctx.moveTo(px.x, px.y);
+          else ctx.lineTo(px.x, px.y);
+        });
+        ctx.stroke();
       });
-      ctx.stroke();
     });
 
-    if (results.bestTrajectory) {
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#00ff88";
-      ctx.beginPath();
-      results.bestTrajectory.samples.forEach((p, index) => {
-        const px = toScreen(p.position.x, p.position.y, canvas.height);
-        if (index === 0) ctx.moveTo(px.x, px.y);
-        else ctx.lineTo(px.x, px.y);
-      });
-      ctx.stroke();
-    }
-  // Added sharedConfig.obstacles to dependency array so it redraws when they are changed/added
-  }, [initialX, sharedConfig.origin.initialY, sharedConfig.target.targetY, sharedConfig.obstacles, results, zoom, pan, isHoveringTarget, isDraggingTarget, isLockedY, isHoveringOrigin, isDraggingOrigin]);
+  }, [initialX, sharedConfig.origin.initialY, sharedConfig.target.targetY, sharedConfig.obstacles, trajectoryGroups, zoom, pan, isHoveringTarget, isDraggingTarget, isLockedY, isHoveringOrigin, isDraggingOrigin]);
 
   // Dynamic Cursor
   let cursorStyle = "default";

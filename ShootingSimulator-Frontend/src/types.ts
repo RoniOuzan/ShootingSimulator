@@ -62,6 +62,7 @@ export interface Sample {
 
 export interface Trajectory {
   samples: Sample[];
+  initialShootingVelocity: Translation2d;
 }
 
 export interface SimulationResults {
@@ -72,17 +73,9 @@ export interface SimulationResults {
   costData: any[];
 }
 
-export interface Sample {
-  position: Translation2d;
-  velocity: Translation2d;
-}
-
-export interface Trajectory {
-  samples: Sample[];
-}
-
-export interface SimulationResults {
-  trajectories: Trajectory[];
+export interface OptimalResults {
+  closeTrajectories: Trajectory[];
+  farTrajectories: Trajectory[];
   bestTrajectory: Trajectory | null;
   bestInfo: { angle: number; velocity: number } | null;
   robustnessData: any[];

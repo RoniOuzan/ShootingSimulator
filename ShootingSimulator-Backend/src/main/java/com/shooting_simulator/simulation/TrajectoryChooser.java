@@ -96,7 +96,7 @@ public class TrajectoryChooser {
 
         double bestAngle = goldenSectionSearch(hitWindow[0], hitWindow[1], isFlat);
 
-        Trajectory trajectory = binarySearchBestVelocityForAngle(bestAngle, isFlat);
+        Trajectory trajectory = this.builder.findTrajectoryForAngle(bestAngle, isFlat);
         if (trajectory != null && trajectory.isHitTarget()) {
             return trajectory;
         }
@@ -109,7 +109,7 @@ public class TrajectoryChooser {
         Double lastHit = null;
 
         for (double angle = minAngle; angle <= maxAngle; angle += sweepStep) {
-            Trajectory t = binarySearchBestVelocityForAngle(angle, isFlat);
+            Trajectory t = this.builder.findTrajectoryForAngle(angle, isFlat);
 
             if (t != null && t.isHitTarget()) {
                 if (firstHit == null) firstHit = angle;
@@ -165,7 +165,7 @@ public class TrajectoryChooser {
     }
 
     private double getCostAtAngle(double angle, boolean isFlat) {
-        Trajectory trajectory = binarySearchBestVelocityForAngle(angle, isFlat);
+        Trajectory trajectory = this.builder.findTrajectoryForAngle(angle, isFlat);
 
         double cost;
         if (trajectory == null || !trajectory.isHitTarget()) {
@@ -251,7 +251,7 @@ public class TrajectoryChooser {
                     continue;
                 }
 
-                Trajectory trajectory = binarySearchBestVelocityForAngle(angle, isFlat);
+                Trajectory trajectory = this.builder.findTrajectoryForAngle(angle, isFlat);
 
                 if (trajectory.isHitTarget()) {
                     trajectories.add(trajectory);
@@ -287,31 +287,6 @@ public class TrajectoryChooser {
         }
 
         return trajectories;
-    }
-
-    private Trajectory binarySearchBestVelocityForAngle(double angle, boolean isFlat) {
-        double min = this.physicalValues.minVel;
-        double max = this.physicalValues.maxVel;
-
-        while (max - min > EXIT_VELOCITY_DT) {
-            double mid = (min + max) / 2.0;
-            Trajectory trajectory = this.builder.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), false, isFlat);
-
-            if (!trajectory.isReachedTargetHeight()) {
-                min = mid;
-            } else {
-                boolean overshot = this.targetAxis.getErrorAxis(trajectory.getHitSample().getPosition()) > this.targetAxis.getErrorAxis(this.target);
-
-                if (isFlat) {
-                    if (overshot) min = mid;
-                    else max = mid;
-                } else {
-                    if (overshot) max = mid;
-                    else min = mid;
-                }
-            }
-        }
-        return this.builder.simulateTrajectory((max + min) / 2.0, Rotation2d.fromDegrees(angle), true, isFlat);
     }
 
     private boolean canReachTarget(double velocity, double angle, boolean isFlat) {

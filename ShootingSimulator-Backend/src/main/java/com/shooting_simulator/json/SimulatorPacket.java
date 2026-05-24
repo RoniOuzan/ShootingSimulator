@@ -10,7 +10,7 @@ import org.java_websocket.WebSocket;
 import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 
-public class CalculatePacket implements DataPacket {
+public class SimulatorPacket implements DataPacket {
 
     public double initialX;
     public double initialY;
@@ -53,14 +53,14 @@ public class CalculatePacket implements DataPacket {
         );
 
         List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
-         List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 10);
+        List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 10);
 
         List<Trajectory> rawTrajectories = chooser.getTrajectories();
-         List<Trajectory> downsampledTrajectories = new ArrayList<>();
+        List<Trajectory> downsampledTrajectories = new ArrayList<>();
 
-         for (Trajectory t : rawTrajectories) {
-             downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 10), t.getHitSample(), t.isHitTarget(), t.getInitialShootingVelocity(), t.isFlat()));
-         }
+        for (Trajectory t : rawTrajectories) {
+            downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 10), t.getHitSample(), t.isHitTarget(), t.getInitialShootingVelocity(), t.isFlat()));
+        }
 
         return new ResultsPayload(downsampledTrajectories, chooser.findBestTrajectory(), downsampledRobustness, chooser.getCostSweep());
     }
@@ -88,17 +88,4 @@ public class CalculatePacket implements DataPacket {
             }
         }
     }
-
-     private static <T> List<T> decimate(List<T> list, int stride) {
-         if (list == null || list.isEmpty()) return list;
-         List<T> decimated = new ArrayList<>();
-         for (int i = 0; i < list.size(); i += stride) {
-             decimated.add(list.get(i));
-         }
-         // Always include the last point to keep the endpoint accurate
-         if ((list.size() - 1) % stride != 0) {
-             decimated.add(list.get(list.size() - 1));
-         }
-         return decimated;
-     }
 }

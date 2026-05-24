@@ -12,6 +12,7 @@ import java.util.List;
 
 @Getter
 public class TrajectoryBuilder {
+    private static final double EXIT_VELOCITY_DT = 0.000_01;
     public static final double PERIOD = 0.005;
     private static final double TOLERANCE = 0.001;
 
@@ -46,6 +47,31 @@ public class TrajectoryBuilder {
         boolean withinXBounds = Math.abs(position.getX() - this.target.getX()) <= TOLERANCE;
         boolean withinYBounds = Math.abs(position.getY() - this.target.getY()) <= TOLERANCE;
         return withinXBounds && withinYBounds;
+    }
+
+    public Trajectory findTrajectoryForAngle(double angle, boolean isFlat) {
+        double min = this.physicalValues.minVel;
+        double max = this.physicalValues.maxVel;
+
+        while (max - min > EXIT_VELOCITY_DT) {
+            double mid = (min + max) / 2.0;
+            Trajectory trajectory = this.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), false, isFlat);
+
+            if (!trajectory.isReachedTargetHeight()) {
+                min = mid;
+            } else {
+                boolean overshot = this.targetAxis.getErrorAxis(trajectory.getHitSample().getPosition()) > this.targetAxis.getErrorAxis(this.target);
+
+                if (isFlat) {
+                    if (overshot) min = mid;
+                    else max = mid;
+                } else {
+                    if (overshot) max = mid;
+                    else min = mid;
+                }
+            }
+        }
+        return this.simulateTrajectory((max + min) / 2.0, Rotation2d.fromDegrees(angle), true, isFlat);
     }
 
     public Trajectory simulateTrajectory(double exitVelocity, Rotation2d angle, boolean checkObstacles, boolean isFlat) {
