@@ -5,6 +5,7 @@ import java.util.List;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 
 import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 public class Trajectory {
@@ -15,6 +16,9 @@ public class Trajectory {
     private final Translation2d initialShootingVelocity;
     private final boolean isFlat;
 
+    @Setter
+    private Tolerance tolerance;
+
     public Trajectory(List<Sample> samples, Sample hitSample, boolean isHitTarget, Translation2d initialShootingVelocity, boolean isFlat) {
         this.samples = samples;
         this.initialShootingVelocity = initialShootingVelocity;
@@ -22,10 +26,7 @@ public class Trajectory {
         this.isReachedTargetHeight = hitSample != null;
         this.hitSample = hitSample;
         this.isFlat = isFlat;
-    }
-
-    public Sample getFinalSample() {
-        return this.samples.get(this.samples.size() - 1);
+        this.tolerance = null;
     }
 
     public Sample getPeakSample() {

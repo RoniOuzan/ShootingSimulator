@@ -286,6 +286,13 @@ export function TrajectoryCanvas({
     ctx.fillStyle = "#888";
     ctx.fillText(`Target (0, ${sharedConfig.target.targetY.toFixed(1)})`, targetScreen.x + 12, targetScreen.y + 4);
 
+    ctx.strokeStyle = "rgba(255, 68, 68, 0.8)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(targetScreen.x - sharedConfig.target.targetRadius * zoom, targetScreen.y);
+    ctx.lineTo(targetScreen.x + sharedConfig.target.targetRadius * zoom, targetScreen.y);
+    ctx.stroke();
+
     // Draw Trajectories
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = "rgba(0, 255, 255, 0.1)";

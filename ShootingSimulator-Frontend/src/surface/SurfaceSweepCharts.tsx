@@ -4,26 +4,14 @@ import type { ModelState } from "./CodeExporter";
 import { 
   type ValidationResult, 
   type RegimeValidation, 
-  QUALITY_COLOR, 
-  FIT_THRESHOLDS, 
-  POLYNOMIAL_DEGREES 
 } from "./SurfaceSweepView";
+import { getQualityColor, TARGET_VARIABLES, VAR_KEYS } from "./shooterConfig";
+import React from "react";
 
 interface SurfaceSweepChartsProps {
-  data: {
-    distances?: number[];
-    radialVels?: number[];
-    angleMatrix?: number[][];
-    velocityMatrix?: number[][];
-  };
-  values: {
-    angle: number[][];
-    velocity: number[][];
-  } | null;
-  residuals: {
-    angle: (number | null)[][] | null;
-    velocity: (number | null)[][] | null;
-  } | null;
+  data: any;
+  values: Record<string, number[][]> | null;
+  residuals: Record<string, (number | null)[][]> | null;
   validation: ValidationResult;
   models: {
     normal: ModelState | null;
@@ -122,252 +110,167 @@ export default function SurfaceSweepCharts({
   }
 
   const transposedData = useMemo(() => {
-    const distCount = distances!.length;
-    const velCount = radialVels!.length;
-
-    const transposedAngle: number[][] = [];
-    const transposedVel: number[][] = [];
-
-    for (let j = 0; j < velCount; j++) {
-      const rowA: number[] = [];
-      const rowV: number[] = [];
-      for (let i = 0; i < distCount; i++) {
-        rowA.push(angleMatrix![i]?.[j] ?? null);
-        rowV.push(velocityMatrix![i]?.[j] ?? null);
+    const result: Record<string, number[][]> = {};
+    for (const key of VAR_KEYS) {
+      result[key] = [];
+      const matrixKey = TARGET_VARIABLES[key].matrixKey;
+      for (let j = 0; j < radialVels.length; j++) {
+        const row: number[] = [];
+        for (let i = 0; i < distances.length; i++) {
+          row.push(data[matrixKey]?.[i]?.[j] ?? null);
+        }
+        result[key].push(row);
       }
-      transposedAngle.push(rowA);
-      transposedVel.push(rowV);
     }
+    return result;
+  }, [distances, radialVels, data]);
 
-    return { angle: transposedAngle, velocity: transposedVel };
-  }, [distances, radialVels, angleMatrix, velocityMatrix]);
-
-  const angleHoverText = useMemo(() => {
-    const safeAngleResiduals = residuals?.angle || transposedData.angle.map(row => row.map(() => 0));
-    
-    return transposedData.angle.map((row, j) =>
-      row.map((zVal, i) => {
-        if (zVal === null) return "";
-        const err = safeAngleResiduals[j][i];
-        const errStr = err !== null ? `${err.toFixed(3)}°` : "N/A";
-        return `Distance: ${distances[i]}m<br>Radial Vel: ${radialVels[j]}m/s<br>Angle: ${zVal.toFixed(2)}°<br>Error: ${errStr}`;
-      })
-    );
-  }, [transposedData.angle, residuals?.angle, distances, radialVels]);
-
-  const velHoverText = useMemo(() => {
-    const safeVelResiduals = residuals?.velocity || transposedData.velocity.map(row => row.map(() => 0));
-
-    return transposedData.velocity.map((row, j) =>
-      row.map((zVal, i) => {
-        if (zVal === null) return "";
-        const err = safeVelResiduals[j][i];
-        const errStr = err !== null ? `${err.toFixed(3)}m/s` : "N/A";
-        return `Distance: ${distances[i]}m<br>Radial Vel: ${radialVels[j]}m/s<br>Velocity: ${zVal.toFixed(2)}m/s<br>Error: ${errStr}`;
-      })
-    );
-  }, [transposedData.velocity, residuals?.velocity, distances, radialVels]);
+  // Generate hover text dynamically for each variable
+  const hoverTexts = useMemo(() => {
+    const result: Record<string, string[][]> = {};
+    for (const key of VAR_KEYS) {
+      const config = TARGET_VARIABLES[key];
+      const safeResiduals = residuals?.[key] || transposedData[key].map(row => row.map(() => 0));
+      
+      result[key] = transposedData[key].map((row, j) =>
+        row.map((zVal, i) => {
+          if (zVal === null) return "";
+          const err = safeResiduals[j][i];
+          const errStr = err !== null ? `${err.toFixed(3)}${config.unit}` : "N/A";
+          return `Distance: ${distances[i]}m<br>Radial Vel: ${radialVels[j]}m/s<br>${config.name}: ${zVal.toFixed(2)}${config.unit}<br>Error: ${errStr}`;
+        })
+      );
+    }
+    return result;
+  }, [transposedData, residuals, distances, radialVels]);
   
   const polynomialSurfaceTrace = (z: number[][], name: string) => ({
-    z,
-    x: distances,
-    y: radialVels,
-    type: "surface" as const,
+    z, x: distances, y: radialVels, type: "surface" as const,
     colorscale: [[0, "#ffffff"], [1, "#ffffff"]],
-    name,
-    opacity: 0.15,
-    showscale: false,
-    hoverinfo: "skip" as const, // Prevents this invisible layer from catching the mouse raycaster
-    contours: {
-      x: { show: true, color: "#ffffff", width: 1 },
-      y: { show: true, color: "#ffffff", width: 1 },
-      z: { show: false },
-    },
+    name, opacity: 0.15, showscale: false, hoverinfo: "skip" as const,
+    contours: { x: { show: true, color: "#ffffff", width: 1 }, y: { show: true, color: "#ffffff", width: 1 }, z: { show: false } },
   });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Accuracy Panel (Always Visible) */}
       {validation.overall && (
         <AccuracyPanel validation={validation} models={models} />
       )}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-        
-        {/* ── Angle surface ── */}
-        <div
-          className="view-panel"
-          style={{ flex: "1 1 360px", minHeight: 600 }}
-        >
-          <PanelLabel>Optimal angle surface</PanelLabel>
-          <Plot
-            data={[
-              {
-                z: transposedData.angle,
-                surfacecolor: residuals?.angle || undefined,
-                text: angleHoverText,
-                hoverinfo: "text",
-                cmin: 0,
-                cmax: 0.5,
-                x: distances,
-                y: radialVels,
-                type: "surface",
-                colorscale: errorColorscale,
-                name: "Simulated",
-                colorbar: {
-                  title: { text: "Error (°)", side: "right" },
-                  thickness: 12,
-                  len: 0.7,
-                  tickfont: { color: "#888", size: 10 },
-                },
-                hovertemplate: "%{text}<extra></extra>",
-              },
-              ...(values
-                ? [polynomialSurfaceTrace(values.angle, "Polynomial")]
-                : []),
-            ]}
-            layout={{
-              ...baseLayout,
-              scene: makeScene("Angle (°)"),
-            }}
-            config={plotConfig}
-            useResizeHandler
-            style={{ width: "100%", height: "100%" }}
-          />
-        </div>
-
-        {/* ── Velocity surface ── */}
-        <div
-          className="view-panel"
-          style={{ flex: "1 1 360px", minHeight: 600 }}
-        >
-          <PanelLabel>Optimal velocity surface</PanelLabel>
-          <Plot
-            data={[
-              {
-                z: transposedData.velocity,
-                surfacecolor: residuals?.velocity || undefined,
-                text: velHoverText,
-                hoverinfo: "text",
-                cmin: 0,
-                cmax: 0.2,
-                x: distances,
-                y: radialVels,
-                type: "surface",
-                colorscale: errorColorscale,
-                name: "Simulated",
-                colorbar: {
-                  title: { text: "Error (m/s)", side: "right" },
-                  thickness: 12,
-                  len: 0.7,
-                  tickfont: { color: "#888", size: 10 },
-                },
-                hovertemplate: "%{text}<extra></extra>",
-              },
-              ...(values
-                ? [polynomialSurfaceTrace(values.velocity, "Polynomial")]
-                : []),
-            ]}
-            layout={{
-              ...baseLayout,
-              scene: makeScene("Velocity (m/s)"),
-            }}
-            config={plotConfig}
-            useResizeHandler
-            style={{ width: "100%", height: "100%" }}
-          />
-        </div>
+        {VAR_KEYS.map((key) => {
+          const config = TARGET_VARIABLES[key];
+          return (
+            <div key={key} className="view-panel" style={{ flex: "1 1 360px", minHeight: 600 }}>
+              <PanelLabel>{config.name} surface</PanelLabel>
+              <Plot
+                data={[
+                  {
+                    z: transposedData[key],
+                    surfacecolor: residuals?.[key] || undefined,
+                    text: hoverTexts[key],
+                    hoverinfo: "text",
+                    cmin: 0,
+                    cmax: config.thresholds.acceptable, // Dynamic colorbar scaling based on thresholds
+                    x: distances,
+                    y: radialVels,
+                    type: "surface",
+                    colorscale: errorColorscale,
+                    name: "Simulated",
+                    colorbar: { title: { text: `Error (${config.unit})`, side: "right" }, thickness: 12, len: 0.7, tickfont: { color: "#888", size: 10 } },
+                    hovertemplate: "%{text}<extra></extra>",
+                  },
+                  ...(values?.[key] ? [polynomialSurfaceTrace(values[key], "Polynomial")] : []),
+                ]}
+                layout={{ ...baseLayout, scene: makeScene(`${config.name} (${config.unit})`) }}
+                config={plotConfig}
+                useResizeHandler
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function RegimeBadge({
-  label,
-  data,
-  angleDegree,
-  velDegree,
-}: {
-  label: string;
-  data: RegimeValidation | null;
-  angleDegree: number | null;
-  velDegree: number;
-}) {
-  if (!data) return null;
-  const color = QUALITY_COLOR(
-    parseFloat(data.angleMaxError),
-    parseFloat(data.velMaxError),
-  );
+function AccuracyPanel({ validation, models }: { validation: ValidationResult; models: any }) {
+  const { overall } = validation;
+  if (!overall) return null;
+
+  // Find the worst performing variable to color the panel header
+  let worstColor = "#00e676";
+  for (const key of VAR_KEYS) {
+    const err = parseFloat(overall[key]?.maxError || "0");
+    const color = getQualityColor(key, err);
+    if (color === "#ff5252") worstColor = "#ff5252";
+    else if (color === "#ffd740" && worstColor !== "#ff5252") worstColor = "#ffd740";
+  }
+
   return (
-    <div
-      style={{
-        background: "#0d0d12",
-        border: `1px solid ${color}33`,
-        borderLeft: `3px solid ${color}`,
-        borderRadius: 6,
-        padding: "10px 14px",
-        flex: "1 1 180px",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "0.7rem",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: color,
-          marginBottom: 6,
-          fontWeight: 600,
-        }}
-      >
-        {label}
-        <span
-          style={{
-            marginLeft: 6,
-            color: "#555",
-            fontWeight: 400,
-            textTransform: "none",
-          }}
-        >
-          {angleDegree === null ? "Const" : `deg ${angleDegree}`}/{velDegree}
-        </span>
+    <div className="tab-config-card" style={{ marginTop: 20, background: "#0d0d12" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h2 style={{ color: worstColor, margin: 0 }}>Polynomial Fit Accuracy</h2>
       </div>
-      <table
-        style={{
-          width: "100%",
-          fontSize: "0.75rem",
-          borderCollapse: "collapse",
-        }}
-      >
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <RegimeBadge label="Normal" data={validation.normal} models={models.normal} />
+        <RegimeBadge label="Min bounds" data={validation.min} models={models.min} />
+        <RegimeBadge label="Max bounds" data={validation.max} models={models.max} />
+      </div>
+
+      <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 4, padding: "8px 12px", fontSize: "0.75rem", color: "#777", display: "flex", gap: 20, flexWrap: "wrap" }}>
+        {VAR_KEYS.map((key) => {
+           const config = TARGET_VARIABLES[key];
+           return (
+             <span key={`overall-${key}`}>
+               {config.name} MaxErr: <strong style={{ color: "#aaa" }}>{overall[key]?.maxError}{config.unit}</strong>
+             </span>
+           );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RegimeBadge({ label, data, models }: { label: string; data: RegimeValidation | null; models: ModelState | null }) {
+  if (!data || !models) return null;
+  
+  let worstColor = "#00e676";
+  for (const key of VAR_KEYS) {
+    const err = parseFloat(data.metrics[key]?.maxError || "0");
+    const color = getQualityColor(key, err);
+    if (color === "#ff5252") worstColor = "#ff5252";
+    else if (color === "#ffd740" && worstColor !== "#ff5252") worstColor = "#ffd740";
+  }
+
+  return (
+    <div style={{ background: "#0d0d12", border: `1px solid ${worstColor}33`, borderLeft: `3px solid ${worstColor}`, borderRadius: 6, padding: "10px 14px", flex: "1 1 180px" }}>
+      <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", color: worstColor, marginBottom: 6, fontWeight: 600 }}>
+        {label}
+      </div>
+      <table style={{ width: "100%", fontSize: "0.75rem", borderCollapse: "collapse" }}>
         <tbody>
-          <tr>
-            <td
-              colSpan={2}
-              style={{ fontSize: "0.6rem", color: "#444", paddingTop: 4 }}
-            >
-              ANGLE
-            </td>
-          </tr>
-          <StatRow label="Max err" value={`${data.angleMaxError}°`} />
-          <StatRow label="RMSE" value={`${data.angleRmse}°`} />
-          <StatRow
-            label="R²"
-            value={`${data.angleR2}%`}
-            highlight={parseFloat(data.angleR2) > 99}
-          />
-          <tr>
-            <td
-              colSpan={2}
-              style={{ fontSize: "0.6rem", color: "#444", paddingTop: 8 }}
-            >
-              VELOCITY
-            </td>
-          </tr>
-          <StatRow label="Max err" value={`${data.velMaxError}m/s`} />
-          <StatRow label="RMSE" value={`${data.velRmse}m/s`} />
-          <StatRow
-            label="R²"
-            value={`${data.velR2}%`}
-            highlight={parseFloat(data.velR2) > 99}
-          />
+          {VAR_KEYS.map(key => {
+            const m = data.metrics[key];
+            const deg = models.degrees[key];
+            const config = TARGET_VARIABLES[key];
+            if (!m) return null;
+
+            return (
+              <React.Fragment key={key}>
+                <tr>
+                  <td colSpan={2} style={{ fontSize: "0.6rem", color: "#444", paddingTop: 8, textTransform: "uppercase" }}>
+                    {config.name} {deg === null ? "(CONST)" : `(DEG ${deg})`}
+                  </td>
+                </tr>
+                <StatRow label="Max err" value={`${m.maxError}${config.unit}`} />
+                <StatRow label="RMSE" value={`${m.rmse}${config.unit}`} />
+                <StatRow label="R²" value={`${m.r2}%`} highlight={parseFloat(m.r2) > 99} />
+              </React.Fragment>
+            );
+          })}
+          <tr><td colSpan={2} style={{ paddingTop: 8 }} /></tr>
           <StatRow label="Points" value={data.count.toLocaleString()} />
         </tbody>
       </table>
@@ -375,158 +278,18 @@ function RegimeBadge({
   );
 }
 
-function StatRow({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
+function StatRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <tr>
-      <td style={{ color: "#666", paddingRight: 8, paddingBottom: 1 }}>
-        {label}
-      </td>
-      <td
-        style={{
-          textAlign: "right",
-          color: highlight ? "#00e676" : "#aaa",
-          fontWeight: highlight ? 600 : 400,
-        }}
-      >
-        {value}
-      </td>
+      <td style={{ color: "#666", paddingRight: 8, paddingBottom: 1 }}>{label}</td>
+      <td style={{ textAlign: "right", color: highlight ? "#00e676" : "#aaa", fontWeight: highlight ? 600 : 400 }}>{value}</td>
     </tr>
-  );
-}
-
-function AccuracyPanel({
-  validation,
-  models,
-}: {
-  validation: ValidationResult;
-  models: any;
-}) {
-  const { overall } = validation;
-  if (!overall) return null;
-
-  const overallColor = QUALITY_COLOR(
-    parseFloat(overall.angleMaxError),
-    parseFloat(overall.velMaxError),
-  );
-  
-  const isExcellent =
-    parseFloat(overall.angleMaxError) <= FIT_THRESHOLDS.EXCELLENT.ANGLE_MAX_ERR &&
-    parseFloat(overall.velMaxError) <= FIT_THRESHOLDS.EXCELLENT.VEL_MAX_ERR;
-    
-  const isAcceptable =
-    parseFloat(overall.angleMaxError) <= FIT_THRESHOLDS.ACCEPTABLE.ANGLE_MAX_ERR &&
-    parseFloat(overall.velMaxError) <= FIT_THRESHOLDS.ACCEPTABLE.VEL_MAX_ERR;
-
-  return (
-    <div className="tab-config-card" style={{ 
-      marginTop: 20, 
-      background: "#0d0d12"
-    }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 12,
-        }}
-      >
-        <h2
-          style={{ color: `${overallColor}`, margin: 0 }}
-        >
-          Polynomial Fit Accuracy
-        </h2>
-        <span
-          style={{
-            padding: "2px 8px",
-            borderRadius: 12,
-            background: `${overallColor}15`,
-            color: overallColor,
-            border: `1px solid ${overallColor}33`,
-            fontWeight: 600,
-          }}
-        >
-          {isExcellent
-            ? FIT_THRESHOLDS.EXCELLENT.LABEL
-            : isAcceptable
-            ? FIT_THRESHOLDS.ACCEPTABLE.LABEL
-            : FIT_THRESHOLDS.POOR.LABEL}
-        </span>
-      </div>
-
-      <div
-        style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}
-      >
-        <RegimeBadge
-          label="Normal"
-          data={validation.normal}
-          angleDegree={models.normal?.angleDegree ?? POLYNOMIAL_DEGREES.NORMAL.ANGLE}
-          velDegree={models.normal?.velocityDegree ?? POLYNOMIAL_DEGREES.NORMAL.VELOCITY}
-        />
-        <RegimeBadge
-          label="Min angle"
-          data={validation.min}
-          angleDegree={models.min?.angleDegree ?? POLYNOMIAL_DEGREES.MIN.ANGLE}
-          velDegree={models.min?.velocityDegree ?? POLYNOMIAL_DEGREES.MIN.VELOCITY}
-        />
-        <RegimeBadge
-          label="Max angle"
-          data={validation.max}
-          angleDegree={models.max?.angleDegree ?? POLYNOMIAL_DEGREES.MAX.ANGLE}
-          velDegree={models.max?.velocityDegree ?? POLYNOMIAL_DEGREES.MAX.VELOCITY}
-        />
-      </div>
-
-      <div
-        style={{
-          background: "rgba(0,0,0,0.2)",
-          borderRadius: 4,
-          padding: "8px 12px",
-          fontSize: "0.75rem",
-          color: "#777",
-          display: "flex",
-          gap: 20,
-          flexWrap: "wrap",
-        }}
-      >
-        <span>
-          Angle MaxErr:{" "}
-          <strong style={{ color: "#aaa" }}>{overall.angleMaxError}°</strong>
-        </span>
-        <span>
-          Vel MaxErr:{" "}
-          <strong style={{ color: "#aaa" }}>{overall.velMaxError}m/s</strong>
-        </span>
-        <span>
-          RMSE:{" "}
-          <strong style={{ color: "#555" }}>
-            {overall.angleRmse}° / {overall.velRmse}m/s
-          </strong>
-        </span>
-      </div>
-    </div>
   );
 }
 
 function PanelLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3
-      style={{
-        margin: "0 0 8px 0",
-        fontSize: "0.85rem",
-        fontWeight: 500,
-        color: "#aaa",
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-      }}
-    >
+    <h3 style={{ margin: "0 0 8px 0", fontSize: "0.85rem", fontWeight: 500, color: "#aaa", letterSpacing: "0.04em", textTransform: "uppercase" }}>
       {children}
     </h3>
   );

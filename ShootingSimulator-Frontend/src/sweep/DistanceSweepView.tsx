@@ -35,6 +35,7 @@ export default function DistanceSweepView({
       type: "sweep",
       data: {
         targetAxis: sharedConfig.target.targetAxis,
+        targetRadius: sharedConfig.target.targetRadius,
         initialY: sharedConfig.origin.initialY,
         radialVelocity: sharedConfig.origin.radialVelocity,
         targetY: sharedConfig.target.targetY,

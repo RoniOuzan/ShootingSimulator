@@ -9,11 +9,12 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Add minAngle and maxAngle to the interface
+// Add minAngle, maxAngle, and maxLimit to the interface
 interface CostChartProps {
   data: any[];
   minAngle: number;
   maxAngle: number;
+  maxLimit?: number; // <-- New optional prop added
 }
 
 // Destructure the new props
@@ -21,6 +22,7 @@ export default function CostChart({
   data,
   minAngle,
   maxAngle,
+  maxLimit,
 }: CostChartProps) {
   if (!data || data.length === 0) {
     return (
@@ -29,6 +31,11 @@ export default function CostChart({
       </div>
     );
   }
+
+  // Filter out any data points where 'y' is greater than the given maxLimit
+  const displayData = maxLimit !== undefined 
+    ? data.filter(item => item.y <= maxLimit) 
+    : data;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -72,7 +79,8 @@ export default function CostChart({
   return (
     <div style={{ width: "100%", height: "100%", minHeight: "250px" }}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+        {/* Pass displayData instead of the raw data */}
+        <LineChart data={displayData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2a2a35" vertical={false} />
           
           <XAxis 

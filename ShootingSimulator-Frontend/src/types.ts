@@ -27,6 +27,7 @@ export interface TargetParams {
   minHitAngle: number;
   maxHitAngle: number;
   targetAxis: TargetAxis;
+  targetRadius: number;
 }
 
 export interface OriginParams {
@@ -43,7 +44,13 @@ export interface SharedConfig {
   obstacles: ObstacleConfig[];
 }
 
-export type CostPreset = "ROBUST" | "SLOW_SHOT" | "FAST_ARRIVAL" | "SWISH" | "BALANCED" | "CUSTOM";
+export type CostPreset =
+  | "ROBUST"
+  | "SLOW_SHOT"
+  | "FAST_ARRIVAL"
+  | "SWISH"
+  | "BALANCED"
+  | "CUSTOM";
 
 export interface CostConfig {
   preset: CostPreset;
@@ -61,7 +68,16 @@ export interface Sample {
 }
 
 export interface Trajectory {
+  initialVelocity: any;
   samples: Sample[];
+  tolerance: Tolerance | null;
+}
+
+export interface Tolerance {
+  velocityPositive: number;
+  velocityNegative: number;
+  anglePositive: number;
+  angleNegative: number;
 }
 
 export interface SimulationResults {
@@ -95,7 +111,13 @@ export interface Translation2d {
 }
 
 export type ObstacleConfig =
-  | { type: "CIRCLE"; id: string; name: string; center: Translation2d; radius: number }
+  | {
+      type: "CIRCLE";
+      id: string;
+      name: string;
+      center: Translation2d;
+      radius: number;
+    }
   | { type: "POLYGON"; id: string; name: string; vertices: Translation2d[] };
 
 export function angle(vector: Translation2d | undefined): number {

@@ -143,6 +143,7 @@ export default function SharedConfigSidebar({
                 <h3>Target Bounds</h3>
               </div>
               <ControlSlider label="Target Height (Y)" value={target.targetY} min={0} max={5} step={0.05} unit="m" onChange={(v) => updateConfig("target", { targetY: v })} />
+              <ControlSlider label="Target Radius" value={target.targetRadius} min={0.05} max={1} step={0.05} unit="m" onChange={(v) => updateConfig("target", { targetRadius: v })} />
               <div className="card-row">
                 <ControlSlider label="Min Hit Angle" value={target.minHitAngle} min={-90} max={target.maxHitAngle} step={1} unit="°" onChange={(v) => updateConfig("target", { minHitAngle: v })} />
                 <ControlSlider label="Max Hit Angle" value={target.maxHitAngle} min={target.minHitAngle} max={90} step={1} unit="°" onChange={(v) => updateConfig("target", { maxHitAngle: v })} />

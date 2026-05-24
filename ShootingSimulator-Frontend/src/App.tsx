@@ -17,6 +17,7 @@ const DEFAULT_CONFIG: SharedConfig = {
     minHitAngle: -90,
     maxHitAngle: -30,
     targetAxis: "HORIZONTAL",
+    targetRadius: 0.5,
   },
   aerodynamics: {
     mass: 0.22,

@@ -19,8 +19,9 @@ public class CalculatePacket implements DataPacket {
     
     public double targetY;
 
+    public double targetRadius;
     public String targetAxis;
-    
+
     // Limits
     public PhysicalValues physicalValues;
     public CostWeights costConfig;
@@ -45,6 +46,7 @@ public class CalculatePacket implements DataPacket {
                 initialPos,
                 this.radialVelocity,
                 targetY,
+                this.targetRadius,
                 TargetAxis.valueOf(this.targetAxis),
                 this.minHitAngle,
                 this.maxHitAngle,
@@ -78,7 +80,7 @@ public class CalculatePacket implements DataPacket {
             this.bestTrajectory = best;
             this.robustnessData = robustnessData;
             this.costData = costData;
-            
+
             if (best != null && !best.getSamples().isEmpty()) {
                 Translation2d initialVel = best.getInitialShootingVelocity();
                 this.bestInfo = new TrajectoryInfo(

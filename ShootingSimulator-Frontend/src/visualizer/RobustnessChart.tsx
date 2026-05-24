@@ -32,6 +32,8 @@ export default function RobustnessChart({
     );
   }
 
+  const displayData = data.filter(item => item.angleError != 100 && item.velError != 100); 
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -74,7 +76,7 @@ export default function RobustnessChart({
   return (
     <div style={{ width: "100%", height: "100%", minHeight: "250px" }}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+        <LineChart data={displayData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2a2a35" vertical={false} />
           
           <XAxis 

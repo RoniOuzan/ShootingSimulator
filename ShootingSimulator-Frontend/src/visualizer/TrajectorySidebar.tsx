@@ -17,6 +17,8 @@ export default function TrajectorySidebar({
   results, initialX, setInitialX, isLockedY, setIsLockedY,
   isLockedOriginX, setIsLockedOriginX, isLockedOriginY, setIsLockedOriginY
 }: SidebarProps) {
+  const tolerance = results.bestTrajectory?.tolerance;
+
   return (
     <div className="tab-sidebar">
       <h2 className="sidebar-title">Trajectory Tuning</h2>
@@ -101,6 +103,30 @@ export default function TrajectorySidebar({
           onChange={setInitialX}
         />
       </div>
+
+      {tolerance && (
+        <div className="sidebar-section">
+          <h4>Shot Tolerance</h4>
+          <div className="metric-row">
+            <span>Velocity Range:</span>
+            <span style={{ color: "#4ade80" }}>
+              +{tolerance.velocityPositive.toFixed(2)}
+            </span>
+            <span style={{ color: "#f87171" }}>
+              -{tolerance.velocityNegative.toFixed(2)} m/s
+            </span>
+          </div>
+          <div className="metric-row">
+            <span>Angle Range:</span>
+            <span style={{ color: "#4ade80" }}>
+              +{tolerance.anglePositive.toFixed(2)}°
+            </span>
+            <span style={{ color: "#f87171" }}>
+              -{tolerance.angleNegative.toFixed(2)}°
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
