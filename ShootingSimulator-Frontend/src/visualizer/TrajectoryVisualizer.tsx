@@ -53,6 +53,7 @@ export default function TrajectoryVisualizer({
       type: "calculate",
       data: {
         targetAxis: sharedConfig.target.targetAxis,
+        targetRadius: sharedConfig.target.targetRadius,
         initialY: sharedConfig.origin.initialY,
         initialX: initialX,
         radialVelocity: sharedConfig.origin.radialVelocity,

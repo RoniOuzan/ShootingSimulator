@@ -3,7 +3,6 @@ package com.shooting_simulator.simulation;
 import java.util.*;
 
 import com.shooting_simulator.simulation.obstacles.Obstacle;
-import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 
@@ -11,9 +10,6 @@ import lombok.Getter;
 
 @Getter
 public class TrajectoryChooser {
-
-    private static final double EXIT_VELOCITY_DT = 0.000_01;
-    private static final double ANGLE_DT = 0.000_01;
 
     private static final double ANGLE_DT_DIVIDER = 100;
 
@@ -30,6 +26,7 @@ public class TrajectoryChooser {
 
     private final TrajectoryBuilder builder;
     private final Translation2d target;
+    private final double targetRadius;
     private final TargetAxis targetAxis;
     private final List<Obstacle> obstacles;
 
@@ -38,11 +35,12 @@ public class TrajectoryChooser {
     private List<Trajectory> trajectories;
     private Trajectory bestTrajectory;
 
-    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
+    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
         this.physicalValues = physicalValues;
         this.costWeights = costWeights;
 
         this.target = new Translation2d(0, targetY);
+        this.targetRadius = targetRadius;
         this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target, targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
         this.targetAxis = targetAxis;
         this.obstacles = obstacles;
@@ -77,11 +75,42 @@ public class TrajectoryChooser {
         Trajectory bestFlat = findBestTrajectoryForPhase(true);
         Trajectory bestLob = findBestTrajectoryForPhase(false);
 
-        if (bestFlat == null && bestLob == null) return null;
-        if (bestFlat == null) return bestLob;
-        if (bestLob == null) return bestFlat;
+        if (bestFlat == null && bestLob == null)
+            return null;
 
-        return calculateTrajectoryCost(bestFlat) < calculateTrajectoryCost(bestLob) ? bestFlat : bestLob;
+        Trajectory trajectory;
+        if (bestFlat == null)
+            trajectory = bestLob;
+        else if (bestLob == null)
+            trajectory = bestFlat;
+        else
+            trajectory = calculateTrajectoryCost(bestFlat) < calculateTrajectoryCost(bestLob) ? bestFlat : bestLob;
+
+        this.evaluateTolerance(trajectory);
+        return trajectory;
+    }
+
+    private void evaluateTolerance(Trajectory trajectory) {
+        double angle = trajectory.getInitialShootingVelocity().getAngle().getDegrees();
+        double velocity = trajectory.getInitialShootingVelocity().getNorm();
+        boolean isFlat = trajectory.isFlat();
+        TrajectoryBuilder farBuilder = this.builder.moveTarget(new Translation2d(this.targetRadius, 0));
+        TrajectoryBuilder closeBuilder = this.builder.moveTarget(new Translation2d(-this.targetRadius, 0));
+
+        double farVelocity = farBuilder.findTrajectoryForAngle(angle, isFlat).getInitialShootingVelocity().getNorm();
+        double closeVelocity = closeBuilder.findTrajectoryForAngle(angle, isFlat).getInitialShootingVelocity().getNorm();
+
+        double farAngle = farBuilder.findTrajectoryForVelocity(velocity, isFlat).getInitialShootingVelocity().getAngle().getDegrees();
+        double closeAngle = closeBuilder.findTrajectoryForVelocity(velocity, isFlat).getInitialShootingVelocity().getAngle().getDegrees();
+
+        trajectory.setTolerance(new Tolerance(
+                Math.abs(farVelocity - velocity),
+                Math.abs(closeVelocity - velocity),
+                Math.abs(farAngle - angle),
+                Math.abs(closeAngle - angle)
+        ));
+
+        System.out.println(trajectory.getTolerance());
     }
 
     private Trajectory findBestTrajectoryForPhase(boolean isFlat) {
@@ -136,7 +165,7 @@ public class TrajectoryChooser {
         double bestAngle = (a + b) / 2.0;
         double bestCost = Double.MAX_VALUE;
 
-        while (Math.abs(b - a) > ANGLE_DT) {
+        while (Math.abs(b - a) > TrajectoryBuilder.ANGLE_DT) {
             double cost1 = getCostAtAngle(x1, isFlat);
             double cost2 = getCostAtAngle(x2, isFlat);
 
@@ -207,8 +236,8 @@ public class TrajectoryChooser {
 
     private double calculateMaxErrorForExitVelocity(Trajectory trajectory) {
         Translation2d velocity = trajectory.getInitialShootingVelocity();
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, trajectory.isFlat());
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, trajectory.isFlat());
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, true, trajectory.isFlat());
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, true, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
         return SCALE_ROBUSTNESS * (this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition()));
@@ -217,8 +246,8 @@ public class TrajectoryChooser {
     private double calculateMaxErrorForAngle(Trajectory trajectory) {
         Translation2d velocity = trajectory.getInitialShootingVelocity();
         Rotation2d estimatedAngleError = Rotation2d.fromDegrees(this.physicalValues.estimatedAngleError);
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError), false, trajectory.isFlat());
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, trajectory.isFlat());
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError), false, true, trajectory.isFlat());
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, true, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
         return SCALE_ROBUSTNESS * (this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition()));

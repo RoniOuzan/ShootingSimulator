@@ -14,6 +14,7 @@ public class SweepPacket implements DataPacket {
     public double radialVelocity;
 
     public double targetY;
+    public double targetRadius;
     public String targetAxis;
 
     public double minHitAngle;
@@ -50,6 +51,7 @@ public class SweepPacket implements DataPacket {
                     initialPos,
                     this.radialVelocity,
                     this.targetY,
+                    this.targetRadius,
                     TargetAxis.valueOf(this.targetAxis),
                     this.minHitAngle,
                     this.maxHitAngle,

@@ -6,43 +6,44 @@ import { usePersistedState } from "../hooks/usePersistedState";
 import type { SharedConfig } from "../types";
 import CodeExporter, {
   getPolynomialFeatures,
-  type DataPoint,
-  type DatasetState,
   type ModelState,
 } from "./CodeExporter";
 import SurfaceSweepCharts from "./SurfaceSweepCharts";
+import { TARGET_VARIABLES, VAR_KEYS } from "./shooterConfig";
 
 // ── Configuration Constants ──────────────────────────────────────────────────
-export const REGIME_MARGIN = 0.05; // Margin (degrees) to separate normal regime from clamped min/max bounds
+export const REGIME_MARGIN = 0.05;
 
-export const POLYNOMIAL_DEGREES = {
-  NORMAL: { ANGLE: 5, VELOCITY: 5 },
-  MIN: { ANGLE: null, VELOCITY: 3 },
-  MAX: { ANGLE: null, VELOCITY: 3 },
-};
+// ── Interfaces ───────────────────────────────────────────────────────────────
+export interface DataPoint {
+  distance: number;
+  radialVelocity: number;
+  outputs: Record<string, number>;
+}
 
-export const FIT_THRESHOLDS = {
-  EXCELLENT: { ANGLE_MAX_ERR: 0.15, VEL_MAX_ERR: 0.05, COLOR: "#00e676", LABEL: "✓ Excellent" },
-  ACCEPTABLE: { ANGLE_MAX_ERR: 0.5, VEL_MAX_ERR: 0.2, COLOR: "#ffd740", LABEL: "⚠ Acceptable" },
-  POOR: { COLOR: "#ff5252", LABEL: "✗ Poor fit" },
-};
+export interface DatasetState {
+  normal: DataPoint[];
+  min: DataPoint[];
+  max: DataPoint[];
+}
 
-export const QUALITY_COLOR = (maxAngleErr: number, maxVelErr: number) => {
-  if (
-    maxAngleErr <= FIT_THRESHOLDS.EXCELLENT.ANGLE_MAX_ERR &&
-    maxVelErr <= FIT_THRESHOLDS.EXCELLENT.VEL_MAX_ERR
-  ) {
-    return FIT_THRESHOLDS.EXCELLENT.COLOR;
-  }
-  if (
-    maxAngleErr <= FIT_THRESHOLDS.ACCEPTABLE.ANGLE_MAX_ERR &&
-    maxVelErr <= FIT_THRESHOLDS.ACCEPTABLE.VEL_MAX_ERR
-  ) {
-    return FIT_THRESHOLDS.ACCEPTABLE.COLOR;
-  }
-  return FIT_THRESHOLDS.POOR.COLOR;
-};
-// ─────────────────────────────────────────────────────────────────────────────
+export interface VariableValidation {
+  maxError: string;
+  rmse: string;
+  r2: string;
+}
+
+export interface RegimeValidation {
+  metrics: Record<string, VariableValidation>;
+  count: number;
+}
+
+export interface ValidationResult {
+  normal: RegimeValidation | null;
+  min: RegimeValidation | null;
+  max: RegimeValidation | null;
+  overall: Record<string, VariableValidation> | null;
+}
 
 interface Props {
   isConnected: boolean;
@@ -54,91 +55,59 @@ interface Props {
   eta: number;
 }
 
-export interface RegimeValidation {
-  angleMaxError: string;
-  angleRmse: string;
-  angleR2: string;
-  velMaxError: string;
-  velRmse: string;
-  velR2: string;
-  count: number;
-}
+function fitRegime(data: DataPoint[], regime: "normal" | "min" | "max"): ModelState {
+  const result: ModelState = { models: {}, degrees: {} };
+  if (data.length === 0) return result;
 
-export interface ValidationResult {
-  normal: RegimeValidation | null;
-  min: RegimeValidation | null;
-  max: RegimeValidation | null;
-  overall: {
-    angleMaxError: string;
-    angleRmse: string;
-    velMaxError: string;
-    velRmse: string;
-  } | null;
-}
+  for (const key of VAR_KEYS) {
+    const config = TARGET_VARIABLES[key];
+    const targetDeg = config.degrees[regime];
+    
+    if (targetDeg !== null) {
+      let safeDeg = targetDeg;
+      const minRequired = (d: number) => ((d + 1) * (d + 2)) / 2;
+      while (safeDeg > 1 && data.length < minRequired(safeDeg)) safeDeg--;
 
-function fitRegime(
-  data: DataPoint[],
-  angleDegree: number | null,
-  velocityDegree: number
-) {
-  if (data.length === 0) return null;
-
-  const XVelocity = data.map((p) =>
-    getPolynomialFeatures(p.distance, p.radialVelocity, velocityDegree).features
-  );
-  const yVelocity = data.map((p) => [p.bestExitVelocity]);
-
-  let angleModel = null;
-  if (angleDegree !== null) {
-    const XAngle = data.map((p) =>
-      getPolynomialFeatures(p.distance, p.radialVelocity, angleDegree).features
-    );
-    const yAngle = data.map((p) => [p.bestAngle]);
-    angleModel = new MultivariateLinearRegression(XAngle, yAngle, {
-      intercept: false,
-    });
+      const X = data.map((p) => getPolynomialFeatures(p.distance, p.radialVelocity, safeDeg).features);
+      const Y = data.map((p) => [p.outputs[key]]);
+      
+      result.models[key] = new MultivariateLinearRegression(X, Y, { intercept: false });
+      result.degrees[key] = safeDeg;
+    } else {
+      result.models[key] = null;
+      result.degrees[key] = null;
+    }
   }
-
-  return {
-    angleModel,
-    velocityModel: new MultivariateLinearRegression(XVelocity, yVelocity, {
-      intercept: false,
-    }),
-    angleDegree,
-    velocityDegree,
-  };
+  return result;
 }
 
 function computeRegimeValidation(
   data: DataPoint[],
-  model: ModelState | null,
-  constantAngle: number | null = null
+  modelState: ModelState | null,
+  constantBounds: Record<string, number | null> = {}
 ): RegimeValidation | null {
-  if (!model || data.length === 0) return null;
+  if (!modelState || data.length === 0) return null;
 
-  const calcStats = (type: "angle" | "velocity") => {
+  const metrics: Record<string, VariableValidation> = {};
+
+  for (const key of VAR_KEYS) {
     let sumSq = 0;
     let maxErr = 0;
-    const isAngle = type === "angle";
-    const field = isAngle ? "bestAngle" : "bestExitVelocity";
-    const innerModel = isAngle ? model.angleModel : model.velocityModel;
-    const degree = isAngle ? model.angleDegree : model.velocityDegree;
-
-    const mean = data.reduce((s, p) => s + p[field], 0) / data.length;
     let ssTot = 0;
+    const mean = data.reduce((s, p) => s + p.outputs[key], 0) / data.length;
+
+    const model = modelState.models[key];
+    const degree = modelState.degrees[key];
+    const constantVal = constantBounds[key];
 
     for (const p of data) {
       let predicted: number;
 
-      if (isAngle && constantAngle !== null) {
-        predicted = constantAngle;
-      } else if (innerModel !== null && degree !== null) {
-        const features = getPolynomialFeatures(
-          p.distance,
-          p.radialVelocity,
-          degree
-        ).features;
-        const raw = innerModel.predict([features]);
+      if (constantVal != null) {
+        predicted = constantVal;
+      } else if (model !== null && degree !== null) {
+        const features = getPolynomialFeatures(p.distance, p.radialVelocity, degree).features;
+        const raw = model.predict([features]);
         predicted = raw?.[0]?.[0];
       } else {
         continue;
@@ -146,34 +115,24 @@ function computeRegimeValidation(
 
       if (predicted == null || !isFinite(predicted)) continue;
 
-      const err = Math.abs(predicted - p[field]);
+      const actual = p.outputs[key];
+      const err = Math.abs(predicted - actual);
       if (!isFinite(err)) continue;
 
       maxErr = Math.max(maxErr, err);
       sumSq += err * err;
-      ssTot += (p[field] - mean) ** 2;
+      ssTot += (actual - mean) ** 2;
     }
 
     const r2 = ssTot === 0 ? 1 : 1 - sumSq / ssTot;
-    return {
+    metrics[key] = {
       maxError: maxErr.toFixed(3),
       rmse: Math.sqrt(sumSq / data.length).toFixed(3),
       r2: (r2 * 100).toFixed(2),
     };
-  };
+  }
 
-  const angle = calcStats("angle");
-  const vel = calcStats("velocity");
-
-  return {
-    angleMaxError: angle.maxError,
-    angleRmse: angle.rmse,
-    angleR2: angle.r2,
-    velMaxError: vel.maxError,
-    velRmse: vel.rmse,
-    velR2: vel.r2,
-    count: data.length,
-  };
+  return { metrics, count: data.length };
 }
 
 export default function SurfaceSweepView({
@@ -192,36 +151,35 @@ export default function SurfaceSweepView({
   const [maxRadialVel, setMaxRadialVel] = usePersistedState("surface_maxRadialVel", 4);
   const [radialVelStep, setRadialVelStep] = usePersistedState("surface_radialVelStep", 0.2);
 
-  // ── Dataset bucketing ────────────────────────────────────────────────────
+  const boundaryKey = VAR_KEYS.find(k => TARGET_VARIABLES[k].isBoundaryAxis) || VAR_KEYS[0];
+
   const exportDataset = useMemo((): DatasetState => {
     const dataset: DatasetState = { normal: [], min: [], max: [] };
-    if (!surfaceData?.angleMatrix || !surfaceData.distances || !surfaceData.radialVels)
-      return dataset;
+    if (!surfaceData?.distances || !surfaceData.radialVels) return dataset;
 
-    const { distances, radialVels, angleMatrix, velocityMatrix } = surfaceData;
+    const { distances, radialVels } = surfaceData;
     
     for (let i = 0; i < distances.length; i++) {
-      const angleRow = angleMatrix[i];
-      const velRow = velocityMatrix?.[i];
-      
-      if (!angleRow) continue; 
-
       for (let j = 0; j < radialVels.length; j++) {
-        const angle = angleRow[j];
-        const vel = velRow ? velRow[j] : null;
+        
+        let isValid = true;
+        const outputs: Record<string, number> = {};
+        
+        for (const key of VAR_KEYS) {
+          const matrix = surfaceData[TARGET_VARIABLES[key].matrixKey];
+          const val = matrix?.[i]?.[j];
+          if (typeof val !== "number") isValid = false;
+          outputs[key] = val;
+        }
 
-        if (typeof angle !== "number" || typeof vel !== "number") continue;
+        if (!isValid) continue;
 
-        const point: DataPoint = {
-          distance: distances[i],
-          radialVelocity: radialVels[j],
-          bestAngle: angle,
-          bestExitVelocity: vel,
-        };
+        const point: DataPoint = { distance: distances[i], radialVelocity: radialVels[j], outputs };
+        const boundaryVal = outputs[boundaryKey];
 
-        if (angle <= sharedConfig.hardware.minAngle + REGIME_MARGIN) {
+        if (boundaryVal <= sharedConfig.hardware.minAngle + REGIME_MARGIN) {
           dataset.min.push(point);
-        } else if (angle >= sharedConfig.hardware.maxAngle - REGIME_MARGIN) {
+        } else if (boundaryVal >= sharedConfig.hardware.maxAngle - REGIME_MARGIN) {
           dataset.max.push(point);
         } else {
           dataset.normal.push(point);
@@ -229,213 +187,162 @@ export default function SurfaceSweepView({
       }
     }
     return dataset;
-  }, [surfaceData, sharedConfig.hardware.minAngle, sharedConfig.hardware.maxAngle]);
+  }, [surfaceData, sharedConfig.hardware, boundaryKey]);
 
-  // ── Model fitting ─────────────────────────────────────────────────────────
-  const models = useMemo(() => {
-    const safeFit = (
-      data: DataPoint[],
-      prefAngleDeg: number | null,
-      prefVelDeg: number
-    ) => {
-      if (data.length === 0) return null;
-      
-      const minRequired = (d: number) => ((d + 1) * (d + 2)) / 2;
+  const models = useMemo(() => ({
+    normal: fitRegime(exportDataset.normal, "normal"),
+    min: fitRegime(exportDataset.min, "min"),
+    max: fitRegime(exportDataset.max, "max"),
+  }), [exportDataset]);
 
-      let aDeg = prefAngleDeg;
-      if (aDeg !== null) {
-        while (aDeg > 1 && data.length < minRequired(aDeg)) aDeg--;
-      }
-
-      let vDeg = prefVelDeg;
-      while (vDeg > 1 && data.length < minRequired(vDeg)) vDeg--;
-
-      return fitRegime(data, aDeg, vDeg);
-    };
-
-    return {
-      normal: safeFit(exportDataset.normal, POLYNOMIAL_DEGREES.NORMAL.ANGLE, POLYNOMIAL_DEGREES.NORMAL.VELOCITY),
-      min: safeFit(exportDataset.min, POLYNOMIAL_DEGREES.MIN.ANGLE, POLYNOMIAL_DEGREES.MIN.VELOCITY),
-      max: safeFit(exportDataset.max, POLYNOMIAL_DEGREES.MAX.ANGLE, POLYNOMIAL_DEGREES.MAX.VELOCITY),
-    };
-  }, [exportDataset]);
-
-  // ── Predicted surface values ──────────────────────────────────────────────
   const values = useMemo(() => {
-    if (!models.normal || !surfaceData?.distances?.length || !surfaceData?.radialVels?.length)
-      return null;
-
-    const angle: number[][] = [];
-    const velocity: number[][] = [];
-
-    const safePredict = (
-      model: ModelState,
-      d: number,
-      vr: number,
-      cAngle: number | null
-    ): [number, number] | null => {
-      try {
-        let a: number | null = null;
-        if (model.angleModel && model.angleDegree !== null) {
-          const fA = getPolynomialFeatures(d, vr, model.angleDegree).features;
-          a = model.angleModel.predict([fA])[0][0];
-        } else if (cAngle !== null) {
-          a = cAngle;
-        }
-
-        const fV = getPolynomialFeatures(d, vr, model.velocityDegree).features;
-        const v = model.velocityModel.predict([fV])[0][0];
-
-        if (a == null || v == null || !isFinite(a) || !isFinite(v)) return null;
-        return [a, v];
-      } catch {
-        return null;
-      }
-    };
+    if (!models.normal || !surfaceData?.distances?.length) return null;
+    
+    const result: Record<string, number[][]> = {};
+    for (const key of VAR_KEYS) result[key] = [];
 
     const { minAngle, maxAngle } = sharedConfig.hardware;
-    const hasAngleMatrix = !!surfaceData.angleMatrix;
 
     for (let j = 0; j < surfaceData.radialVels.length; j++) {
-      const rowA: number[] = [];
-      const rowV: number[] = [];
+      const rows: Record<string, number[]> = {};
+      for (const key of VAR_KEYS) rows[key] = [];
 
       for (let i = 0; i < surfaceData.distances.length; i++) {
         const d = surfaceData.distances[i];
         const vr = surfaceData.radialVels[j];
+        
+        const boundaryMatrix = surfaceData[TARGET_VARIABLES[boundaryKey].matrixKey];
+        const actualBoundary = boundaryMatrix?.[i]?.[j] ?? null;
 
-        const actualAngle: number | null = hasAngleMatrix
-          ? (surfaceData.angleMatrix[i]?.[j] ?? null)
-          : null;
+        let regimeModel = models.normal;
+        let cBounds: Record<string, number | null> = {};
 
-        let regimeModel: ModelState | null;
-        let cAngle: number | null = null;
-
-        if (actualAngle !== null) {
-          if (actualAngle <= minAngle + REGIME_MARGIN) {
+        if (actualBoundary !== null) {
+          // We have real simulated data here
+          if (actualBoundary <= minAngle + REGIME_MARGIN) {
             regimeModel = models.min;
-            cAngle = minAngle;
-          } else if (actualAngle >= maxAngle - REGIME_MARGIN) {
+            cBounds[boundaryKey] = minAngle;
+          } else if (actualBoundary >= maxAngle - REGIME_MARGIN) {
             regimeModel = models.max;
-            cAngle = maxAngle;
-          } else {
-            regimeModel = models.normal;
+            cBounds[boundaryKey] = maxAngle;
           }
         } else {
-          const normalResult = safePredict(models.normal!, d, vr, null);
-          const normalAngle = normalResult?.[0] ?? 0;
-          if (normalAngle <= minAngle) {
-            regimeModel = models.min;
-            cAngle = minAngle;
-          } else if (normalAngle >= maxAngle) {
-            regimeModel = models.max;
-            cAngle = maxAngle;
-          } else {
-            regimeModel = models.normal;
+          // THE FIX: We have no simulated data here. We must predict the normal 
+          // boundary first to check if we are extrapolating into a clamped regime!
+          try {
+            const normalDeg = models.normal.degrees[boundaryKey];
+            const normalMod = models.normal.models[boundaryKey];
+            
+            if (normalDeg !== null && normalMod) {
+              const f = getPolynomialFeatures(d, vr, normalDeg).features;
+              const normalBoundaryPred = normalMod.predict([f])[0][0];
+
+              if (normalBoundaryPred <= minAngle) {
+                regimeModel = models.min;
+                cBounds[boundaryKey] = minAngle;
+              } else if (normalBoundaryPred >= maxAngle) {
+                regimeModel = models.max;
+                cBounds[boundaryKey] = maxAngle;
+              }
+            }
+          } catch {
+            // Failsafe: remain in normal regime if prediction fails
           }
         }
 
-        let result: [number, number] | null = regimeModel ? safePredict(regimeModel, d, vr, cAngle) : null;
+        // Generate the final values for all variables
+        for (const key of VAR_KEYS) {
+          try {
+            // If this variable is clamped (like the Angle), push the constant and skip math
+            if (cBounds[key] != null) {
+              rows[key].push(cBounds[key]!);
+              continue;
+            }
 
-        if (!result && regimeModel !== models.normal) {
-          result = safePredict(models.normal!, d, vr, null);
-          if (result && cAngle !== null) {
-            result[0] = cAngle;
+            const model = regimeModel.models[key];
+            const degree = regimeModel.degrees[key];
+
+            if (model && degree !== null) {
+              const f = getPolynomialFeatures(d, vr, degree).features;
+              const val = model.predict([f])[0][0];
+              rows[key].push(isFinite(val) ? val : (surfaceData[TARGET_VARIABLES[key].matrixKey]?.[i]?.[j] ?? 0));
+            } else {
+              rows[key].push(surfaceData[TARGET_VARIABLES[key].matrixKey]?.[i]?.[j] ?? 0);
+            }
+          } catch {
+            rows[key].push(0);
           }
         }
-        if (!result) {
-          const fa = actualAngle ?? 0;
-          const fv = surfaceData.velocityMatrix?.[i]?.[j] ?? 0;
-          result = [fa, fv];
-        }
-
-        rowA.push(result[0]);
-        rowV.push(result[1]);
       }
-      angle.push(rowA);
-      velocity.push(rowV);
+      for (const key of VAR_KEYS) result[key].push(rows[key]);
     }
+    return result;
+  }, [models, surfaceData, sharedConfig.hardware, boundaryKey]);
 
-    return { angle, velocity };
-  }, [models, surfaceData, sharedConfig.hardware]);
-
-  // ── Residuals matrix (for heatmap) ────────────────────────────────────────
   const residuals = useMemo(() => {
-    if (!values || !surfaceData?.angleMatrix) return null;
+    if (!values || !surfaceData?.distances) return null;
+    const result: Record<string, (number | null)[][]> = {};
 
-    const dists = surfaceData.distances.length;
-    const vels = surfaceData.radialVels.length;
-
-    const resAngle: (number | null)[][] = [];
-    const resVel: (number | null)[][] = [];
-
-    for (let j = 0; j < vels; j++) {
-      const rowA: (number | null)[] = [];
-      const rowV: (number | null)[] = [];
-      for (let i = 0; i < dists; i++) {
-        const actA = surfaceData.angleMatrix[i]?.[j];
-        const preA = values.angle[j]?.[i];
-        rowA.push(actA != null && preA != null ? Math.abs(preA - actA) : null);
-
-        const actV = surfaceData.velocityMatrix?.[i]?.[j];
-        const preV = values.velocity[j]?.[i];
-        rowV.push(actV != null && preV != null ? Math.abs(preV - actV) : null);
+    for (const key of VAR_KEYS) {
+      result[key] = [];
+      const matrixKey = TARGET_VARIABLES[key].matrixKey;
+      for (let j = 0; j < surfaceData.radialVels.length; j++) {
+        const row: (number | null)[] = [];
+        for (let i = 0; i < surfaceData.distances.length; i++) {
+          const act = surfaceData[matrixKey]?.[i]?.[j];
+          const pre = values[key][j]?.[i];
+          row.push(act != null && pre != null ? Math.abs(pre - act) : null);
+        }
+        result[key].push(row);
       }
-      resAngle.push(rowA);
-      resVel.push(rowV);
     }
-    return { angle: resAngle, velocity: resVel };
+    return result;
   }, [values, surfaceData]);
 
-  // ── Per-regime validation ─────────────────────────────────────────────────
   const validation = useMemo((): ValidationResult => {
-    if (!surfaceData?.distances || !surfaceData?.radialVels || !values) {
+    if (!surfaceData?.distances || !values) {
       return { normal: null, min: null, max: null, overall: null };
     }
 
     const { minAngle, maxAngle } = sharedConfig.hardware;
+    
     const normal = computeRegimeValidation(exportDataset.normal, models.normal);
-    const min = computeRegimeValidation(exportDataset.min, models.min, minAngle);
-    const max = computeRegimeValidation(exportDataset.max, models.max, maxAngle);
+    const min = computeRegimeValidation(exportDataset.min, models.min, { [boundaryKey]: minAngle });
+    const max = computeRegimeValidation(exportDataset.max, models.max, { [boundaryKey]: maxAngle });
 
-    let aMaxErr = 0, aSumSq = 0;
-    let vMaxErr = 0, vSumSq = 0;
-    let allCount = 0;
+    const overallMetrics: Record<string, { maxErr: number, sumSq: number, count: number }> = {};
+    for (const key of VAR_KEYS) overallMetrics[key] = { maxErr: 0, sumSq: 0, count: 0 };
 
     for (let i = 0; i < surfaceData.distances.length; i++) {
       for (let j = 0; j < surfaceData.radialVels.length; j++) {
-        const preA = values.angle[j]?.[i];
-        const actA = surfaceData.angleMatrix[i]?.[j];
-        if (preA != null && actA != null && isFinite(preA) && isFinite(actA)) {
-          const err = Math.abs(preA - actA);
-          aMaxErr = Math.max(aMaxErr, err);
-          aSumSq += err * err;
+        for (const key of VAR_KEYS) {
+          const pre = values[key][j]?.[i];
+          const act = surfaceData[TARGET_VARIABLES[key].matrixKey]?.[i]?.[j];
+          
+          if (pre != null && act != null && isFinite(pre) && isFinite(act)) {
+            const err = Math.abs(pre - act);
+            overallMetrics[key].maxErr = Math.max(overallMetrics[key].maxErr, err);
+            overallMetrics[key].sumSq += err * err;
+            overallMetrics[key].count++;
+          }
         }
-
-        const preV = values.velocity[j]?.[i];
-        const actV = surfaceData.velocityMatrix?.[i]?.[j];
-        if (preV != null && actV != null && isFinite(preV) && isFinite(actV)) {
-          const err = Math.abs(preV - actV);
-          vMaxErr = Math.max(vMaxErr, err);
-          vSumSq += err * err;
-        }
-
-        allCount++;
       }
     }
 
-    const overall =
-      allCount > 0
-        ? {
-            angleMaxError: aMaxErr.toFixed(3),
-            angleRmse: Math.sqrt(aSumSq / allCount).toFixed(3),
-            velMaxError: vMaxErr.toFixed(3),
-            velRmse: Math.sqrt(vSumSq / allCount).toFixed(3),
-          }
-        : null;
+    const overall: Record<string, VariableValidation> = {};
+    for (const key of VAR_KEYS) {
+      const m = overallMetrics[key];
+      if (m.count > 0) {
+        overall[key] = {
+          maxError: m.maxErr.toFixed(3),
+          rmse: Math.sqrt(m.sumSq / m.count).toFixed(3),
+          r2: "0", // R2 is typically calculated per regime, skipped overall for brevity
+        };
+      }
+    }
 
-    return { normal, min, max, overall };
-  }, [exportDataset, models, values, surfaceData, sharedConfig.hardware]);
+    return { normal, min, max, overall: Object.keys(overall).length > 0 ? overall : null };
+  }, [exportDataset, models, values, surfaceData, sharedConfig.hardware, boundaryKey]);
 
   const handleCalculate = () => {
     if (!isConnected || isCalculating) return;
@@ -444,6 +351,7 @@ export default function SurfaceSweepView({
         type: "surface",
         data: {
           targetAxis: sharedConfig.target.targetAxis,
+          targetRadius: sharedConfig.target.targetRadius,
           initialY: sharedConfig.origin.initialY,
           targetY: sharedConfig.target.targetY,
           minHitAngle: sharedConfig.target.minHitAngle,

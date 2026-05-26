@@ -21,7 +21,6 @@ public class TrajectoryOptimalChooser {
     private static final double SCALE_VELOCITY = 0.1;
     private static final double SCALE_TIME = 1.0;
     private static final double SCALE_ANGLE = 0.04;
-    private static final double TARGET_RADIUS = 0.5;
 
     private static final boolean[] SHOT_PHASES = {true, false};
 
@@ -32,6 +31,7 @@ public class TrajectoryOptimalChooser {
     private final TrajectoryBuilder closeBuilder;
     private final TrajectoryBuilder farBuilder;
     private final Translation2d target;
+    private final double targetRadius;
     private final TargetAxis targetAxis;
     private final List<Obstacle> obstacles;
 
@@ -39,14 +39,15 @@ public class TrajectoryOptimalChooser {
     private final List<Translation2d> costSweep;
     private Trajectory bestTrajectory;
 
-    public TrajectoryOptimalChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
+    public TrajectoryOptimalChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
         this.physicalValues = physicalValues;
         this.costWeights = costWeights;
 
         this.target = new Translation2d(0, targetY);
+        this.targetRadius = targetRadius;
         this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target, targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
-        this.closeBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.minus(new Translation2d(TARGET_RADIUS, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
-        this.farBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.plus(new Translation2d(TARGET_RADIUS, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
+        this.closeBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.minus(new Translation2d(targetRadius, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
+        this.farBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.plus(new Translation2d(targetRadius, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
         this.targetAxis = targetAxis;
         this.obstacles = obstacles;
 

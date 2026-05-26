@@ -1,23 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { SharedConfig, Translation2d } from "../types";
-
-// You can move these interfaces to your types file if preferred
-export interface Trajectory {
-  samples: { position: Translation2d }[];
-}
-
-export interface TrajectoryGroup {
-  trajectories: Trajectory[];
-  color: string;
-  lineWidth?: number; // Optional: allows you to highlight specific paths with thicker lines
-}
+import type { SharedConfig, SimulationResults, Translation2d } from "../types";
 
 interface CanvasProps {
   initialX: number;
   setInitialX: (x: number) => void;
   sharedConfig: SharedConfig;
   updateConfig: <K extends keyof SharedConfig>(section: K, updates: Partial<SharedConfig[K]>) => void;
-  trajectoryGroups: TrajectoryGroup[]; // Changed from results: SimulationResults
+  trajectoryGroups: TrajectoryGroup[];
   zoom: number;
   setZoom: (val: number) => void;
   pan: Translation2d;
@@ -296,6 +285,13 @@ export function TrajectoryCanvas({
 
     ctx.fillStyle = "#888";
     ctx.fillText(`Target (0, ${sharedConfig.target.targetY.toFixed(1)})`, targetScreen.x + 12, targetScreen.y + 4);
+
+    ctx.strokeStyle = "rgba(255, 68, 68, 0.8)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(targetScreen.x - sharedConfig.target.targetRadius * zoom, targetScreen.y);
+    ctx.lineTo(targetScreen.x + sharedConfig.target.targetRadius * zoom, targetScreen.y);
+    ctx.stroke();
 
     // --- Draw Trajectories by Group ---
     trajectoryGroups.forEach((group) => {

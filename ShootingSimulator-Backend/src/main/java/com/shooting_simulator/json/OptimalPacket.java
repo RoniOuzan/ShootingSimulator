@@ -17,7 +17,7 @@ public class OptimalPacket implements DataPacket {
     public double radialVelocity;
 
     public double targetY;
-
+    public double targetRadius;
     public String targetAxis;
 
     // Limits
@@ -42,6 +42,7 @@ public class OptimalPacket implements DataPacket {
                 initialPos,
                 this.radialVelocity,
                 targetY,
+                this.targetRadius,
                 TargetAxis.valueOf(this.targetAxis),
                 this.minHitAngle,
                 this.maxHitAngle,
