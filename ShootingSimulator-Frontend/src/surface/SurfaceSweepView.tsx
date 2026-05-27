@@ -3,13 +3,14 @@ import { useMemo } from "react";
 import ControlSlider from "../components/ControlSlider";
 import ProgressOverlay from "../components/ProgressOverlay";
 import { usePersistedState } from "../hooks/usePersistedState";
-import type { SharedConfig } from "../types";
+import type { SharedConfig, SimulationType } from "../types";
 import CodeExporter, {
   getPolynomialFeatures,
   type ModelState,
 } from "./CodeExporter";
 import SurfaceSweepCharts from "./SurfaceSweepCharts";
 import { TARGET_VARIABLES, VAR_KEYS } from "./shooterConfig";
+import "../components/SharedConfigSidebar.css";
 
 // ── Configuration Constants ──────────────────────────────────────────────────
 export const REGIME_MARGIN = 0.05;
@@ -150,6 +151,7 @@ export default function SurfaceSweepView({
   const [minRadialVel, setMinRadialVel] = usePersistedState("surface_minRadialVel", -4);
   const [maxRadialVel, setMaxRadialVel] = usePersistedState("surface_maxRadialVel", 4);
   const [radialVelStep, setRadialVelStep] = usePersistedState("surface_radialVelStep", 0.2);
+  const [simulationType, setSimulationType] = usePersistedState<SimulationType>("sweep_simulationType", "CENTER");
 
   const boundaryKey = VAR_KEYS.find(k => TARGET_VARIABLES[k].isBoundaryAxis) || VAR_KEYS[0];
 
@@ -350,6 +352,7 @@ export default function SurfaceSweepView({
       {
         type: "surface",
         data: {
+          simulationType,
           targetAxis: sharedConfig.target.targetAxis,
           targetRadius: sharedConfig.target.targetRadius,
           initialY: sharedConfig.origin.initialY,
@@ -436,6 +439,15 @@ export default function SurfaceSweepView({
 
       <div className="tab-sidebar">
         <h2 className="sidebar-title">Surface Settings</h2>
+
+        <div className="tab-config-card">
+          <h3>Simulation Type</h3>
+          <div className="mode-toggle" style={{ width: "100%" }}>
+            <div className="mode-toggle-slider" style={{ transform: simulationType === "OPTIMAL" ? "translateX(100%)" : "translateX(0%)" }} />
+            <button onClick={() => setSimulationType("CENTER")} className={`btn-toggle ${simulationType === "CENTER" ? "active-mode" : ""}`}>Center</button>
+            <button onClick={() => setSimulationType("OPTIMAL")} className={`btn-toggle ${simulationType === "OPTIMAL" ? "active-mode" : ""}`}>Optimal</button>
+          </div>
+        </div>
 
         <div className="tab-config-card">
           <h3>Distance range (X-axis)</h3>

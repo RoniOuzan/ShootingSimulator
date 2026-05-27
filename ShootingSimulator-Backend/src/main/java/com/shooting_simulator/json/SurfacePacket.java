@@ -23,6 +23,8 @@ public class SurfacePacket implements DataPacket {
     public double minHitAngle;
     public double maxHitAngle;
 
+    public String simulationType;
+
     public SweepBounds sweepBounds;
     public PhysicalValues physicalValues;
     public CostWeights costConfig;
@@ -56,6 +58,7 @@ public class SurfacePacket implements DataPacket {
         Double[][] angTolNegData = new Double[numDistances][numRadialVels];
         Double[][] velTolPosData = new Double[numDistances][numRadialVels];
         Double[][] velTolNegData = new Double[numDistances][numRadialVels];
+        Double[][] ellipseAngleData = new Double[numDistances][numRadialVels];
 
         TargetAxis axis = TargetAxis.valueOf(this.targetAxis);
         int totalSteps = numDistances * numRadialVels;
@@ -74,7 +77,7 @@ public class SurfacePacket implements DataPacket {
 
             calculatePoint(initialPos, radialVelocity, targetY, axis,
                     angleData, velocityData,
-                    angTolPosData, angTolNegData, velTolPosData, velTolNegData,
+                    angTolPosData, angTolNegData, velTolPosData, velTolNegData, ellipseAngleData,
                     dIdx, rIdx, successCount);
 
             // ... Progress tracking (no changes needed) ...
@@ -103,12 +106,14 @@ public class SurfacePacket implements DataPacket {
         List<List<Double>> angTolNegMatrix = Arrays.stream(angTolNegData).map(Arrays::asList).collect(Collectors.toList());
         List<List<Double>> velTolPosMatrix = Arrays.stream(velTolPosData).map(Arrays::asList).collect(Collectors.toList());
         List<List<Double>> velTolNegMatrix = Arrays.stream(velTolNegData).map(Arrays::asList).collect(Collectors.toList());
+        List<List<Double>> ellipseAngleMatrix = Arrays.stream(ellipseAngleData).map(Arrays::asList).collect(Collectors.toList());
 
         SurfacePayload payload = new SurfacePayload(
                 distances, radialVels,
                 angleMatrix, velocityMatrix,
                 angTolPosMatrix, angTolNegMatrix,
-                velTolPosMatrix, velTolNegMatrix
+                velTolPosMatrix, velTolNegMatrix,
+                ellipseAngleMatrix
         );
         server.sendPacket(conn, "surfaceResults", payload);
     }
@@ -117,9 +122,9 @@ public class SurfacePacket implements DataPacket {
                                 TargetAxis axis,
                                 Double[][] angleData, Double[][] velocityData,
                                 Double[][] angTolPosData, Double[][] angTolNegData,
-                                Double[][] velTolPosData, Double[][] velTolNegData,
+                                Double[][] velTolPosData, Double[][] velTolNegData, Double[][] ellipseAngleData,
                                 int dIdx, int rIdx, AtomicInteger successCount) {
-        TrajectoryChooser chooser = new TrajectoryChooser(
+        Chooser chooser = SimulationType.valueOf(this.simulationType).create(
                 this.physicalValues,
                 initialPos,
                 radialVelocity,
@@ -137,12 +142,13 @@ public class SurfacePacket implements DataPacket {
             angleData[dIdx][rIdx] = Math.round(best.getInitialShootingVelocity().getAngle().getDegrees() * 1000.0) / 1000.0;
             velocityData[dIdx][rIdx] = Math.round(best.getInitialShootingVelocity().getNorm() * 1000.0) / 1000.0;
 
-            var tol = best.getTolerance();
+            Tolerance tol = best.getTolerance();
             if (tol != null) {
                 velTolPosData[dIdx][rIdx] = Math.round(tol.getVelocityPositive() * 1000.0) / 1000.0;
                 velTolNegData[dIdx][rIdx] = Math.round(tol.getVelocityNegative() * 1000.0) / 1000.0;
                 angTolPosData[dIdx][rIdx] = Math.round(tol.getAnglePositive() * 1000.0) / 1000.0;
                 angTolNegData[dIdx][rIdx] = Math.round(tol.getAngleNegative() * 1000.0) / 1000.0;
+                ellipseAngleData[dIdx][rIdx] = Math.round(tol.getEllipseAngle() * 1000.0) / 1000.0;
             }
 
             successCount.incrementAndGet();
@@ -153,7 +159,8 @@ public class SurfacePacket implements DataPacket {
             List<Double> distances, List<Double> radialVels,
             List<List<Double>> angleMatrix, List<List<Double>> velocityMatrix,
             List<List<Double>> angTolPosMatrix, List<List<Double>> angTolNegMatrix,
-            List<List<Double>> velTolPosMatrix, List<List<Double>> velTolNegMatrix
+            List<List<Double>> velTolPosMatrix, List<List<Double>> velTolNegMatrix,
+            List<List<Double>> ellipseAngleMatrix
     ) {}
 
     public record SweepBounds(double minDist, double maxDist, double distStep, double minRadialVel, double maxRadialVel, double radialVelStep) {}

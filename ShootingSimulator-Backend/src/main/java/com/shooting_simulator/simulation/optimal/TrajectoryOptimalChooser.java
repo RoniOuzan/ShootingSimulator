@@ -10,7 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 
 @Getter
-public class TrajectoryOptimalChooser {
+public class TrajectoryOptimalChooser implements Chooser {
 
     private static final double ANGLE_DT = 0.000_01;
 
@@ -48,6 +48,15 @@ public class TrajectoryOptimalChooser {
 
         this.robustnessSweep = new ArrayList<>();
         this.costSweep = new ArrayList<>();
+    }
+
+    @Override
+    public Trajectory getBestTrajectory() {
+        TrajectoryCouple trajectoryCouple = this.findBestTrajectory();
+        if (trajectoryCouple == null) {
+            return null;
+        }
+        return trajectoryCouple.getOptimalTrajectory();
     }
 
     public List<Translation2d> getCostSweep() {

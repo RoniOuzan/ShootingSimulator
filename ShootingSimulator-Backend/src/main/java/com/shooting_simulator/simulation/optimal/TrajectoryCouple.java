@@ -9,14 +9,16 @@ import lombok.Getter;
 @Getter
 public class TrajectoryCouple {
 
-    private static final double ANGLE_DX = 0.05;
+    private static final double ANGLE_DX = 0.5; // its big so it will be less noisy
 
     // Scale constants
     private static final double SCALE_VELOCITY = 0.1;
     private static final double SCALE_TIME = 1.0;
     private static final double SCALE_ANGLE = 0.04;
+
+    // Calibrated Robustness Constants
     private static final double SCALE_ROBUSTNESS_VELOCITY = 0.1;
-    private static final double SCALE_ROBUSTNESS_ANGLE = 2;
+    private static final double SCALE_ROBUSTNESS_ANGLE = 0.65;
 
     private static final double VELOCITY_BIAS = 0.6;
 
@@ -43,16 +45,21 @@ public class TrajectoryCouple {
         Translation2d farVelocity = farTrajectory.getInitialShootingVelocity();
         Rotation2d sharedAngle = closeVelocity.getAngle();
 
-        double targetVelocity = closeVelocity.getNorm() + ((farVelocity.getNorm() - closeVelocity.getNorm()) * VELOCITY_BIAS);
-
-        this.optimalTrajectory = centerBuilder.simulateTrajectory(
-                targetVelocity,
-                sharedAngle,
-                true,
-                closeTrajectory.isFlat());
-
-        this.velocityGap = calculateVelocityGap(sharedAngle.getDegrees(), closeTrajectory.isFlat());
+        this.velocityGap = farVelocity.getNorm() - closeVelocity.getNorm();
         this.gapDerivative = calculateGapDerivative(sharedAngle.getDegrees(), closeTrajectory.isFlat());
+
+        this.optimalTrajectory = getOptimalTrajectory(centerBuilder);
+    }
+
+    private Trajectory getOptimalTrajectory(TrajectoryBuilder centerBuilder) {
+        Translation2d closeVelocity = this.closeTrajectory.getInitialShootingVelocity();
+        double targetVelocity = closeVelocity.getNorm() + (this.velocityGap * VELOCITY_BIAS);
+
+        return centerBuilder.simulateTrajectory(
+                targetVelocity,
+                closeVelocity.getAngle(),
+                true,
+                this.closeTrajectory.isFlat());
     }
 
     public double getCost(CostWeights costWeights) {
@@ -82,41 +89,41 @@ public class TrajectoryCouple {
         boolean isFlat = this.optimalTrajectory.isFlat();
 
         double slope = calculateOptimalDerivative(optAngle, isFlat);
-        double ellipseAngle = Math.toDegrees(Math.atan(slope));
+        double ellipseAngleRad = Math.atan(slope);
+        double ellipseAngleDeg = Math.toDegrees(ellipseAngleRad);
 
         // Find the absolute maximum width along the center axis
-        double maxRightAngle = calculateAngleTolerance(optAngle, optVel, slope, isFlat, true);
-        double maxLeftAngle = calculateAngleTolerance(optAngle, optVel, slope, isFlat, false);
+        double maxPosAngle = calculateAngleTolerance(optAngle, optVel, slope, isFlat, true);
+        double maxNegAngle = calculateAngleTolerance(optAngle, optVel, slope, isFlat, false);
 
         // Set the height (velocity) bounds based on your optimal point
-        double velLow = this.velocityGap * (1 - VELOCITY_BIAS) * 0.9;
-        double velHigh = this.velocityGap * VELOCITY_BIAS * 0.9;
+        double velPos = this.velocityGap * (1 - VELOCITY_BIAS) * Math.cos(ellipseAngleRad); // times cos because its angled and the velocityGap is the fixed vertical height
+        double velNeg = this.velocityGap * VELOCITY_BIAS * Math.cos(ellipseAngleRad);
 
         double safeScale = 1.0;
-
-        while (safeScale > 0.1 && !isEllipseSafe(safeScale, optAngle, optVel, maxLeftAngle, maxRightAngle, velLow, velHigh, ellipseAngle, isFlat)) {
+        while (safeScale > 0.1 && !isEllipseSafe(safeScale, optAngle, optVel, maxNegAngle, maxPosAngle, velPos, velNeg, ellipseAngleRad, isFlat)) {
             safeScale -= 0.05;
         }
 
         this.optimalTrajectory.setTolerance(new Tolerance(
-                velLow,
-                velHigh,
-                maxRightAngle * safeScale,
-                maxLeftAngle * safeScale,
-                ellipseAngle));
+                velPos,
+                velNeg,
+                maxPosAngle * safeScale,
+                maxNegAngle * safeScale,
+                ellipseAngleDeg));
     }
 
     /**
      * Numerically searches outward along the ellipse's major axis to find the maximum angle width.
      */
-    private double calculateAngleTolerance(double optAngle, double optVel, double slope, boolean isFlat, boolean searchRight) {
+    private double calculateAngleTolerance(double optAngle, double optVel, double slope, boolean isFlat, boolean positive) {
         double step = 0.1; // Resolution of the search in degrees
         double maxSearch = 10.0; // Failsafe maximum search width (degrees)
         double currentDelta = 0.0;
 
         while (currentDelta < maxSearch) {
             currentDelta += step;
-            double deltaAngle = searchRight ? currentDelta : -currentDelta;
+            double deltaAngle = positive ? currentDelta : -currentDelta;
             double testAngle = optAngle + deltaAngle;
 
             // Calculate the velocity along the rotated center axis of the ellipse
@@ -198,17 +205,15 @@ public class TrajectoryCouple {
 
     public double calculateOptimalDerivative(double angle, boolean isFlat) {
         double highWindow = getWindowAtAngle(angle + ANGLE_DX, isFlat);
-        double lowWindow = getWindowAtAngle(angle - ANGLE_DX, isFlat);
 
-        return (highWindow - lowWindow) / (2 * ANGLE_DX);
+        return (highWindow - this.optimalTrajectory.getInitialShootingVelocity().getNorm()) / ANGLE_DX;
     }
 
     public double calculateGapDerivative(double angle, boolean isFlat) {
         double highGap = calculateVelocityGap(angle + ANGLE_DX, isFlat);
-        double lowGap = calculateVelocityGap(angle - ANGLE_DX, isFlat);
 
         // Returns how many m/s the gap shrinks/grows per degree of pivot
-        return (highGap - lowGap) / (2 * ANGLE_DX);
+        return (highGap - this.velocityGap) / ANGLE_DX;
     }
 
     /**
@@ -225,7 +230,7 @@ public class TrajectoryCouple {
             return -100.0; // Instantly kills the robustness score for this angle
         }
 
-        return (farTraj.getInitialShootingVelocity().getNorm() + closeTraj.getInitialShootingVelocity().getNorm()) / 2.0;
+        return closeTraj.getInitialShootingVelocity().getNorm() + ((farTraj.getInitialShootingVelocity().getNorm() - closeTraj.getInitialShootingVelocity().getNorm()) * VELOCITY_BIAS);
     }
 
     public double getVelocityRobustnessCost() {
@@ -233,6 +238,6 @@ public class TrajectoryCouple {
     }
 
     public double getAngleRobustnessCost() {
-        return this.gapDerivative * SCALE_ROBUSTNESS_ANGLE;
+        return Math.abs(this.gapDerivative) * SCALE_ROBUSTNESS_ANGLE;
     }
 }

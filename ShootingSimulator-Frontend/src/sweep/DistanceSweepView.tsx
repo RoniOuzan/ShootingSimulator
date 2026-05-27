@@ -2,7 +2,8 @@ import DistanceSweepCharts from "./DistanceSweepCharts";
 import ControlSlider from "../components/ControlSlider";
 import ProgressOverlay from "../components/ProgressOverlay";
 import { usePersistedState } from "../hooks/usePersistedState";
-import type { SharedConfig } from "../types";
+import type { SharedConfig, SimulationType } from "../types";
+import "../components/SharedConfigSidebar.css";
 
 interface Props {
   isConnected: boolean;
@@ -24,8 +25,9 @@ export default function DistanceSweepView({
   eta,
 }: Props) {
   // Tab-specific settings with persistence
+  const [simulationType, setSimulationType] = usePersistedState<SimulationType>("sweep_simulationType", "CENTER");
   const [minDist, setMinDist] = usePersistedState("sweep_minDist", 1);
-  const [maxDist, setMaxDist] = usePersistedState("sweep_maxDist", 8);
+  const [maxDist, setMaxDist] = usePersistedState("sweep_maxDist", 6);
   const [distStep, setDistStep] = usePersistedState("sweep_distStep", 0.2);
 
   const handleCalculate = () => {
@@ -34,6 +36,7 @@ export default function DistanceSweepView({
     const payload = {
       type: "sweep",
       data: {
+        simulationType,
         targetAxis: sharedConfig.target.targetAxis,
         targetRadius: sharedConfig.target.targetRadius,
         initialY: sharedConfig.origin.initialY,
@@ -93,6 +96,15 @@ export default function DistanceSweepView({
       {/* Tab-Specific Config */}
       <div className="tab-sidebar">
         <h2 className="sidebar-title">Sweep Settings</h2>
+
+        <div className="tab-config-card">
+          <h3>Simulation Type</h3>
+          <div className="mode-toggle" style={{ width: "100%" }}>
+            <div className="mode-toggle-slider" style={{ transform: simulationType === "OPTIMAL" ? "translateX(100%)" : "translateX(0%)" }} />
+            <button onClick={() => setSimulationType("CENTER")} className={`btn-toggle ${simulationType === "CENTER" ? "active-mode" : ""}`}>Center</button>
+            <button onClick={() => setSimulationType("OPTIMAL")} className={`btn-toggle ${simulationType === "OPTIMAL" ? "active-mode" : ""}`}>Optimal</button>
+          </div>
+        </div>
 
         <div className="tab-config-card">
           <h3>Distance Range (X-Axis)</h3>

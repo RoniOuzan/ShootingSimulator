@@ -9,7 +9,7 @@ import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;
 
 @Getter
-public class TrajectoryChooser {
+public class TrajectoryChooser implements Chooser {
 
     private static final double ANGLE_DT_DIVIDER = 100;
 
@@ -56,6 +56,7 @@ public class TrajectoryChooser {
         return this.costSweep;
     }
 
+    @Override
     public Trajectory getBestTrajectory() {
         if (this.bestTrajectory == null && this.trajectories == null) {
             this.bestTrajectory = findBestTrajectory();

@@ -41,8 +41,8 @@ export const TARGET_VARIABLES: Record<string, TargetVariable> = {
     name: "Pos Velocity Tolerance",
     unit: "m/s",
     isBoundaryAxis: false,
-    degrees: { normal: 3, min: 2, max: 2 },
-    thresholds: { excellent: 0.1, acceptable: 0.3 },
+    degrees: { normal: 5, min: 3, max: 3 },
+    thresholds: { excellent: 0.05, acceptable: 0.2 },
   },
   velTolNeg: {
     id: "velTolNeg",
@@ -50,17 +50,16 @@ export const TARGET_VARIABLES: Record<string, TargetVariable> = {
     name: "Neg Velocity Tolerance",
     unit: "m/s",
     isBoundaryAxis: false,
-    degrees: { normal: 3, min: 2, max: 2 },
-    thresholds: { excellent: 0.1, acceptable: 0.3 },
+    degrees: { normal: 5, min: 3, max: 3 },
+    thresholds: { excellent: 0.05, acceptable: 0.2 },
   },
   angTolPos: {
     id: "angTolPos",
-    matrixKey: "angTolPosMatrix",     // Must exactly match the JSON property from the backend
+    matrixKey: "angTolPosMatrix",
     name: "Pos Angle Tolerance",
     unit: "°",
     isBoundaryAxis: false,
-    // Setting polynomial degrees to 3 allows the robot code to estimate safety margins dynamically
-    degrees: { normal: 3, min: 2, max: 2 }, 
+    degrees: { normal: 5, min: 3, max: 3 }, 
     thresholds: { excellent: 0.2, acceptable: 0.5 },
   },
   angTolNeg: {
@@ -69,7 +68,7 @@ export const TARGET_VARIABLES: Record<string, TargetVariable> = {
     name: "Neg Angle Tolerance",
     unit: "°",
     isBoundaryAxis: false,
-    degrees: { normal: 3, min: 2, max: 2 },
+    degrees: { normal: 5, min: 3, max: 3 },
     thresholds: { excellent: 0.2, acceptable: 0.5 },
   },
 };

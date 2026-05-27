@@ -56,7 +56,7 @@ public class OptimalPacket implements DataPacket {
 
         List<TrajectoryCouple> trajectories = chooser.calculateTrajectories();
 
-        return new ResultsPayload(trajectories,  chooser.findBestTrajectory() == null ? null : chooser.findBestTrajectory().getOptimalTrajectory(), downsampledRobustness, chooser.getCostSweep());
+        return new ResultsPayload(trajectories,  chooser.getBestTrajectory(), downsampledRobustness, chooser.getCostSweep());
     }
 
     @SuppressWarnings("unused")

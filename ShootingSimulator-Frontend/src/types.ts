@@ -117,3 +117,5 @@ export const parseVelocityVector = (vector: Translation2d | null | undefined) =>
   const angle = Math.atan2(vector.y, vector.x) * (180 / Math.PI);
   return { angle, velocity };
 };
+
+export type SimulationType = "CENTER" | "OPTIMAL";
