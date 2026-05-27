@@ -84,6 +84,7 @@ export interface Tolerance {
   velocityNegative: number;
   anglePositive: number;
   angleNegative: number;
+  ellipseAngle: number;
 }
 
 export interface SimulationResults {

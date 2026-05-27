@@ -1,9 +1,7 @@
 package com.shooting_simulator.simulation.optimal;
 
-import com.shooting_simulator.simulation.CostWeights;
-import com.shooting_simulator.simulation.PhysicalValues;
-import com.shooting_simulator.simulation.Trajectory;
-import com.shooting_simulator.simulation.TrajectoryBuilder;
+import com.shooting_simulator.simulation.*;
+import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;
@@ -11,127 +9,230 @@ import lombok.Getter;
 @Getter
 public class TrajectoryCouple {
 
+    private static final double ANGLE_DX = 0.05;
+
     // Scale constants
     private static final double SCALE_VELOCITY = 0.1;
     private static final double SCALE_TIME = 1.0;
     private static final double SCALE_ANGLE = 0.04;
+    private static final double SCALE_ROBUSTNESS_VELOCITY = 0.1;
+    private static final double SCALE_ROBUSTNESS_ANGLE = 2;
 
-    // A massive multiplier to ensure the Safety Ratio absolutely dominates the search algorithm
-    private static final double SCALE_SAFETY_RATIO = 1;
+    private static final double VELOCITY_BIAS = 0.6;
 
     private final Trajectory closeTrajectory;
     private final Trajectory farTrajectory;
     private final Trajectory optimalTrajectory;
 
-    private final PhysicalValues physicalValues;
+    private final TrajectoryBuilder closeBuilder;
+    private final TrajectoryBuilder farBuilder;
 
-    private final double velocitySafetyRatio;
-    private final double angleSafetyRatio;
-    private final double overallSafetyRatio;
+    private final PhysicalValues physicalValues;
+    private final double velocityGap;
+    private final double gapDerivative;
 
     public TrajectoryCouple(Trajectory closeTrajectory, Trajectory farTrajectory, TrajectoryBuilder centerBuilder, TrajectoryBuilder closeBuilder, TrajectoryBuilder farBuilder, PhysicalValues physicalValues) {
         this.closeTrajectory = closeTrajectory;
         this.farTrajectory = farTrajectory;
-
         this.physicalValues = physicalValues;
+
+        this.closeBuilder = closeBuilder;
+        this.farBuilder = farBuilder;
 
         Translation2d closeVelocity = closeTrajectory.getInitialShootingVelocity();
         Translation2d farVelocity = farTrajectory.getInitialShootingVelocity();
-
-        // They share the exact same angle during the sweep
         Rotation2d sharedAngle = closeVelocity.getAngle();
-        double midVelocity = (farVelocity.getNorm() + closeVelocity.getNorm()) / 2.0;
+
+        double targetVelocity = closeVelocity.getNorm() + ((farVelocity.getNorm() - closeVelocity.getNorm()) * VELOCITY_BIAS);
 
         this.optimalTrajectory = centerBuilder.simulateTrajectory(
-                midVelocity,
+                targetVelocity,
                 sharedAngle,
                 true,
                 closeTrajectory.isFlat());
 
-        // Calculate Velocity Safety Ratio (Height of the Ellipse Fit)
-        double velocityMargin = (farVelocity.getNorm() - closeVelocity.getNorm()) / 2.0;
-        this.velocitySafetyRatio = velocityMargin / physicalValues.estimatedVelocityError;
-
-        // Calculate Angle Safety Ratio (Width of the Ellipse Fit)
-        double angleMargin = calculateAngleMargin(closeBuilder, farBuilder, midVelocity, sharedAngle.getDegrees(), closeTrajectory.isFlat());
-        this.angleSafetyRatio = angleMargin / physicalValues.estimatedAngleError;
-
-        // The Min Function: Define the shot purely by its weakest link
-        this.overallSafetyRatio = Math.min(this.velocitySafetyRatio, this.angleSafetyRatio);
+        this.velocityGap = calculateVelocityGap(sharedAngle.getDegrees(), closeTrajectory.isFlat());
+        this.gapDerivative = calculateGapDerivative(sharedAngle.getDegrees(), closeTrajectory.isFlat());
     }
 
-    /**
-     * Steps outward from the center angle to find exactly how far the robot
-     * can rotate before the current vMid speed misses the physical target.
-     */
-    private double calculateAngleMargin(TrajectoryBuilder closeBuilder, TrajectoryBuilder farBuilder, double vMid, double centerAngle, boolean isFlat) {
-        double step = 0.25; // Quarter-degree resolution is extremely fast and precise enough
-        double maxAngle = centerAngle;
-        double minAngle = centerAngle;
-
-        // Search upwards
-        while (maxAngle < this.physicalValues.maxAngle && isVelocitySafeAtAngle(closeBuilder, farBuilder, vMid, maxAngle + step, isFlat)) {
-            maxAngle += step;
-        }
-
-        // Search downwards
-        while (minAngle > this.physicalValues.minAngle && isVelocitySafeAtAngle(closeBuilder, farBuilder, vMid, minAngle - step, isFlat)) {
-            minAngle -= step;
-        }
-
-        return (maxAngle - minAngle) / 2.0;
-    }
-
-    private boolean isVelocitySafeAtAngle(TrajectoryBuilder closeBuilder, TrajectoryBuilder farBuilder, double testVelocity, double testAngle, boolean isFlat) {
-        Trajectory newClose = closeBuilder.findTrajectoryForAngle(testAngle, isFlat);
-        Trajectory newFar = farBuilder.findTrajectoryForAngle(testAngle, isFlat);
-
-        // If either boundary is physically impossible at this new angle, the shot fails
-        if (newClose == null || !newClose.isHitTarget() || newFar == null || !newFar.isHitTarget()) return false;
-
-        double requiredMin = newClose.getInitialShootingVelocity().getNorm();
-        double requiredMax = newFar.getInitialShootingVelocity().getNorm();
-
-        // The test velocity is only safe if it sits between the new boundary requirements
-        return testVelocity >= requiredMin && testVelocity <= requiredMax;
-    }
-
-    /**
-     * Calculates the true real-world cost of a trajectory based on multi-objective weights.
-     * Lower cost is better.
-     */
     public double getCost(CostWeights costWeights) {
         if (this.optimalTrajectory == null) {
-            return 1000.0; // Miss penalty
+            return 1000.0;
         }
 
-        // If safety ratio is < 1.0, the hardware error ellipse does not fit. Treat as a miss.
-        if (this.overallSafetyRatio < 1.0) {
-            return 500.0;
-        }
-
-        // We use a NEGATIVE safety ratio.
-        // Because the Golden Section Search seeks the lowest possible number,
-        // returning a massively negative number rewards the algorithm for finding the safest spot.
-        double robustPenalty = -this.overallSafetyRatio * SCALE_SAFETY_RATIO;
-
-        // Effort (Normalized: 10 m/s -> 1.0 baseline penalty)
+        double robustnessPenalty = this.getAngleRobustnessCost() - this.getVelocityRobustnessCost();
         double initialVelPenalty = this.optimalTrajectory.getInitialShootingVelocity().getNorm() * SCALE_VELOCITY;
-
-        // Impact Dynamics (Normalized)
         double impactVelPenalty = this.optimalTrajectory.getHitSample().getVelocity().getNorm() * SCALE_VELOCITY;
         double timeOfFlightPenalty = this.optimalTrajectory.getHitSample().getTime() * SCALE_TIME;
 
-        // Entry Angle (Normalized: 20 degrees off -> 1.0 baseline penalty)
         Rotation2d impactAngle = this.optimalTrajectory.getHitSample().getVelocity().getAngle();
         double rawAngleError = Math.abs(impactAngle.getDegrees() - costWeights.targetImpactAngle());
         double entryAnglePenalty = rawAngleError * SCALE_ANGLE;
 
-        // Apply UI weights and sum
-        return (robustPenalty * costWeights.robustnessWeight()) +
+        return (robustnessPenalty * costWeights.robustnessWeight()) +
                 (initialVelPenalty * costWeights.initialVelocityWeight()) +
                 (impactVelPenalty * costWeights.impactVelocityWeight()) +
                 (timeOfFlightPenalty * costWeights.timeOfFlightWeight()) +
                 (entryAnglePenalty * costWeights.entryAngleWeight());
+    }
+
+    public void calculateTolerance() {
+        double optAngle = this.optimalTrajectory.getInitialShootingVelocity().getAngle().getDegrees();
+        double optVel = this.optimalTrajectory.getInitialShootingVelocity().getNorm();
+        boolean isFlat = this.optimalTrajectory.isFlat();
+
+        double slope = calculateOptimalDerivative(optAngle, isFlat);
+        double ellipseAngle = Math.toDegrees(Math.atan(slope));
+
+        // Find the absolute maximum width along the center axis
+        double maxRightAngle = calculateAngleTolerance(optAngle, optVel, slope, isFlat, true);
+        double maxLeftAngle = calculateAngleTolerance(optAngle, optVel, slope, isFlat, false);
+
+        // Set the height (velocity) bounds based on your optimal point
+        double velLow = this.velocityGap * (1 - VELOCITY_BIAS) * 0.9;
+        double velHigh = this.velocityGap * VELOCITY_BIAS * 0.9;
+
+        double safeScale = 1.0;
+
+        while (safeScale > 0.1 && !isEllipseSafe(safeScale, optAngle, optVel, maxLeftAngle, maxRightAngle, velLow, velHigh, ellipseAngle, isFlat)) {
+            safeScale -= 0.05;
+        }
+
+        this.optimalTrajectory.setTolerance(new Tolerance(
+                velLow,
+                velHigh,
+                maxRightAngle * safeScale,
+                maxLeftAngle * safeScale,
+                ellipseAngle));
+    }
+
+    /**
+     * Numerically searches outward along the ellipse's major axis to find the maximum angle width.
+     */
+    private double calculateAngleTolerance(double optAngle, double optVel, double slope, boolean isFlat, boolean searchRight) {
+        double step = 0.1; // Resolution of the search in degrees
+        double maxSearch = 10.0; // Failsafe maximum search width (degrees)
+        double currentDelta = 0.0;
+
+        while (currentDelta < maxSearch) {
+            currentDelta += step;
+            double deltaAngle = searchRight ? currentDelta : -currentDelta;
+            double testAngle = optAngle + deltaAngle;
+
+            // Calculate the velocity along the rotated center axis of the ellipse
+            double testVel = optVel + (deltaAngle * slope);
+
+            // Fetch upper and lower bounds at this new test angle
+            Trajectory closeTraj = this.closeBuilder.findTrajectoryForAngle(testAngle, isFlat, false);
+            Trajectory farTraj = this.farBuilder.findTrajectoryForAngle(testAngle, isFlat, false);
+
+            // Check if we hit a mechanical limit (impossible shot)
+            if (closeTraj == null || farTraj == null || !closeTraj.isHitTarget() || !farTraj.isHitTarget()) {
+                break;
+            }
+
+            double lowerVelBound = closeTraj.getInitialShootingVelocity().getNorm();
+            double upperVelBound = farTraj.getInitialShootingVelocity().getNorm();
+
+            // If our ellipse's center axis crosses the red or green curves, the basin ends here
+            if (testVel <= lowerVelBound || testVel >= upperVelBound) {
+                break;
+            }
+        }
+
+        // Return the last valid width, ensuring it never goes negative
+        return Math.max(0, currentDelta - step);
+    }
+
+    private boolean isEllipseSafe(double scale, double optAngle, double optVel,
+                                  double leftWidth, double rightWidth,
+                                  double velLow, double velHigh,
+                                  double ellipseAngleRad, boolean isFlat) {
+        int numSamples = 36;
+
+        for (int i = 0; i < numSamples; i++) {
+            double t = (2 * Math.PI * i) / numSamples;
+
+            // FIX: Apply scale to BOTH width (a) and height (b) so the entire shape tucks in
+            double a = (Math.cos(t) > 0) ? (rightWidth * scale) : (leftWidth * scale);
+            double b = (Math.sin(t) > 0) ? (velHigh * scale) : (velLow * scale);
+
+            double dx = a * Math.cos(t);
+            double dy = b * Math.sin(t);
+
+            double rotDx = dx * Math.cos(ellipseAngleRad) - dy * Math.sin(ellipseAngleRad);
+            double rotDy = dx * Math.sin(ellipseAngleRad) + dy * Math.cos(ellipseAngleRad);
+
+            double testAngle = optAngle + rotDx;
+            double testVel = optVel + rotDy;
+
+            Trajectory closeTraj = this.closeBuilder.findTrajectoryForAngle(testAngle, isFlat, false);
+            Trajectory farTraj = this.farBuilder.findTrajectoryForAngle(testAngle, isFlat, false);
+
+            if (closeTraj == null || farTraj == null || !closeTraj.isHitTarget() || !farTraj.isHitTarget()) {
+                return false;
+            }
+
+            double lowerBound = closeTraj.getInitialShootingVelocity().getNorm();
+            double upperBound = farTraj.getInitialShootingVelocity().getNorm();
+
+            if (testVel <= lowerBound || testVel >= upperBound) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public double calculateVelocityGap(double angle, boolean isFlat) {
+        Trajectory closeTraj = this.closeBuilder.findTrajectoryForAngle(angle, isFlat, false);
+        Trajectory farTraj = this.farBuilder.findTrajectoryForAngle(angle, isFlat, false);
+
+        // NULL CHECK: If a mechanical error pushes the shot into a wall, this angle is invalid.
+        if (closeTraj == null || farTraj == null || !closeTraj.isHitTarget() || !farTraj.isHitTarget()) {
+            return -100.0; // Instantly kills the robustness score for this angle
+        }
+
+        return farTraj.getInitialShootingVelocity().getNorm() - closeTraj.getInitialShootingVelocity().getNorm();
+    }
+
+    public double calculateOptimalDerivative(double angle, boolean isFlat) {
+        double highWindow = getWindowAtAngle(angle + ANGLE_DX, isFlat);
+        double lowWindow = getWindowAtAngle(angle - ANGLE_DX, isFlat);
+
+        return (highWindow - lowWindow) / (2 * ANGLE_DX);
+    }
+
+    public double calculateGapDerivative(double angle, boolean isFlat) {
+        double highGap = calculateVelocityGap(angle + ANGLE_DX, isFlat);
+        double lowGap = calculateVelocityGap(angle - ANGLE_DX, isFlat);
+
+        // Returns how many m/s the gap shrinks/grows per degree of pivot
+        return (highGap - lowGap) / (2 * ANGLE_DX);
+    }
+
+    /**
+     * Safely calculates the velocity window at a given angle.
+     * Returns a massive negative penalty if the angle results in an impossible shot.
+     */
+    private double getWindowAtAngle(double angle, boolean isFlat) {
+        angle = MathUtil.clamp(angle, this.physicalValues.minAngle, this.physicalValues.maxAngle);
+        Trajectory closeTraj = this.closeBuilder.findTrajectoryForAngle(angle, isFlat, false);
+        Trajectory farTraj = this.farBuilder.findTrajectoryForAngle(angle, isFlat, false);
+
+        // NULL CHECK: If a mechanical error pushes the shot into a wall, this angle is invalid.
+        if (closeTraj == null || farTraj == null || !closeTraj.isHitTarget() || !farTraj.isHitTarget()) {
+            return -100.0; // Instantly kills the robustness score for this angle
+        }
+
+        return (farTraj.getInitialShootingVelocity().getNorm() + closeTraj.getInitialShootingVelocity().getNorm()) / 2.0;
+    }
+
+    public double getVelocityRobustnessCost() {
+        return this.velocityGap * SCALE_ROBUSTNESS_VELOCITY;
+    }
+
+    public double getAngleRobustnessCost() {
+        return this.gapDerivative * SCALE_ROBUSTNESS_ANGLE;
     }
 }

@@ -5,6 +5,7 @@ import CostChart from "./CostChart";
 import RobustnessChart from "./RobustnessChart";
 import TrajectorySidebar from "./TrajectorySidebar";
 import { TrajectoryCanvas } from "./TrajectoryCanvas";
+import ToleranceGraph from "../optimal/ToleranceGraph";
 
 interface Props {
   isConnected: boolean;
@@ -120,96 +121,105 @@ export default function TrajectoryVisualizer({
           </div>
         </div>
 
-        <div className="charts-content">
+        <div
+          className="view-panel"
+          style={{
+            padding: 0,
+            overflow: "hidden",
+            minHeight: "600px",
+            border: "1px solid #2a2a35",
+            borderRadius: "8px",
+          }}
+        >
+          <TrajectoryCanvas
+            initialX={initialX}
+            setInitialX={setInitialX}
+            sharedConfig={sharedConfig}
+            updateConfig={updateConfig}
+            trajectoryGroups={[
+              { 
+                trajectories: results.trajectories, 
+                color: "rgba(0, 255, 255, 0.1)", 
+                lineWidth: 1.5 
+              },
+              { 
+                trajectories: results.bestTrajectory ? [results.bestTrajectory] : [], 
+                color: "#00ff88", 
+                lineWidth: 3 
+              }
+            ]}
+            zoom={zoom}
+            setZoom={setZoom}
+            pan={pan}
+            setPan={setPan}
+            isLockedY={isLockedY}
+            isLockedOriginX={isLockedOriginX}
+            isLockedOriginY={isLockedOriginY}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: "20px", marginTop: "20px" }}>
           <div
             className="view-panel"
             style={{
-              padding: 0,
-              overflow: "hidden",
-              minHeight: "600px",
+              flex: 1,
               border: "1px solid #2a2a35",
               borderRadius: "8px",
+              padding: "15px",
             }}
           >
-            <TrajectoryCanvas
-              initialX={initialX}
-              setInitialX={setInitialX}
-              sharedConfig={sharedConfig}
-              updateConfig={updateConfig}
-              trajectoryGroups={[
-                { 
-                  trajectories: results.trajectories, 
-                  color: "rgba(0, 255, 255, 0.1)", 
-                  lineWidth: 1.5 
-                },
-                { 
-                  trajectories: results.bestTrajectory ? [results.bestTrajectory] : [], 
-                  color: "#00ff88", 
-                  lineWidth: 3 
-                }
-              ]}
-              zoom={zoom}
-              setZoom={setZoom}
-              pan={pan}
-              setPan={setPan}
-              isLockedY={isLockedY}
-              isLockedOriginX={isLockedOriginX}
-              isLockedOriginY={isLockedOriginY}
+            <h3
+              style={{
+                margin: "0 0 10px 0",
+                fontSize: "1rem",
+                color: "#fff",
+              }}
+            >
+              Trajectory Robustness
+            </h3>
+            <RobustnessChart
+              data={results.robustnessData}
+              bestAngle={results.bestInfo?.angle ?? 0}
+              minAngle={sharedConfig.hardware.minAngle}
+              maxAngle={sharedConfig.hardware.maxAngle}
             />
           </div>
-
-          <div style={{ display: "flex", gap: "20px", marginTop: "20px" }}>
-            <div
-              className="view-panel"
+          <div
+            className="view-panel"
+            style={{
+              flex: 1,
+              border: "1px solid #2a2a35",
+              borderRadius: "8px",
+              padding: "15px",
+            }}
+          >
+            <h3
               style={{
-                flex: 1,
-                border: "1px solid #2a2a35",
-                borderRadius: "8px",
-                padding: "15px",
+                margin: "0 0 10px 0",
+                fontSize: "1rem",
+                color: "#fff",
               }}
             >
-              <h3
-                style={{
-                  margin: "0 0 10px 0",
-                  fontSize: "1rem",
-                  color: "#fff",
-                }}
-              >
-                Trajectory Robustness
-              </h3>
-              <RobustnessChart
-                data={results.robustnessData}
-                bestAngle={results.bestInfo?.angle ?? 0}
-                minAngle={sharedConfig.hardware.minAngle}
-                maxAngle={sharedConfig.hardware.maxAngle}
-              />
-            </div>
-            <div
-              className="view-panel"
-              style={{
-                flex: 1,
-                border: "1px solid #2a2a35",
-                borderRadius: "8px",
-                padding: "15px",
-              }}
-            >
-              <h3
-                style={{
-                  margin: "0 0 10px 0",
-                  fontSize: "1rem",
-                  color: "#fff",
-                }}
-              >
-                Trajectory Costs
-              </h3>
-              <CostChart
-                data={results.costData}
-                minAngle={sharedConfig.hardware.minAngle}
-                maxAngle={sharedConfig.hardware.maxAngle}
-                maxLimit={10}
-              />
-            </div>
+              Trajectory Costs
+            </h3>
+            <CostChart
+              data={results.costData}
+              minAngle={sharedConfig.hardware.minAngle}
+              maxAngle={sharedConfig.hardware.maxAngle}
+              maxLimit={10}
+            />
           </div>
+        </div>
+
+        {/* Bottom Half: The Velocity vs Angle Tolerance Graph */}
+        <div className="view-panel" style={{ border: "1px solid #2a2a35", borderRadius: "8px", padding: "15px", minHeight: "400px" }}>
+          <h3 style={{ margin: "0 0 15px 0", color: "#fff", fontSize: "1rem" }}>Tolerance Basin & Ellipse Fit</h3>
+          <ToleranceGraph 
+            closeTrajectories={results.trajectories}
+            farTrajectories={results.trajectories}
+            bestTrajectory={results.bestTrajectory}
+            hardwareConfig={sharedConfig.hardware}
+          />
         </div>
       </div>
 

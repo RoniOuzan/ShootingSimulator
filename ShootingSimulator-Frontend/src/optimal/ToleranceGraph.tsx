@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
-import { parseVelocityVector, type OptimalResults, type SharedConfig } from "../types";
+import { parseVelocityVector, type SharedConfig, type Trajectory } from "../types";
 
 interface Props {
-  results: OptimalResults;
+  closeTrajectories: Trajectory[];
+  farTrajectories: Trajectory[];
+  bestTrajectory: Trajectory | null;
   hardwareConfig: SharedConfig["hardware"];
 }
 
@@ -12,7 +14,7 @@ interface BasinPoint {
   maxVel?: number;
 }
 
-export default function ToleranceGraph({ results, hardwareConfig }: Props) {
+export default function ToleranceGraph({ closeTrajectories, farTrajectories, bestTrajectory, hardwareConfig }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -42,16 +44,18 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
     // --- Process Trajectory Collections ---
     const dataMap: { [key: string]: BasinPoint } = {};
 
-    if (results.trajectories) {
-      results.trajectories.forEach((couple) => {
-        const { angle, velocity } = parseVelocityVector(couple.closeTrajectory.initialShootingVelocity);
+    if (closeTrajectories) {
+      closeTrajectories.forEach((trajectory) => {
+        const { angle, velocity } = parseVelocityVector(trajectory.initialShootingVelocity);
         const key = angle.toFixed(1);
         if (!dataMap[key]) dataMap[key] = { angle };
         dataMap[key].minVel = velocity;
       });
+    }
 
-      results.trajectories.forEach((couple) => {
-        const { angle, velocity } = parseVelocityVector(couple.farTrajectory.initialShootingVelocity);
+    if (farTrajectories) {
+      farTrajectories.forEach((trajectory) => {
+        const { angle, velocity } = parseVelocityVector(trajectory.initialShootingVelocity);
         const key = angle.toFixed(1);
         if (!dataMap[key]) dataMap[key] = { angle };
         dataMap[key].maxVel = velocity;
@@ -71,17 +75,12 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
     }
 
     // --- Coordinate Bounds ---
-    const angles = basinPoints.map((p) => p.angle);
     const minVelocities = basinPoints.map((p) => p.minVel!);
     const maxVelocities = basinPoints.map((p) => p.maxVel!);
 
     // Prevent division by zero if there's only 1 point
-    let minAngleBounds = Math.min(...angles);
-    let maxAngleBounds = Math.max(...angles);
-    if (minAngleBounds === maxAngleBounds) {
-      minAngleBounds -= 5;
-      maxAngleBounds += 5;
-    }
+    let minAngleBounds = hardwareConfig.minAngle;
+    let maxAngleBounds = hardwareConfig.maxAngle;
 
     let minVelBounds = Math.min(...minVelocities) - 0.5;
     let maxVelBounds = Math.max(...maxVelocities) + 0.5;
@@ -141,7 +140,7 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
       ctx.lineTo(toScreenX(basinPoints[i].angle), toScreenY(basinPoints[i].minVel!));
     }
     ctx.closePath();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+    ctx.fillStyle = "#44ef4420";
     ctx.fill();
 
     // --- 2. Draw Max Speed Bound (Far Edge - Green) ---
@@ -164,8 +163,8 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
     ctx.stroke();
 
     // --- 4. Render Center Point and Tolerances ---
-    if (results.bestTrajectory) {
-      const opt = parseVelocityVector(results.bestTrajectory.initialShootingVelocity);
+    if (bestTrajectory) {
+      const opt = parseVelocityVector(bestTrajectory.initialShootingVelocity);
       const optX = toScreenX(opt.angle);
       const optY = toScreenY(opt.velocity);
 
@@ -199,16 +198,55 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
       ctx.restore();
 
       // --- 5. Project Estimated Mechanical Variance Ellipse (Yellow) ---
-      const ellipseW = (hardwareConfig.estimatedAngleError / (maxAngleBounds - minAngleBounds)) * innerWidth;
-      const ellipseH = (hardwareConfig.estimatedVelocityError / (maxVelBounds - minVelBounds)) * innerHeight;
+      if (bestTrajectory && bestTrajectory.tolerance) {
+        const t = bestTrajectory.tolerance;
+        
+        // Convert derivative slope to radians
+        const rotRads = (t.ellipseAngle || 0) * (Math.PI / 180);
 
-      ctx.beginPath();
-      ctx.ellipse(optX, optY, Math.max(4, ellipseW), Math.max(4, ellipseH), 0, 0, Math.PI * 2);
-      ctx.strokeStyle = "#ffeb3b";
-      ctx.fillStyle = "rgba(255, 235, 59, 0.2)";
-      ctx.lineWidth = 2;
-      ctx.fill();
-      ctx.stroke();
+        ctx.beginPath();
+
+        // Calculate 60 points around the perimeter to form a smooth path
+        const segments = 60;
+        for (let i = 0; i <= segments; i++) {
+          // t ranges from 0 to 2*PI
+          const theta = (i / segments) * Math.PI * 2;
+
+          // 1. Asymmetric Dimensions
+          // If sin(theta) is positive, we are drawing the top half. If negative, the bottom half.
+          const a = Math.cos(theta) >= 0 ? t.anglePositive : t.angleNegative;
+          const b = Math.sin(theta) >= 0 ? t.velocityPositive : t.velocityNegative;
+
+          // 2. Standard un-rotated ellipse math
+          const u = a * Math.cos(theta);
+          const v = b * Math.sin(theta);
+
+          // 3. Apply 2D Rotation Matrix (Math Space)
+          const rotatedAngle = (u * Math.cos(rotRads)) - (v * Math.sin(rotRads));
+          const rotatedVel = (u * Math.sin(rotRads)) + (v * Math.cos(rotRads));
+
+          // 4. Shift to the optimal target point
+          const finalMathAngle = opt.angle + rotatedAngle;
+          const finalMathVel = opt.velocity + rotatedVel;
+
+          // 5. Map Math Space to Canvas Pixel Space using your existing scale functions
+          const pixelX = toScreenX(finalMathAngle);
+          const pixelY = toScreenY(finalMathVel);
+
+          if (i === 0) {
+            ctx.moveTo(pixelX, pixelY);
+          } else {
+            ctx.lineTo(pixelX, pixelY);
+          }
+        }
+
+        ctx.closePath();
+        ctx.strokeStyle = "#ffeb3b";
+        ctx.fillStyle = "rgba(255, 235, 59, 0.2)";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+      }
 
       // --- 6. Draw Reticle Star ---
       drawTargetStar(ctx, optX, optY, 5, 7, 3.5);
@@ -226,7 +264,7 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
       ctx.fillText(`Opt Vel: ${opt.velocity.toFixed(2)} m/s`, margin.left + 20, margin.top + 42);
     }
 
-  }, [results, hardwareConfig]);
+  }, [closeTrajectories, farTrajectories, bestTrajectory, hardwareConfig]);
 
   const drawTargetStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, spikes: number, outerR: number, innerR: number) => {
     let rot = (Math.PI / 2) * 3;

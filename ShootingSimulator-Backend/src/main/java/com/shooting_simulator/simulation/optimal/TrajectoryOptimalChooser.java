@@ -12,10 +12,9 @@ import java.util.List;
 @Getter
 public class TrajectoryOptimalChooser {
 
-    private static final double EXIT_VELOCITY_DT = 0.000_01;
     private static final double ANGLE_DT = 0.000_01;
 
-    private static final double ANGLE_DT_DIVIDER = 100;
+    private static final double ANGLE_DT_DIVIDER = 50;
 
     public static final double MISS_TARGET_COST = 100;
 
@@ -34,7 +33,6 @@ public class TrajectoryOptimalChooser {
 
     private final List<TrajectoryChooser.RobustnessPoint> robustnessSweep;
     private final List<Translation2d> costSweep;
-    private TrajectoryCouple bestTrajectory;
 
     public TrajectoryOptimalChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
         this.physicalValues = physicalValues;
@@ -50,7 +48,6 @@ public class TrajectoryOptimalChooser {
 
         this.robustnessSweep = new ArrayList<>();
         this.costSweep = new ArrayList<>();
-        this.bestTrajectory = null;
     }
 
     public List<Translation2d> getCostSweep() {
@@ -58,24 +55,24 @@ public class TrajectoryOptimalChooser {
         return this.costSweep;
     }
 
-    public TrajectoryCouple getBestTrajectory() {
-        if (this.bestTrajectory == null) {
-            this.bestTrajectory = findBestTrajectory();
-        }
-        return this.bestTrajectory;
-    }
-
     public TrajectoryCouple findBestTrajectory() {
         TrajectoryCouple bestFlat = findBestTrajectoryForPhase(true);
         TrajectoryCouple bestLob = findBestTrajectoryForPhase(false);
 
-        if (bestFlat == null && bestLob == null) return null;
-        if (bestFlat == null) return bestLob;
-        if (bestLob == null) return bestFlat;
-
-        return getCostAtAngle(bestFlat.getOptimalTrajectory().getInitialShootingVelocity().getAngle().getDegrees(), true) <
+        TrajectoryCouple trajectory;
+        if (bestFlat == null && bestLob == null)
+            return null;
+        else if (bestFlat == null)
+            trajectory = bestLob;
+        else if (bestLob == null)
+            trajectory = bestFlat;
+        else
+            trajectory = getCostAtAngle(bestFlat.getOptimalTrajectory().getInitialShootingVelocity().getAngle().getDegrees(), true) <
                     getCostAtAngle(bestLob.getOptimalTrajectory().getInitialShootingVelocity().getAngle().getDegrees(), false)
-                ? bestFlat : bestLob;
+                    ? bestFlat : bestLob;
+
+        trajectory.calculateTolerance();
+        return trajectory;
     }
 
     private TrajectoryCouple findBestTrajectoryForPhase(boolean isFlat) {
@@ -93,7 +90,7 @@ public class TrajectoryOptimalChooser {
         Trajectory farTrajectory = this.farBuilder.findTrajectoryForAngle(bestAngle, isFlat);
         Trajectory closeTrajectory = this.closeBuilder.findTrajectoryForAngle(bestAngle, isFlat);
         if (farTrajectory != null && farTrajectory.isHitTarget() && closeTrajectory != null && closeTrajectory.isHitTarget()) {
-            return new TrajectoryCouple(farTrajectory, closeTrajectory, this.centerBuilder, this.closeBuilder, this.farBuilder, this.physicalValues);
+            return new TrajectoryCouple(closeTrajectory, farTrajectory, this.centerBuilder, this.closeBuilder, this.farBuilder, this.physicalValues);
         }
         return null;
     }
@@ -188,8 +185,9 @@ public class TrajectoryOptimalChooser {
         double prevCost = Double.NaN;
         double prevAngle = Double.NaN;
 
+        double angleDT = (this.physicalValues.maxAngle - this.physicalValues.minAngle) / ANGLE_DT_DIVIDER;
         List<TrajectoryCouple> trajectories = new ArrayList<>();
-        for (double angle = this.physicalValues.minAngle; angle < this.physicalValues.maxAngle; angle++) {
+        for (double angle = this.physicalValues.minAngle; angle <= this.physicalValues.maxAngle; angle += angleDT) {
             for (boolean isFlat : SHOT_PHASES) {
                 Trajectory closeTrajectory = this.closeBuilder.findTrajectoryForAngle(angle, isFlat);
                 Trajectory farTrajectory = this.farBuilder.findTrajectoryForAngle(angle, isFlat);
@@ -199,7 +197,8 @@ public class TrajectoryOptimalChooser {
                     trajectories.add(couple);
 
                     double vReq = couple.getOptimalTrajectory().getInitialShootingVelocity().getNorm();
-                    double velErr = couple.getOverallSafetyRatio();
+                    double velErr = couple.getVelocityRobustnessCost();
+                    double angleErr = couple.getAngleRobustnessCost();
                     double cost = couple.getCost(this.costWeights);
 
                     Double costDerivative = null;
@@ -211,7 +210,7 @@ public class TrajectoryOptimalChooser {
                             angle,
                             Math.round(vReq * 1000.0) / 1000.0,
                             Math.round(velErr * 1000_000.0) / 1000_000.0,
-                            0d,
+                            Math.round(angleErr * 1000_000.0) / 1000_000.0,
                             Math.round(cost * 1000_000.0) / 1000_000.0,
                             costDerivative == null ? null : Math.round(costDerivative * 1000_000.0) / 1000_000.0
                     ));

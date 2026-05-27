@@ -215,12 +215,16 @@ public class TrajectoryBuilder {
     }
 
     public Trajectory findTrajectoryForAngle(double angle, boolean isFlat) {
+        return findTrajectoryForAngle(angle, isFlat, true);
+    }
+
+    public Trajectory findTrajectoryForAngle(double angle, boolean isFlat, boolean checkLimits) {
         double min = this.physicalValues.minVel;
         double max = this.physicalValues.maxVel;
 
         while (max - min > EXIT_VELOCITY_DT) {
             double mid = (min + max) / 2.0;
-            Trajectory trajectory = this.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), false, true, isFlat);
+            Trajectory trajectory = this.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), checkLimits, true, isFlat);
 
             if (!trajectory.isReachedTargetHeight()) {
                 min = mid;
@@ -236,7 +240,7 @@ public class TrajectoryBuilder {
                 }
             }
         }
-        return this.simulateTrajectory((max + min) / 2.0, Rotation2d.fromDegrees(angle), true, isFlat);
+        return this.simulateTrajectory((max + min) / 2.0, Rotation2d.fromDegrees(angle), checkLimits, true, isFlat);
     }
 
     public Trajectory findTrajectoryForVelocity(double velocity, boolean isFlat) {

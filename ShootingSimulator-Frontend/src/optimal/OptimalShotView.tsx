@@ -123,37 +123,37 @@ export default function OptimalShotView({
         </div>
         
         <div className="view-panel" style={{ border: "1px solid #2a2a35", borderRadius: "8px", overflow: "hidden", minHeight: "400px" }}>
-           <h3 style={{ margin: "15px", color: "#fff", fontSize: "1rem" }}>Trajectory Boundaries</h3>
-           <TrajectoryCanvas
-              initialX={initialX}
-              setInitialX={setInitialX}
-              sharedConfig={sharedConfig}
-              updateConfig={updateConfig}
-              trajectoryGroups={[
-                { 
-                  trajectories: trajectories.map(couple => couple.closeTrajectory), 
-                  color: "rgba(0, 255, 136, 0.6)", 
-                  lineWidth: 1.5,
-                },
-                { 
-                  trajectories: trajectories.map(couple => couple.farTrajectory), 
-                  color: "rgba(255, 68, 68, 0.6)", 
-                  lineWidth: 1.5
-                },  
-                { 
-                  trajectories: results.bestTrajectory ? [results.bestTrajectory] : [], 
-                  color: "rgba(68, 136, 255, 0.6)", 
-                  lineWidth: 3,
-                },  
-              ]}
-              zoom={zoom}
-              setZoom={setZoom}
-              pan={pan}
-              setPan={setPan}
-              isLockedY={isLockedY}
-              isLockedOriginX={isLockedOriginX}
-              isLockedOriginY={isLockedOriginY}
-            />
+          <h3 style={{ margin: "15px", color: "#fff", fontSize: "1rem" }}>Trajectory Boundaries</h3>
+          <TrajectoryCanvas
+            initialX={initialX}
+            setInitialX={setInitialX}
+            sharedConfig={sharedConfig}
+            updateConfig={updateConfig}
+            trajectoryGroups={[
+              { 
+                trajectories: trajectories.map(couple => couple.closeTrajectory), 
+                color: "rgba(0, 255, 136, 0.6)", 
+                lineWidth: 1.5,
+              },
+              { 
+                trajectories: trajectories.map(couple => couple.farTrajectory), 
+                color: "rgba(255, 68, 68, 0.6)", 
+                lineWidth: 1.5
+              },  
+              { 
+                trajectories: results.bestTrajectory ? [results.bestTrajectory] : [], 
+                color: "rgba(68, 136, 255, 0.6)", 
+                lineWidth: 3,
+              },  
+            ]}
+            zoom={zoom}
+            setZoom={setZoom}
+            pan={pan}
+            setPan={setPan}
+            isLockedY={isLockedY}
+            isLockedOriginX={isLockedOriginX}
+            isLockedOriginY={isLockedOriginY}
+          />
         </div>
 
         <div style={{ display: "flex", gap: "20px", marginTop: "20px" }}>
@@ -213,7 +213,9 @@ export default function OptimalShotView({
         <div className="view-panel" style={{ border: "1px solid #2a2a35", borderRadius: "8px", padding: "15px", minHeight: "400px" }}>
           <h3 style={{ margin: "0 0 15px 0", color: "#fff", fontSize: "1rem" }}>Tolerance Basin & Ellipse Fit</h3>
           <ToleranceGraph 
-            results={results} 
+            closeTrajectories={trajectories.map(couple => couple.closeTrajectory)}
+            farTrajectories={trajectories.map(couple => couple.farTrajectory)}
+            bestTrajectory={results.bestTrajectory}
             hardwareConfig={sharedConfig.hardware}
           />
         </div>
