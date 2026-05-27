@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { usePersistedState } from "../hooks/usePersistedState";
-import type { OptimalResults, SharedConfig, Translation2d } from "../types";
+import { parseVelocityVector, type OptimalResults, type SharedConfig, type TrajectoryCouple, type Translation2d } from "../types";
 import { TrajectoryCanvas } from "../visualizer/TrajectoryCanvas";
 import CostChart from "../visualizer/CostChart";
 import ToleranceGraph from "./ToleranceGraph";
+import TrajectorySidebar from "../visualizer/TrajectorySidebar";
+import RobustnessChart from "../visualizer/RobustnessChart";
 
 interface Props {
   isConnected: boolean;
@@ -23,11 +25,22 @@ export default function OptimalShotView({
   sharedConfig,
   updateConfig,
 }: Props) {
-  const [initialX, setInitialX] = usePersistedState("opt_initialX", -4.0);
+  const [initialX, setInitialX] = usePersistedState("traj_initialX", -4.0);
+  const [isLockedOriginX, setIsLockedOriginX] = usePersistedState(
+    "traj_lockOriginX",
+    false,
+  );
+  const [isLockedOriginY, setIsLockedOriginY] = usePersistedState(
+    "traj_lockOriginY",
+    false,
+  );
+  const [isLockedY, setIsLockedY] = usePersistedState("traj_lockY", false);
   
   // Viewport States for the Trajectory Canvas
-  const [zoom, setZoom] = useState<number>(100);
-  const [pan, setPan] = useState<Translation2d>({ x: 900, y: 50 });
+  const DEFAULT_ZOOM = 100;
+  const DEFAULT_PAN = { x: 900, y: 50 };
+  const [zoom, setZoom] = useState<number>(DEFAULT_ZOOM);
+  const [pan, setPan] = useState<Translation2d>(DEFAULT_PAN);
 
   const lastSendTime = useRef<number>(0);
   const sendTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,6 +56,7 @@ export default function OptimalShotView({
         initialY: sharedConfig.origin.initialY,
         radialVelocity: sharedConfig.origin.radialVelocity,
         targetY: sharedConfig.target.targetY,
+        targetRadius: sharedConfig.target.targetRadius,
         hardware: sharedConfig.hardware,
         ellipseWidth: sharedConfig.hardware.estimatedAngleError,
         ellipseHeight: sharedConfig.hardware.estimatedVelocityError, 
@@ -74,11 +88,40 @@ export default function OptimalShotView({
     }
   }, [isConnected, sharedConfig, sendMessage, initialX]);
 
+  const resetView = () => {
+    setZoom(DEFAULT_ZOOM);
+    setPan(DEFAULT_PAN);
+  };
+
+  const trajectories: TrajectoryCouple[] = results.trajectories ? results.trajectories : [];
+
   return (
     <div className="sweep-view" style={{ display: "flex", gap: "20px" }}>
       <div className="charts-area" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div className="charts-header">
+          <div className="status-indicator">
+            <span
+              className={`status-dot ${isConnected ? "connected" : "disconnected"}`}
+            ></span>
+            <span className="status-text">
+              {isConnected ? "Solver Linked" : "Awaiting Connection..."}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+            <span className="hint">
+              Scroll: Zoom • Drag: Pan • Click/Drag: Target/Origin
+            </span>
+            <button
+              className="calculate-btn"
+              onClick={resetView}
+              style={{ padding: "6px 12px" }}
+            >
+              Reset View
+            </button>
+          </div>
+        </div>
         
-        {/* Top Half: The Trajectories (Close, Far, Optimal) */}
         <div className="view-panel" style={{ border: "1px solid #2a2a35", borderRadius: "8px", overflow: "hidden", minHeight: "400px" }}>
            <h3 style={{ margin: "15px", color: "#fff", fontSize: "1rem" }}>Trajectory Boundaries</h3>
            <TrajectoryCanvas
@@ -88,12 +131,12 @@ export default function OptimalShotView({
               updateConfig={updateConfig}
               trajectoryGroups={[
                 { 
-                  trajectories: results.closeTrajectories, 
+                  trajectories: trajectories.map(couple => couple.closeTrajectory), 
                   color: "rgba(0, 255, 136, 0.6)", 
                   lineWidth: 1.5,
                 },
                 { 
-                  trajectories: results.farTrajectories, 
+                  trajectories: trajectories.map(couple => couple.farTrajectory), 
                   color: "rgba(255, 68, 68, 0.6)", 
                   lineWidth: 1.5
                 },  
@@ -107,36 +150,63 @@ export default function OptimalShotView({
               setZoom={setZoom}
               pan={pan}
               setPan={setPan}
-              isLockedY={false}
-              isLockedOriginX={false}
-              isLockedOriginY={false}
+              isLockedY={isLockedY}
+              isLockedOriginX={isLockedOriginX}
+              isLockedOriginY={isLockedOriginY}
             />
         </div>
 
-        <div
-          className="view-panel"
-          style={{
-            flex: 1,
-            border: "1px solid #2a2a35",
-            borderRadius: "8px",
-            padding: "15px",
-          }}
-        >
-          <h3
+        <div style={{ display: "flex", gap: "20px", marginTop: "20px" }}>
+          <div
+            className="view-panel"
             style={{
-              margin: "0 0 10px 0",
-              fontSize: "1rem",
-              color: "#fff",
+              flex: 1,
+              border: "1px solid #2a2a35",
+              borderRadius: "8px",
+              padding: "15px",
             }}
           >
-            Trajectory Costs
-          </h3>
-          <CostChart
-            data={results.costData}
-            minAngle={sharedConfig.hardware.minAngle}
-            maxAngle={sharedConfig.hardware.maxAngle}
-            maxLimit={1}
-          />
+            <h3
+              style={{
+                margin: "0 0 10px 0",
+                fontSize: "1rem",
+                color: "#fff",
+              }}
+            >
+              Trajectory Robustness
+            </h3>
+            <RobustnessChart
+              data={results.robustnessData}
+              bestAngle={parseVelocityVector(results.bestTrajectory?.initialShootingVelocity).angle}
+              minAngle={sharedConfig.hardware.minAngle}
+              maxAngle={sharedConfig.hardware.maxAngle}
+            />
+          </div>
+          <div
+            className="view-panel"
+            style={{
+              flex: 1,
+              border: "1px solid #2a2a35",
+              borderRadius: "8px",
+              padding: "15px",
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 10px 0",
+                fontSize: "1rem",
+                color: "#fff",
+              }}
+            >
+              Trajectory Costs
+            </h3>
+            <CostChart
+              data={results.costData}
+              minAngle={sharedConfig.hardware.minAngle}
+              maxAngle={sharedConfig.hardware.maxAngle}
+              maxLimit={10}
+            />
+          </div>
         </div>
 
         {/* Bottom Half: The Velocity vs Angle Tolerance Graph */}
@@ -149,6 +219,19 @@ export default function OptimalShotView({
         </div>
 
       </div>
+
+      <TrajectorySidebar
+        bestTrajectory={results.bestTrajectory}
+        amountOfTrajectories={trajectories.length}
+        initialX={initialX}
+        setInitialX={setInitialX}
+        isLockedY={isLockedY}
+        setIsLockedY={setIsLockedY}
+        isLockedOriginX={isLockedOriginX}
+        setIsLockedOriginX={setIsLockedOriginX}
+        isLockedOriginY={isLockedOriginY}
+        setIsLockedOriginY={setIsLockedOriginY}
+      />
     </div>
   );
 }

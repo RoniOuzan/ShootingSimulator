@@ -1,8 +1,9 @@
 import ControlSlider from "../components/ControlSlider";
-import type { SimulationResults } from "../types";
+import { parseVelocityVector, type Trajectory } from "../types";
 
 interface SidebarProps {
-  results: SimulationResults;
+  bestTrajectory: Trajectory | null;
+  amountOfTrajectories: number;
   initialX: number;
   setInitialX: (val: number) => void;
   isLockedY: boolean;
@@ -14,10 +15,11 @@ interface SidebarProps {
 }
 
 export default function TrajectorySidebar({
-  results, initialX, setInitialX, isLockedY, setIsLockedY,
+  bestTrajectory, amountOfTrajectories, initialX, setInitialX, isLockedY, setIsLockedY,
   isLockedOriginX, setIsLockedOriginX, isLockedOriginY, setIsLockedOriginY
 }: SidebarProps) {
-  const tolerance = results.bestTrajectory?.tolerance;
+  const tolerance = bestTrajectory?.tolerance;
+  const parsedVelocity = parseVelocityVector(bestTrajectory?.initialShootingVelocity);
 
   return (
     <div className="tab-sidebar">
@@ -25,18 +27,18 @@ export default function TrajectorySidebar({
 
       <div className="tab-config-card" style={{ background: "rgba(0, 255, 136, 0.05)", borderLeft: "4px solid #00ff88" }}>
         <h3 style={{ color: "#00ff88" }}>Optimal Solution</h3>
-        {results.bestInfo ? (
+        {bestTrajectory ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             <div>
               <span className="hint">Pitch Angle</span><br />
-              <strong style={{ fontSize: "1.2rem", color: "#fff" }}>{results.bestInfo.angle.toFixed(4)}°</strong>
+              <strong style={{ fontSize: "1.2rem", color: "#fff" }}>{parsedVelocity.angle.toFixed(4)}°</strong>
             </div>
             <div>
               <span className="hint">Velocity</span><br />
-              <strong style={{ fontSize: "1.2rem", color: "#fff" }}>{results.bestInfo.velocity.toFixed(2)} m/s</strong>
+              <strong style={{ fontSize: "1.2rem", color: "#fff" }}>{parsedVelocity.velocity.toFixed(2)} m/s</strong>
             </div>
             <div style={{ gridColumn: "span 2", fontSize: "0.85rem", color: "#aaa", marginTop: "5px" }}>
-              Selected from {results.trajectories.length} viable paths.
+              Selected from {amountOfTrajectories} viable paths.
             </div>
           </div>
         ) : (

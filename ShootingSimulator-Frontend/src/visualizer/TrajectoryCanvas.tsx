@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { SharedConfig, SimulationResults, Translation2d } from "../types";
+import type { SharedConfig, Trajectory, Translation2d } from "../types";
+
+interface TrajectoryGroup {
+  trajectories: Trajectory[];
+  color: string;
+  lineWidth?: number;
+}
 
 interface CanvasProps {
   initialX: number;

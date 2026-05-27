@@ -32,7 +32,7 @@ export default function RobustnessChart({
     );
   }
 
-  const displayData = data.filter(item => item.angleError != 100 && item.velError != 100);
+  const displayData = data.filter(item => item.angleError < 100 && item.velError < 100 && item.rssError < 100 && Math.abs(item.rssDerivative) < 100);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {

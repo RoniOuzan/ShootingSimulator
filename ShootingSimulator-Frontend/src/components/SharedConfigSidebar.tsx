@@ -192,8 +192,8 @@ export default function SharedConfigSidebar({
               </div>
               <div className="card-divider" />
               <div className="card-row">
-                <ControlSlider label="Angle Error" value={hardware.estimatedAngleError} min={0.01} max={0.2} step={0.01} unit="°" precision={2} onChange={(v) => updateConfig("hardware", { estimatedAngleError: v })} />
-                <ControlSlider label="Velocity Error" value={hardware.estimatedVelocityError} min={0.001} max={0.05} step={0.001} unit="m/s" precision={3} onChange={(v) => updateConfig("hardware", { estimatedVelocityError: v })} />
+                <ControlSlider label="Angle Error" value={hardware.estimatedAngleError} min={0.01} max={0.5} step={0.01} unit="°" precision={2} onChange={(v) => updateConfig("hardware", { estimatedAngleError: v })} />
+                <ControlSlider label="Velocity Error" value={hardware.estimatedVelocityError} min={0.001} max={0.5} step={0.001} unit="m/s" precision={3} onChange={(v) => updateConfig("hardware", { estimatedVelocityError: v })} />
               </div>
             </div>
 

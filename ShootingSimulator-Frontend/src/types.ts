@@ -27,6 +27,7 @@ export interface TargetParams {
   minHitAngle: number;
   maxHitAngle: number;
   targetAxis: TargetAxis;
+  targetRadius: number;
 }
 
 export interface OriginParams {
@@ -43,7 +44,13 @@ export interface SharedConfig {
   obstacles: ObstacleConfig[];
 }
 
-export type CostPreset = "ROBUST" | "SLOW_SHOT" | "FAST_ARRIVAL" | "SWISH" | "BALANCED" | "CUSTOM";
+export type CostPreset =
+  | "ROBUST"
+  | "SLOW_SHOT"
+  | "FAST_ARRIVAL"
+  | "SWISH"
+  | "BALANCED"
+  | "CUSTOM";
 
 export interface CostConfig {
   preset: CostPreset;
@@ -63,6 +70,20 @@ export interface Sample {
 export interface Trajectory {
   samples: Sample[];
   initialShootingVelocity: Translation2d;
+  tolerance: Tolerance | null;
+}
+
+export interface TrajectoryCouple {
+  closeTrajectory: Trajectory;
+  farTrajectory: Trajectory;
+  optimalTrajectory: Trajectory;
+}
+
+export interface Tolerance {
+  velocityPositive: number;
+  velocityNegative: number;
+  anglePositive: number;
+  angleNegative: number;
 }
 
 export interface SimulationResults {
@@ -74,10 +95,8 @@ export interface SimulationResults {
 }
 
 export interface OptimalResults {
-  closeTrajectories: Trajectory[];
-  farTrajectories: Trajectory[];
+  trajectories: TrajectoryCouple[];
   bestTrajectory: Trajectory | null;
-  bestInfo: { angle: number; velocity: number } | null;
   robustnessData: any[];
   costData: any[];
 }
@@ -91,7 +110,9 @@ export type ObstacleConfig =
   | { type: "CIRCLE"; id: string; name: string; center: Translation2d; radius: number }
   | { type: "POLYGON"; id: string; name: string; vertices: Translation2d[] };
 
-export function angle(vector: Translation2d | undefined): number {
-  if (!vector) return 0;
-  return (Math.atan2(vector.y, vector.x) * 180) / Math.PI;
-}
+export const parseVelocityVector = (vector: Translation2d | null | undefined) => {
+  if (!vector) return { angle: 0, velocity: 0 };
+  const velocity = Math.hypot(vector.x, vector.y);
+  const angle = Math.atan2(vector.y, vector.x) * (180 / Math.PI);
+  return { angle, velocity };
+};

@@ -70,7 +70,6 @@ public class SimulatorPacket implements DataPacket {
     private static class ResultsPayload {
         public List<Trajectory> trajectories;
         public Trajectory bestTrajectory;
-        public TrajectoryInfo bestInfo;
         public List<TrajectoryChooser.RobustnessPoint> robustnessData;
         public List<Translation2d> costData;
 
@@ -79,14 +78,6 @@ public class SimulatorPacket implements DataPacket {
             this.bestTrajectory = best;
             this.robustnessData = robustnessData;
             this.costData = costData;
-            
-            if (best != null && !best.getSamples().isEmpty()) {
-                Translation2d initialVel = best.getInitialShootingVelocity();
-                this.bestInfo = new TrajectoryInfo(
-                    initialVel.getAngle().getDegrees(), 
-                    initialVel.getNorm()
-                );
-            }
         }
     }
 }

@@ -2,11 +2,12 @@ package com.shooting_simulator.json;
 
 import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.simulation.*;
+import com.shooting_simulator.simulation.optimal.TrajectoryCouple;
+import com.shooting_simulator.simulation.optimal.TrajectoryOptimalChooser;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class OptimalPacket implements DataPacket {
@@ -50,38 +51,26 @@ public class OptimalPacket implements DataPacket {
                 this.obstacles
         );
 
-        List<TrajectoryChooser.RobustnessPoint> rawRobustness = new ArrayList<>();
+        List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
         List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 10);
 
-        List<Trajectory> closeTrajectories = chooser.calculateCloseTrajectories();
-        List<Trajectory> farTrajectories = chooser.calculateFarTrajectories();
+        List<TrajectoryCouple> trajectories = chooser.calculateTrajectories();
 
-        return new ResultsPayload(closeTrajectories, farTrajectories, chooser.findBestTrajectory(), downsampledRobustness, chooser.getCostSweep());
+        return new ResultsPayload(trajectories,  chooser.findBestTrajectory() == null ? null : chooser.findBestTrajectory().getOptimalTrajectory(), downsampledRobustness, chooser.getCostSweep());
     }
 
     @SuppressWarnings("unused")
     private static class ResultsPayload {
-        public List<Trajectory> closeTrajectories;
-        public List<Trajectory> farTrajectories;
+        public List<TrajectoryCouple> trajectories;
         public Trajectory bestTrajectory;
-        public TrajectoryInfo bestInfo;
         public List<TrajectoryChooser.RobustnessPoint> robustnessData;
         public List<Translation2d> costData;
 
-        public ResultsPayload(List<Trajectory> closeTrajectories, List<Trajectory> farTrajectories, Trajectory bestTrajectory, List<TrajectoryChooser.RobustnessPoint> robustnessData, List<Translation2d> costData) {
-            this.closeTrajectories = closeTrajectories;
-            this.farTrajectories = farTrajectories;
+        public ResultsPayload(List<TrajectoryCouple> trajectories, Trajectory bestTrajectory, List<TrajectoryChooser.RobustnessPoint> robustnessData, List<Translation2d> costData) {
+            this.trajectories = trajectories;
             this.bestTrajectory = bestTrajectory;
             this.robustnessData = robustnessData;
             this.costData = costData;
-
-            if (bestTrajectory != null && !bestTrajectory.getSamples().isEmpty()) {
-                Translation2d initialVel = bestTrajectory.getInitialShootingVelocity();
-                this.bestInfo = new TrajectoryInfo(
-                        initialVel.getAngle().getDegrees(),
-                        initialVel.getNorm()
-                );
-            }
         }
     }
 }

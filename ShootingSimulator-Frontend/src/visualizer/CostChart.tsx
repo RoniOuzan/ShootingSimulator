@@ -34,8 +34,8 @@ export default function CostChart({
 
   // Filter out any data points where 'y' is greater than the given maxLimit
   const displayData = maxLimit !== undefined 
-    ? data.filter(item => item.y <= maxLimit) 
-    : data;
+    ? data.filter(item => item.y <= maxLimit && item.y < 100) 
+    : data.filter(item => item.y < 100);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -81,14 +81,14 @@ export default function CostChart({
       <ResponsiveContainer width="100%" height="100%">
         {/* Pass displayData instead of the raw data */}
         <LineChart data={displayData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#2a2a35" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#2a2a35" />
           
           <XAxis 
             dataKey="x" stroke="#888" type="number" 
             domain={[minAngle, maxAngle]} tickCount={10} 
           />
 
-          <YAxis yAxisId="left" stroke="#888" orientation="left" allowDataOverflow={true} />
+          <YAxis yAxisId="left" stroke="#888" orientation="left" allowDataOverflow={false} />
           
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: "12px" }} />

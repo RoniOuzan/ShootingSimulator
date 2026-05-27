@@ -214,7 +214,8 @@ export default function TrajectoryVisualizer({
       </div>
 
       <TrajectorySidebar
-        results={results}
+        bestTrajectory={results.bestTrajectory}
+        amountOfTrajectories={results.trajectories.length}
         initialX={initialX}
         setInitialX={setInitialX}
         isLockedY={isLockedY}

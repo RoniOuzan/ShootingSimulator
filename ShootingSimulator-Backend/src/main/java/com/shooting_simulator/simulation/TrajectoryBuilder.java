@@ -220,7 +220,7 @@ public class TrajectoryBuilder {
 
         while (max - min > EXIT_VELOCITY_DT) {
             double mid = (min + max) / 2.0;
-            Trajectory trajectory = this.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), false, isFlat);
+            Trajectory trajectory = this.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), false, true, isFlat);
 
             if (!trajectory.isReachedTargetHeight()) {
                 min = mid;

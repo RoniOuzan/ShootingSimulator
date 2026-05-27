@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { OptimalResults, SharedConfig } from "../types";
+import { parseVelocityVector, type OptimalResults, type SharedConfig } from "../types";
 
 interface Props {
   results: OptimalResults;
@@ -26,40 +26,38 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
     canvas.width = rect.width * window.devicePixelRatio;
     canvas.height = rect.height * window.devicePixelRatio;
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    
+
     const width = rect.width;
     const height = rect.height;
+
+    // --- Layout & Margins ---
+    const margin = { top: 40, right: 30, bottom: 50, left: 60 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
 
     ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = "#111115";
     ctx.fillRect(0, 0, width, height);
 
-    // --- Helper: Extract Vector Angle & Magnitude ---
-    const parseVelocityVector = (vector: { x: number; y: number }) => {
-      if (!vector) return { angle: 0, velocity: 0 };
-      const velocity = Math.hypot(vector.x, vector.y);
-      const angle = Math.atan2(vector.y, vector.x) * (180 / Math.PI);
-      return { angle, velocity };
-    };
-
-    // --- Process Trajectory Collections into Graph Points ---
+    // --- Process Trajectory Collections ---
     const dataMap: { [key: string]: BasinPoint } = {};
 
-    results.closeTrajectories?.forEach((t) => {
-      const { angle, velocity } = parseVelocityVector(t.initialShootingVelocity);
-      const key = angle.toFixed(1);
-      if (!dataMap[key]) dataMap[key] = { angle };
-      dataMap[key].minVel = velocity;
-    });
+    if (results.trajectories) {
+      results.trajectories.forEach((couple) => {
+        const { angle, velocity } = parseVelocityVector(couple.closeTrajectory.initialShootingVelocity);
+        const key = angle.toFixed(1);
+        if (!dataMap[key]) dataMap[key] = { angle };
+        dataMap[key].minVel = velocity;
+      });
 
-    results.farTrajectories?.forEach((t) => {
-      const { angle, velocity } = parseVelocityVector(t.initialShootingVelocity);
-      const key = angle.toFixed(1);
-      if (!dataMap[key]) dataMap[key] = { angle };
-      dataMap[key].maxVel = velocity;
-    });
+      results.trajectories.forEach((couple) => {
+        const { angle, velocity } = parseVelocityVector(couple.farTrajectory.initialShootingVelocity);
+        const key = angle.toFixed(1);
+        if (!dataMap[key]) dataMap[key] = { angle };
+        dataMap[key].maxVel = velocity;
+      });
+    }
 
-    // Sort entries sequentially by angle to form continuous curves
     const basinPoints = Object.values(dataMap)
       .filter((p) => p.minVel !== undefined && p.maxVel !== undefined)
       .sort((a, b) => a.angle - b.angle);
@@ -72,33 +70,81 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
       return;
     }
 
-    // --- Coordinate Bounds Calculation ---
+    // --- Coordinate Bounds ---
     const angles = basinPoints.map((p) => p.angle);
     const minVelocities = basinPoints.map((p) => p.minVel!);
     const maxVelocities = basinPoints.map((p) => p.maxVel!);
 
-    const minAngleBounds = Math.min(...angles);
-    const maxAngleBounds = Math.max(...angles);
-    const minVelBounds = Math.min(...minVelocities) - 0.5;
-    const maxVelBounds = Math.max(...maxVelocities) + 0.5;
+    // Prevent division by zero if there's only 1 point
+    let minAngleBounds = Math.min(...angles);
+    let maxAngleBounds = Math.max(...angles);
+    if (minAngleBounds === maxAngleBounds) {
+      minAngleBounds -= 5;
+      maxAngleBounds += 5;
+    }
 
-    // Transform world metrics safely to screen coordinate pixels
-    const toScreenX = (angle: number) => 
-      ((angle - minAngleBounds) / (maxAngleBounds - minAngleBounds)) * (width - 100) + 50;
-    const toScreenY = (vel: number) => 
-      height - (((vel - minVelBounds) / (maxVelBounds - minVelBounds)) * (height - 60) + 30);
+    let minVelBounds = Math.min(...minVelocities) - 0.5;
+    let maxVelBounds = Math.max(...maxVelocities) + 0.5;
+    if (minVelBounds === maxVelBounds) {
+      minVelBounds -= 1;
+      maxVelBounds += 1;
+    }
 
-    // 1. Draw Shaded Acceptable Launch Basin
+    // Scaling functions
+    const toScreenX = (angle: number) =>
+      margin.left + ((angle - minAngleBounds) / (maxAngleBounds - minAngleBounds)) * innerWidth;
+    const toScreenY = (vel: number) =>
+      margin.top + innerHeight - ((vel - minVelBounds) / (maxVelBounds - minVelBounds)) * innerHeight;
+
+    // --- Draw Grid & Axes ---
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.fillStyle = "#8e8e93";
+    ctx.font = "11px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 1;
+
+    // X-Axis (Angles)
+    const angleSteps = 5; // How many grid lines on X
+    for (let i = 0; i <= angleSteps; i++) {
+      const angleVal = minAngleBounds + (i / angleSteps) * (maxAngleBounds - minAngleBounds);
+      const x = toScreenX(angleVal);
+      ctx.beginPath(); ctx.moveTo(x, margin.top); ctx.lineTo(x, height - margin.bottom); ctx.stroke();
+      ctx.fillText(`${angleVal.toFixed(1)}°`, x, height - margin.bottom + 15);
+    }
+
+    // Y-Axis (Velocities)
+    ctx.textAlign = "right";
+    const velSteps = 5; // How many grid lines on Y
+    for (let i = 0; i <= velSteps; i++) {
+      const velVal = minVelBounds + (i / velSteps) * (maxVelBounds - minVelBounds);
+      const y = toScreenY(velVal);
+      ctx.beginPath(); ctx.moveTo(margin.left, y); ctx.lineTo(width - margin.right, y); ctx.stroke();
+      ctx.fillText(`${velVal.toFixed(1)}`, margin.left - 10, y);
+    }
+
+    // Axis Titles
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.fillText("Launch Angle (°)", margin.left + innerWidth / 2, height - 15);
+    
+    ctx.save();
+    ctx.translate(20, margin.top + innerHeight / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("Velocity (m/s)", 0, 0);
+    ctx.restore();
+
+    // --- 1. Draw Shaded Acceptable Launch Basin ---
     ctx.beginPath();
     basinPoints.forEach((p) => ctx.lineTo(toScreenX(p.angle), toScreenY(p.maxVel!)));
     for (let i = basinPoints.length - 1; i >= 0; i--) {
       ctx.lineTo(toScreenX(basinPoints[i].angle), toScreenY(basinPoints[i].minVel!));
     }
     ctx.closePath();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
     ctx.fill();
 
-    // 2. Draw Max Speed Bound (Far Edge - Green)
+    // --- 2. Draw Max Speed Bound (Far Edge - Green) ---
     ctx.beginPath();
     ctx.strokeStyle = "#44ef44";
     ctx.lineWidth = 2.5;
@@ -108,7 +154,7 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
     });
     ctx.stroke();
 
-    // 3. Draw Min Speed Bound (Close Edge - Red)
+    // --- 3. Draw Min Speed Bound (Close Edge - Red) ---
     ctx.beginPath();
     ctx.strokeStyle = "#ef4444";
     basinPoints.forEach((p, i) => {
@@ -123,54 +169,62 @@ export default function ToleranceGraph({ results, hardwareConfig }: Props) {
       const optX = toScreenX(opt.angle);
       const optY = toScreenY(opt.velocity);
 
-      // Match angle to nearest computed slice to extract vertical bounds
-      const exactMatch = basinPoints.reduce((prev, curr) => 
+      const exactMatch = basinPoints.reduce((prev, curr) =>
         Math.abs(curr.angle - opt.angle) < Math.abs(prev.angle - opt.angle) ? curr : prev
       );
 
-      // Draw Linear Extents
       ctx.save();
       ctx.setLineDash([4, 4]);
-      
-      // Horizontal Angle Window (Purple)
-      ctx.strokeStyle = "#9c27b0";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(toScreenX(minAngleBounds), optY);
-      ctx.lineTo(toScreenX(maxAngleBounds), optY);
-      ctx.stroke();
 
       // Vertical Velocity Window (Orange)
       ctx.strokeStyle = "#ff9800";
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(optX, toScreenY(exactMatch.maxVel!));
       ctx.lineTo(optX, toScreenY(exactMatch.minVel!));
       ctx.stroke();
+
+      // Horizontal Angle Window (Purple) - Accurately finding the basin width at this specific velocity
+      const validAnglesAtOptVel = basinPoints.filter(p => p.minVel! <= opt.velocity && p.maxVel! >= opt.velocity);
+      if (validAnglesAtOptVel.length > 0) {
+        const safeMinAngle = validAnglesAtOptVel[0].angle;
+        const safeMaxAngle = validAnglesAtOptVel[validAnglesAtOptVel.length - 1].angle;
+        
+        ctx.strokeStyle = "#9c27b0";
+        ctx.beginPath();
+        ctx.moveTo(toScreenX(safeMinAngle), optY);
+        ctx.lineTo(toScreenX(safeMaxAngle), optY);
+        ctx.stroke();
+      }
       ctx.restore();
 
-      // 5. Project Estimated Mechanical Variance Ellipse (Yellow)
-      const ellipseW = (hardwareConfig.estimatedAngleError / (maxAngleBounds - minAngleBounds)) * (width - 100);
-      const ellipseH = (hardwareConfig.estimatedVelocityError / (maxVelBounds - minVelBounds)) * (height - 60);
+      // --- 5. Project Estimated Mechanical Variance Ellipse (Yellow) ---
+      const ellipseW = (hardwareConfig.estimatedAngleError / (maxAngleBounds - minAngleBounds)) * innerWidth;
+      const ellipseH = (hardwareConfig.estimatedVelocityError / (maxVelBounds - minVelBounds)) * innerHeight;
 
       ctx.beginPath();
       ctx.ellipse(optX, optY, Math.max(4, ellipseW), Math.max(4, ellipseH), 0, 0, Math.PI * 2);
       ctx.strokeStyle = "#ffeb3b";
-      ctx.fillStyle = "rgba(255, 235, 59, 0.15)";
+      ctx.fillStyle = "rgba(255, 235, 59, 0.2)";
       ctx.lineWidth = 2;
       ctx.fill();
       ctx.stroke();
 
-      // 6. Draw Reticle Star
+      // --- 6. Draw Reticle Star ---
       drawTargetStar(ctx, optX, optY, 5, 7, 3.5);
-    }
 
-    // --- Axis Text Labels ---
-    ctx.fillStyle = "#8e8e93";
-    ctx.font = "11px monospace";
-    ctx.textAlign = "left";
-    ctx.fillText(`Angle Range: [${minAngleBounds.toFixed(1)}° - ${maxAngleBounds.toFixed(1)}°]`, 15, height - 12);
-    ctx.textAlign = "right";
-    ctx.fillText("Velocity vs Launch Angle Window", width - 15, height - 12);
+      // --- 7. Draw Data Legend ---
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.fillRect(margin.left + 10, margin.top + 10, 160, 45);
+      ctx.strokeStyle = "#444";
+      ctx.strokeRect(margin.left + 10, margin.top + 10, 160, 45);
+      
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "left";
+      ctx.font = "12px sans-serif";
+      ctx.fillText(`Opt Angle: ${opt.angle.toFixed(2)}°`, margin.left + 20, margin.top + 26);
+      ctx.fillText(`Opt Vel: ${opt.velocity.toFixed(2)} m/s`, margin.left + 20, margin.top + 42);
+    }
 
   }, [results, hardwareConfig]);
 
