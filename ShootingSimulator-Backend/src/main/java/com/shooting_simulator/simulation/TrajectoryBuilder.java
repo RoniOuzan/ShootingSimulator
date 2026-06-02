@@ -12,10 +12,10 @@ import java.util.List;
 
 @Getter
 public class TrajectoryBuilder {
-    public static final double EXIT_VELOCITY_DT = 0.000_01;
-    public static final double ANGLE_DT = 0.000_01;
+    public static final double EXIT_VELOCITY_DT = 0.000_001;
+    public static final double ANGLE_DT = 0.000_001;
 
-    public static final double PERIOD = 0.005;
+    public static final double PERIOD = 0.002;
     private static final double TOLERANCE = 0.001;
 
     private final Translation2d initialPosition;

@@ -31,8 +31,10 @@ public class TrajectoryOptimalChooser implements Chooser {
     private final TargetAxis targetAxis;
     private final List<Obstacle> obstacles;
 
-    private final List<TrajectoryChooser.RobustnessPoint> robustnessSweep;
-    private final List<Translation2d> costSweep;
+    private final List<TrajectoryChooser.RobustnessPoint> robustnessSweep = new ArrayList<>();
+    private final List<Translation2d> costSweep = new ArrayList<>();
+    private final List<Translation2d> velocityGapSweep = new ArrayList<>();
+    private final List<Translation2d> gapDerivativeSweep = new ArrayList<>();
 
     public TrajectoryOptimalChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
         this.physicalValues = physicalValues;
@@ -45,9 +47,6 @@ public class TrajectoryOptimalChooser implements Chooser {
         this.farBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.plus(new Translation2d(targetRadius, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
         this.targetAxis = targetAxis;
         this.obstacles = obstacles;
-
-        this.robustnessSweep = new ArrayList<>();
-        this.costSweep = new ArrayList<>();
     }
 
     @Override
@@ -62,6 +61,16 @@ public class TrajectoryOptimalChooser implements Chooser {
     public List<Translation2d> getCostSweep() {
         this.costSweep.sort(Comparator.comparing(Translation2d::getX));
         return this.costSweep;
+    }
+
+    public List<Translation2d> getVelocityGapSweep() {
+        this.velocityGapSweep.sort(Comparator.comparing(Translation2d::getX));
+        return this.velocityGapSweep;
+    }
+
+    public List<Translation2d> getGapDerivativeSweep() {
+        this.gapDerivativeSweep.sort(Comparator.comparing(Translation2d::getX));
+        return this.gapDerivativeSweep;
     }
 
     public TrajectoryCouple findBestTrajectory() {
@@ -223,6 +232,9 @@ public class TrajectoryOptimalChooser implements Chooser {
                             Math.round(cost * 1000_000.0) / 1000_000.0,
                             costDerivative == null ? null : Math.round(costDerivative * 1000_000.0) / 1000_000.0
                     ));
+
+                    this.velocityGapSweep.add(new Translation2d(angle, couple.getVelocityGap()));
+                    this.gapDerivativeSweep.add(new Translation2d(angle, couple.getGapDerivative()));
 
                     prevCost = cost;
                     prevAngle = angle;

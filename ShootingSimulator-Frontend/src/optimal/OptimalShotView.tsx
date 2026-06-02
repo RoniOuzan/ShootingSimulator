@@ -95,6 +95,8 @@ export default function OptimalShotView({
 
   const trajectories: TrajectoryCouple[] = results.trajectories ? results.trajectories : [];
 
+  console.log(results.velocityGapData);
+
   return (
     <div className="sweep-view" style={{ display: "flex", gap: "20px" }}>
       <div className="charts-area" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -217,6 +219,20 @@ export default function OptimalShotView({
             farTrajectories={trajectories.map(couple => couple.farTrajectory)}
             bestTrajectory={results.bestTrajectory}
             hardwareConfig={sharedConfig.hardware}
+            customGraphs={[
+              {
+                name: "Velocity Gap",
+                data: results.velocityGapData,
+                unit: "m/s",
+                color: "#00bcd4"
+              },
+              {
+                name: "Gap Derivative",
+                data: results.gapDerivativeData,
+                unit: "m/s per °",
+                color: "#ff9800"
+              }
+            ]}
           />
         </div>
 

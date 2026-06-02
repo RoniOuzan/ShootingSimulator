@@ -421,6 +421,7 @@ export default function SurfaceSweepView({
             residuals={residuals}
             validation={validation}
             models={models}
+            hardware={sharedConfig.hardware}
           />
 
           <div style={{ marginTop: 20 }}>

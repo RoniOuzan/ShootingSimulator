@@ -31,7 +31,7 @@ export const TARGET_VARIABLES: Record<string, TargetVariable> = {
     name: "Optimal Velocity",
     unit: "m/s",
     isBoundaryAxis: false,
-    degrees: { normal: 5, min: 3, max: 3 },
+    degrees: { normal: 5, min: 4, max: 3 },
     thresholds: { excellent: 0.05, acceptable: 0.2 },
   },
   

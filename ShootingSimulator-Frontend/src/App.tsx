@@ -18,6 +18,7 @@ const DEFAULT_CONFIG: SharedConfig = {
     minHitAngle: -90,
     maxHitAngle: -30,
     targetAxis: "HORIZONTAL",
+    targetRadius: 0.3,
   },
   aerodynamics: {
     mass: 0.22,
@@ -50,7 +51,7 @@ export default function App() {
   const WS_URL = "ws://localhost:8080";
 
   const [activeTab, setActiveTab] = usePersistedState<
-    "simulator" | "sweep" | "surface" | "optimal"
+    "simulator" | "optimal" | "sweep" | "surface"
   >("activeTab", "simulator");
   const [sidebarCollapsed, setSidebarCollapsed] = usePersistedState(
     "sidebarCollapsed",
@@ -78,10 +79,8 @@ export default function App() {
   const [sweepResults, setSweepResults] = useState<any[]>([]);
   const [surfaceResults, setSurfaceResults] = useState<any>({});
   const [optimalResults, setOptimalResults] = useState<OptimalResults>({
-    closeTrajectories: [],
-    farTrajectories: [],
+    trajectories: [],
     bestTrajectory: null,
-    bestInfo: null,
     robustnessData: [],
     costData: [],
   });
@@ -207,6 +206,12 @@ export default function App() {
             Live Simulator
           </button>
           <button
+            onClick={() => setActiveTab("optimal")}
+            className={`btn ${activeTab === "optimal" ? "active-orange" : ""}`}
+          >
+            Optimal Shot
+          </button>
+          <button
             onClick={() => setActiveTab("sweep")}
             className={`btn ${activeTab === "sweep" ? "active-orange" : ""}`}
           >
@@ -217,12 +222,6 @@ export default function App() {
             className={`btn ${activeTab === "surface" ? "active-orange" : ""}`}
           >
             3D Surface Maps
-          </button>
-          <button
-            onClick={() => setActiveTab("optimal")}
-            className={`btn ${activeTab === "optimal" ? "active-orange" : ""}`}
-          >
-            Optimal Shot
           </button>
         </div>
       </header>

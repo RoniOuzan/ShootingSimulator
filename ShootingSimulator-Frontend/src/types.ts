@@ -99,7 +99,9 @@ export interface OptimalResults {
   trajectories: TrajectoryCouple[];
   bestTrajectory: Trajectory | null;
   robustnessData: any[];
-  costData: any[];
+  costData: Translation2d[];
+  velocityGapData: Translation2d[];
+  gapDerivativeData: Translation2d[];
 }
 
 export interface Translation2d {

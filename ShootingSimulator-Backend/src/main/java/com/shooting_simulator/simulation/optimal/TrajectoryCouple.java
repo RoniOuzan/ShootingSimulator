@@ -18,9 +18,9 @@ public class TrajectoryCouple {
 
     // Calibrated Robustness Constants
     private static final double SCALE_ROBUSTNESS_VELOCITY = 0.1;
-    private static final double SCALE_ROBUSTNESS_ANGLE = 0.65;
+    private static final double SCALE_ROBUSTNESS_ANGLE = 1;
 
-    private static final double VELOCITY_BIAS = 0.6;
+    private static final double VELOCITY_BIAS = 0.5;
 
     private final Trajectory closeTrajectory;
     private final Trajectory farTrajectory;

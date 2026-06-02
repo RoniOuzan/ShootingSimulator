@@ -56,7 +56,7 @@ public class OptimalPacket implements DataPacket {
 
         List<TrajectoryCouple> trajectories = chooser.calculateTrajectories();
 
-        return new ResultsPayload(trajectories,  chooser.getBestTrajectory(), downsampledRobustness, chooser.getCostSweep());
+        return new ResultsPayload(trajectories,  chooser.getBestTrajectory(), downsampledRobustness, chooser.getCostSweep(), chooser.getVelocityGapSweep(), chooser.getGapDerivativeSweep());
     }
 
     @SuppressWarnings("unused")
@@ -65,12 +65,16 @@ public class OptimalPacket implements DataPacket {
         public Trajectory bestTrajectory;
         public List<TrajectoryChooser.RobustnessPoint> robustnessData;
         public List<Translation2d> costData;
+        public List<Translation2d> velocityGapData;
+        public List<Translation2d> gapDerivativeData;
 
-        public ResultsPayload(List<TrajectoryCouple> trajectories, Trajectory bestTrajectory, List<TrajectoryChooser.RobustnessPoint> robustnessData, List<Translation2d> costData) {
+        public ResultsPayload(List<TrajectoryCouple> trajectories, Trajectory bestTrajectory, List<TrajectoryChooser.RobustnessPoint> robustnessData, List<Translation2d> costData, List<Translation2d> velocityGapData, List<Translation2d> gapDerivativeData) {
             this.trajectories = trajectories;
             this.bestTrajectory = bestTrajectory;
             this.robustnessData = robustnessData;
             this.costData = costData;
+            this.velocityGapData = velocityGapData;
+            this.gapDerivativeData = gapDerivativeData;
         }
     }
 }

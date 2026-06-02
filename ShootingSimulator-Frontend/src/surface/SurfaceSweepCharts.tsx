@@ -18,6 +18,7 @@ interface SurfaceSweepChartsProps {
     min: ModelState | null;
     max: ModelState | null;
   };
+  hardware: { minAngle: number; maxAngle: number }; // <-- Added hardware prop
 }
 
 const Plot = (PlotlyComponent as any).default || PlotlyComponent;
@@ -78,8 +79,17 @@ const plotConfig = {
 const errorColorscale = [
   [0, "#003300"],
   [0.05, "#00aa44"],
-  [0.25, "#ffd740"],
+  [0.4, "#ffd740"],
   [1, "#ff5252"],
+];
+
+// Colorscale for the regimes
+const regimeColorscale = [
+  [0, "#448aff"],   // Min regime (Blue)
+  [0.01, "#ffffff"], // Normal regime (White)
+  [0.5, "#ffffff"], // Normal regime (White)
+  [0.99, "#ffffff"], // Normal regime (White)
+  [1, "#ff9100"],   // Max regime (Orange)
 ];
 
 export default function SurfaceSweepCharts({
@@ -88,6 +98,7 @@ export default function SurfaceSweepCharts({
   residuals,
   validation,
   models,
+  hardware,
 }: SurfaceSweepChartsProps) {
   const { distances, radialVels, angleMatrix, velocityMatrix } = data;
 
@@ -125,7 +136,31 @@ export default function SurfaceSweepCharts({
     return result;
   }, [distances, radialVels, data]);
 
-  // Generate hover text dynamically for each variable
+  // Generate a matrix that identifies which regime every coordinate belongs to
+  const regimeMatrix = useMemo(() => {
+    if (!values || !hardware) return null;
+    
+    // Find the boundary key (e.g., 'angle') that dictates the regimes
+    const boundaryKey = VAR_KEYS.find(k => TARGET_VARIABLES[k].isBoundaryAxis) || VAR_KEYS[0];
+    const bValues = values[boundaryKey];
+    if (!bValues) return null;
+
+    const matrix: number[][] = [];
+    for (let j = 0; j < bValues.length; j++) {
+      const row: number[] = [];
+      for (let i = 0; i < bValues[j].length; i++) {
+        const val = bValues[j][i];
+        
+        // Map to 0 (Min), 0.5 (Normal), or 1 (Max) for the custom colorscale
+        if (val <= hardware.minAngle + 0.05) row.push(0);
+        else if (val >= hardware.maxAngle - 0.05) row.push(1);
+        else row.push(0.5);
+      }
+      matrix.push(row);
+    }
+    return matrix;
+  }, [values, hardware]);
+
   const hoverTexts = useMemo(() => {
     const result: Record<string, string[][]> = {};
     for (const key of VAR_KEYS) {
@@ -144,11 +179,21 @@ export default function SurfaceSweepCharts({
     return result;
   }, [transposedData, residuals, distances, radialVels]);
   
-  const polynomialSurfaceTrace = (z: number[][], name: string) => ({
+  // Updated trace to accept the regime color matrix
+  const polynomialSurfaceTrace = (z: number[][], name: string, colors: number[][] | null) => ({
     z, x: distances, y: radialVels, type: "surface" as const,
-    colorscale: [[0, "#ffffff"], [1, "#ffffff"]],
-    name, opacity: 0.15, showscale: false, hoverinfo: "skip" as const,
-    contours: { x: { show: true, color: "#ffffff", width: 1 }, y: { show: true, color: "#ffffff", width: 1 }, z: { show: false } },
+    surfacecolor: colors || undefined,
+    colorscale: colors ? regimeColorscale : [[0, "#ffffff"], [1, "#ffffff"]],
+    cmin: 0, cmax: 1, // Locks the colorscale mapping to exactly 0, 0.5, and 1
+    name, 
+    opacity: 0.3, // Bumped up slightly so colors are visible over the simulated data
+    showscale: false, 
+    hoverinfo: "skip" as const,
+    contours: { 
+      x: { show: true, color: "#ffffff", width: 1 }, 
+      y: { show: true, color: "#ffffff", width: 1 }, 
+      z: { show: false } 
+    },
   });
 
   return (
@@ -160,7 +205,7 @@ export default function SurfaceSweepCharts({
         {VAR_KEYS.map((key) => {
           const config = TARGET_VARIABLES[key];
           return (
-            <div key={key} className="view-panel" style={{ flex: "1 1 360px", minHeight: 600 }}>
+            <div key={key} className="view-panel" style={{ flex: "1 1 360px", minHeight: 800, minWidth: "40%" }}>
               <PanelLabel>{config.name} surface</PanelLabel>
               <Plot
                 data={[
@@ -170,7 +215,7 @@ export default function SurfaceSweepCharts({
                     text: hoverTexts[key],
                     hoverinfo: "text",
                     cmin: 0,
-                    cmax: config.thresholds.acceptable, // Dynamic colorbar scaling based on thresholds
+                    cmax: config.thresholds.acceptable, 
                     x: distances,
                     y: radialVels,
                     type: "surface",
@@ -179,7 +224,7 @@ export default function SurfaceSweepCharts({
                     colorbar: { title: { text: `Error (${config.unit})`, side: "right" }, thickness: 12, len: 0.7, tickfont: { color: "#888", size: 10 } },
                     hovertemplate: "%{text}<extra></extra>",
                   },
-                  ...(values?.[key] ? [polynomialSurfaceTrace(values[key], "Polynomial")] : []),
+                  ...(values?.[key] ? [polynomialSurfaceTrace(values[key], "Polynomial", regimeMatrix)] : []),
                 ]}
                 layout={{ ...baseLayout, scene: makeScene(`${config.name} (${config.unit})`) }}
                 config={plotConfig}
@@ -198,7 +243,6 @@ function AccuracyPanel({ validation, models }: { validation: ValidationResult; m
   const { overall } = validation;
   if (!overall) return null;
 
-  // Find the worst performing variable to color the panel header
   let worstColor = "#00e676";
   for (const key of VAR_KEYS) {
     const err = parseFloat(overall[key]?.maxError || "0");

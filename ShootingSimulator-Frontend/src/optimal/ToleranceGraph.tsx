@@ -1,11 +1,19 @@
 import { useEffect, useRef } from "react";
-import { parseVelocityVector, type SharedConfig, type Trajectory } from "../types";
+import { parseVelocityVector, type SharedConfig, type Trajectory, type Translation2d } from "../types";
+
+export interface CustomGraph {
+  name: string;
+  color: string;
+  unit: string;
+  data: Translation2d[];
+}
 
 interface Props {
   closeTrajectories: Trajectory[];
   farTrajectories: Trajectory[];
   bestTrajectory: Trajectory | null;
   hardwareConfig: SharedConfig["hardware"];
+  customGraphs?: CustomGraph[];
 }
 
 interface BasinPoint {
@@ -14,7 +22,7 @@ interface BasinPoint {
   maxVel?: number;
 }
 
-export default function ToleranceGraph({ closeTrajectories, farTrajectories, bestTrajectory, hardwareConfig }: Props) {
+export default function ToleranceGraph({ closeTrajectories, farTrajectories, bestTrajectory, hardwareConfig, customGraphs = [] }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -33,7 +41,10 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
     const height = rect.height;
 
     // --- Layout & Margins ---
-    const margin = { top: 40, right: 30, bottom: 50, left: 60 };
+    const rightAxisWidth = 50; // How much horizontal space each new axis takes
+    const totalRightSpace = customGraphs.length > 0 ? (customGraphs.length * rightAxisWidth) + 10 : 30;
+
+    const margin = { top: 40, right: totalRightSpace, bottom: 50, left: 60 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -92,8 +103,24 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
     // Scaling functions
     const toScreenX = (angle: number) =>
       margin.left + ((angle - minAngleBounds) / (maxAngleBounds - minAngleBounds)) * innerWidth;
+    
     const toScreenY = (vel: number) =>
       margin.top + innerHeight - ((vel - minVelBounds) / (maxVelBounds - minVelBounds)) * innerHeight;
+
+    // --- Calculate Custom Graph Bounds ---
+    // Pre-calculate the independent min/max bounds for every custom graph
+    const customGraphBounds = customGraphs.map(graph => {
+      if (graph.data.length === 0) return { min: 0, max: 1 };
+      const values = graph.data.map(d => d.y);
+      let min = Math.min(...values);
+      let max = Math.max(...values);
+      
+      if (min === max) { min -= 1; max += 1; }
+      
+      // Add a 10% vertical padding so the custom graphs don't touch the absolute top/bottom
+      const padding = (max - min) * 0.1;
+      return { min: min - padding, max: max + padding };
+    });
 
     // --- Draw Grid & Axes ---
     ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
@@ -133,6 +160,46 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
     ctx.fillText("Velocity (m/s)", 0, 0);
     ctx.restore();
 
+    customGraphs.forEach((graph, index) => {
+      const bounds = customGraphBounds[index];
+      const axisX = width - margin.right + 10 + (index * rightAxisWidth); // Offset each axis to the right
+
+      ctx.strokeStyle = graph.color;
+      ctx.fillStyle = graph.color;
+      ctx.textAlign = "left";
+      
+      // Draw vertical axis line
+      ctx.beginPath();
+      ctx.moveTo(axisX, margin.top);
+      ctx.lineTo(axisX, height - margin.bottom);
+      ctx.stroke();
+
+      // Draw ticks and labels
+      const velSteps = 5;
+      for (let i = 0; i <= velSteps; i++) {
+        const val = bounds.min + (i / velSteps) * (bounds.max - bounds.min);
+        // Custom scale for this specific axis:
+        const y = margin.top + innerHeight - ((val - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+        
+        ctx.beginPath();
+        ctx.moveTo(axisX, y);
+        ctx.lineTo(axisX + 5, y); // Small tick mark
+        ctx.stroke();
+        
+        // Format the number depending on how large it is
+        const labelText = Math.abs(val) > 100 ? Math.round(val).toString() : val.toFixed(2);
+        ctx.fillText(labelText, axisX + 8, y);
+      }
+
+      // Draw Axis Title (Rotated)
+      ctx.save();
+      ctx.translate(axisX + rightAxisWidth - 15, margin.top + innerHeight / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.fillText(graph.unit, 0, 0);
+      ctx.restore();
+    });
+
     // --- 1. Draw Shaded Acceptable Launch Basin ---
     ctx.beginPath();
     basinPoints.forEach((p) => ctx.lineTo(toScreenX(p.angle), toScreenY(p.maxVel!)));
@@ -159,6 +226,16 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
     basinPoints.forEach((p, i) => {
       if (i === 0) ctx.moveTo(toScreenX(p.angle), toScreenY(p.minVel!));
       else ctx.lineTo(toScreenX(p.angle), toScreenY(p.minVel!));
+    });
+    ctx.stroke();
+
+    // Optimal
+    ctx.beginPath();
+    ctx.strokeStyle = "#6e6e6e";
+    ctx.lineWidth = 1;
+    basinPoints.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(toScreenX(p.angle), toScreenY((p.minVel! + p.maxVel!) / 2));
+      else ctx.lineTo(toScreenX(p.angle), toScreenY((p.minVel! + p.maxVel!) / 2));
     });
     ctx.stroke();
 
@@ -250,6 +327,44 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
 
       // --- 6. Draw Reticle Star ---
       drawTargetStar(ctx, optX, optY, 5, 7, 3.5);
+
+      if (customGraphs.length > 0) {
+        customGraphs.forEach((graph, index) => {
+          if (graph.data.length === 0) return;
+
+          const bounds = customGraphBounds[index];
+          const sortedData = [...graph.data].sort((a, b) => a.x - b.x);
+
+          ctx.beginPath();
+          ctx.strokeStyle = graph.color;
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([8, 2]);
+
+          sortedData.forEach((point, pIndex) => {
+            const px = toScreenX(point.x);
+            // Translate the raw Y value to screen pixels using this specific graph's bounds
+            const py = margin.top + innerHeight - ((point.y - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+            
+            if (pIndex === 0) {
+              ctx.moveTo(px, py);
+            } else {
+              ctx.lineTo(px, py);
+            }
+          });
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset line dash for anything drawn after this
+
+          // Label the line
+          const lastPoint = sortedData[sortedData.length - 1];
+          const labelX = toScreenX(lastPoint.x) - 40;
+          const labelY = margin.top + innerHeight - ((lastPoint.y - bounds.min) / (bounds.max - bounds.min)) * innerHeight - 10 + (index * 18);
+          
+          ctx.fillStyle = graph.color;
+          ctx.textAlign = "right";
+          ctx.font = "bold 12px sans-serif";
+          ctx.fillText(graph.name, labelX, labelY);
+        });
+      }
 
       // --- 7. Draw Data Legend ---
       ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
