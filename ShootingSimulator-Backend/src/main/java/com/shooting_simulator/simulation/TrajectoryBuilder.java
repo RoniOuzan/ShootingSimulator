@@ -2,6 +2,8 @@ package com.shooting_simulator.simulation;
 
 import com.shooting_simulator.Constants;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.resolution.CenterResolution;
+import com.shooting_simulator.simulation.resolution.Resolution;
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
@@ -12,16 +14,13 @@ import java.util.List;
 
 @Getter
 public class TrajectoryBuilder {
-    public static final double EXIT_VELOCITY_DT = 0.000_001;
-    public static final double ANGLE_DT = 0.000_001;
-
-    public static final double PERIOD = 0.002;
-    private static final double TOLERANCE = 0.001;
 
     private final Translation2d initialPosition;
     private final double radialVelocity;
     private final Translation2d target;
     private final TargetAxis targetAxis;
+
+    private final Resolution resolution;
 
     private final double minHitAngle;
     private final double maxHitAngle;
@@ -29,7 +28,7 @@ public class TrajectoryBuilder {
     private final PhysicalValues physicalValues;
     private final List<Obstacle> obstacles;
 
-    public TrajectoryBuilder(Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues, List<Obstacle> obstacles) {
+    public TrajectoryBuilder(Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues, List<Obstacle> obstacles, Resolution resolution) {
         this.initialPosition = initialPosition;
         this.radialVelocity = radialVelocity;
         this.target = target;
@@ -38,6 +37,8 @@ public class TrajectoryBuilder {
         this.maxHitAngle = maxHitAngle;
         this.physicalValues = physicalValues;
         this.obstacles = obstacles == null ? new ArrayList<>() : obstacles;
+
+        this.resolution = resolution;
     }
 
     public boolean isInsideTarget(Sample sample) {
@@ -46,8 +47,8 @@ public class TrajectoryBuilder {
     }
 
     public boolean isInsideTarget(Translation2d position) {
-        boolean withinXBounds = Math.abs(position.getX() - this.target.getX()) <= TOLERANCE;
-        boolean withinYBounds = Math.abs(position.getY() - this.target.getY()) <= TOLERANCE;
+        boolean withinXBounds = Math.abs(position.getX() - this.target.getX()) <= this.resolution.getTargetTolerance();
+        boolean withinYBounds = Math.abs(position.getY() - this.target.getY()) <= this.resolution.getTargetTolerance();
         return withinXBounds && withinYBounds;
     }
 
@@ -77,10 +78,10 @@ public class TrajectoryBuilder {
 
             // Calculate next position using exact kinematics (matches your quadratic solver)
             Translation2d nextPosition = position
-                    .plus(velocity.times(PERIOD))
-                    .plus(acceleration.times(0.5 * PERIOD * PERIOD));
+                    .plus(velocity.times(this.resolution.getPeriod()))
+                    .plus(acceleration.times(0.5 * this.resolution.getPeriod() * this.resolution.getPeriod()));
 
-            Translation2d nextVelocity = velocity.plus(acceleration.times(PERIOD));
+            Translation2d nextVelocity = velocity.plus(acceleration.times(this.resolution.getPeriod()));
 
             // Check for crossing
             if (isPassedTarget(position, nextPosition, nextVelocity, isFlat)) {
@@ -100,7 +101,7 @@ public class TrajectoryBuilder {
             // Standard update if no crossing
             position = nextPosition;
             velocity = nextVelocity;
-            time += PERIOD;
+            time += this.resolution.getPeriod();
             samples.add(new Sample(position, velocity, acceleration, time));
         }
 
@@ -134,7 +135,7 @@ public class TrajectoryBuilder {
         // Solve: 0.5*a*t^2 + v*t - delta = 0
         double[] roots = MathUtil.quadraticSolver(0.5 * this.targetAxis.getTargetAxis(acceleration), this.targetAxis.getTargetAxis(velocity), -delta);
 
-        double exactT = PERIOD; // fallback
+        double exactT = this.resolution.getPeriod(); // fallback
         if (roots.length == 1) {
             exactT = roots[0];
         } else if (roots.length == 2) {
@@ -210,7 +211,8 @@ public class TrajectoryBuilder {
                 this.minHitAngle,
                 this.maxHitAngle,
                 this.physicalValues,
-                this.obstacles
+                this.obstacles,
+                this.resolution
         );
     }
 
@@ -222,7 +224,7 @@ public class TrajectoryBuilder {
         double min = this.physicalValues.minVel;
         double max = this.physicalValues.maxVel;
 
-        while (max - min > EXIT_VELOCITY_DT) {
+        while (max - min > this.resolution.getVelocity()) {
             double mid = (min + max) / 2.0;
             Trajectory trajectory = this.simulateTrajectory(mid, Rotation2d.fromDegrees(angle), checkLimits, true, isFlat);
 
@@ -247,7 +249,7 @@ public class TrajectoryBuilder {
         double min = this.physicalValues.minAngle;
         double max = this.physicalValues.maxAngle;
 
-        while (max - min > ANGLE_DT) {
+        while (max - min > this.resolution.getAngle()) {
             double mid = (min + max) / 2.0;
             Trajectory trajectory = this.simulateTrajectory(velocity, Rotation2d.fromDegrees(mid), false, isFlat);
 

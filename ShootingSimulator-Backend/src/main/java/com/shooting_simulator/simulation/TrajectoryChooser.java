@@ -3,6 +3,7 @@ package com.shooting_simulator.simulation;
 import java.util.*;
 
 import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.resolution.CenterResolution;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 
@@ -11,7 +12,7 @@ import lombok.Getter;
 @Getter
 public class TrajectoryChooser implements Chooser {
 
-    private static final double ANGLE_DT_DIVIDER = 100;
+    private static final double ANGLE_DT_DIVIDER = 50;
 
     private static final double MISS_TARGET_COST = 100;
     private static final double SCALE_ROBUSTNESS = 200;
@@ -30,25 +31,24 @@ public class TrajectoryChooser implements Chooser {
     private final TargetAxis targetAxis;
     private final List<Obstacle> obstacles;
 
-    private final List<RobustnessPoint> robustnessSweep;
-    private final List<Translation2d> costSweep;
-    private List<Trajectory> trajectories;
-    private Trajectory bestTrajectory;
+    private final CenterResolution resolution;
 
-    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
+    private final List<RobustnessPoint> robustnessSweep = new ArrayList<>();
+    private final List<Translation2d> costSweep = new ArrayList<>();
+    private List<Trajectory> trajectories = null;
+    private Trajectory bestTrajectory = null;
+
+    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles, CenterResolution resolution) {
         this.physicalValues = physicalValues;
         this.costWeights = costWeights;
 
         this.target = new Translation2d(0, targetY);
         this.targetRadius = targetRadius;
-        this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target, targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
+        this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target, targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles, resolution);
         this.targetAxis = targetAxis;
         this.obstacles = obstacles;
 
-        this.robustnessSweep = new ArrayList<>();
-        this.costSweep = new ArrayList<>();
-        this.trajectories = null;
-        this.bestTrajectory = null;
+        this.resolution = resolution;
     }
 
     public List<Translation2d> getCostSweep() {
@@ -166,7 +166,7 @@ public class TrajectoryChooser implements Chooser {
         double bestAngle = (a + b) / 2.0;
         double bestCost = Double.MAX_VALUE;
 
-        while (Math.abs(b - a) > TrajectoryBuilder.ANGLE_DT) {
+        while (Math.abs(b - a) > this.resolution.getAngle()) {
             double cost1 = getCostAtAngle(x1, isFlat);
             double cost2 = getCostAtAngle(x2, isFlat);
 

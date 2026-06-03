@@ -69,6 +69,7 @@ export default function OptimalShotView({
         },
         costConfig: sharedConfig.cost,
         obstacles: sharedConfig.obstacles, 
+        resolutionMode: sharedConfig.resolutionMode,
       },
     };
 

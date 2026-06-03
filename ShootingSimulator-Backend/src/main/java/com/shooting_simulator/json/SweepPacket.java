@@ -27,6 +27,8 @@ public class SweepPacket implements DataPacket {
     public CostWeights costConfig;
     public List<Obstacle> obstacles;
 
+    public String resolutionMode;
+
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
         List<DistancePoint> sweepData = new ArrayList<>();
@@ -58,7 +60,8 @@ public class SweepPacket implements DataPacket {
                     this.minHitAngle,
                     this.maxHitAngle,
                     this.costConfig,
-                    this.obstacles
+                    this.obstacles,
+                    this.resolutionMode
             );
 
             Trajectory best = chooser.getBestTrajectory();

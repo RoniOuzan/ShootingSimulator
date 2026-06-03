@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { CostPreset, SharedConfig, ObstacleConfig } from "../types";
+import type { CostPreset, SharedConfig, ObstacleConfig, ResolutionMode } from "../types";
 import ControlSlider from "./ControlSlider";
 import "./SharedConfigSidebar.css";
 import ObstacleManagingModel from "./ObstacleManagingModel";
@@ -73,9 +73,17 @@ export default function SharedConfigSidebar({
     hardware,
     cost,
     obstacles = [],
+    resolutionMode = "BALANCED",
   } = config;
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  const RES_DESCRIPTIONS: Record<ResolutionMode, string> = {
+    FAST: "Highest performance. Uses standard curve estimation to save calculation time.",
+    BALANCED: "Good balance of computing time and mathematical precision. (Recommended)",
+    ACCURATE: "High detail for exact trajectory mapping. Takes slightly more time to compute.",
+    ORBIT: "Extreme temporal precision for complex motion. Heaviest on engine performance.",
+  };
 
   const handlePresetChange = (preset: CostPreset) => {
     if (preset === "CUSTOM") {
@@ -124,6 +132,36 @@ export default function SharedConfigSidebar({
             <div className="sidebar-header">
               <h2 className="sidebar-title">Configuration</h2>
               <span className="sidebar-subtitle">Global Simulation Parameters</span>
+            </div>
+
+            {/* Simulation Engine (Resolution) */}
+            <div className="config-card simulation">
+              <div className="card-title">
+                <div className="icon-badge">🖥️</div>
+                <h3>Simulation Resolution</h3>
+              </div>
+
+              <div className="preset-grid resolution-grid">
+                {(["FAST", "BALANCED", "ACCURATE", "ORBIT"] as const).map((res) => {
+                  const icons = { FAST: "⚡ Fast", BALANCED: "⚖️ Balanced", ACCURATE: "🎯 Accurate", ORBIT: "🪐 Orbit" };
+                  return (
+                    <div key={res} className="tooltip-container">
+                      <button
+                        className={`preset-btn ${resolutionMode === res ? "active-res" : ""}`}
+                        onClick={() => updateConfig("resolutionMode", res)}
+                      >
+                        {icons[res]}
+                      </button>
+                      <div className="tooltip-text">{RES_DESCRIPTIONS[res]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="resolution-explanation">
+                <strong>Simulation Resolution</strong>
+                Determines how frequently the physics engine updates the trajectory over time and the parameters accuracy. Higher resolutions create mathematically perfect curves but require more processing power.
+              </div>
             </div>
 
             {/* Origin Parameters */}

@@ -373,6 +373,7 @@ export default function SurfaceSweepView({
           },
           costConfig: sharedConfig.cost,
           obstacles: sharedConfig.obstacles, 
+          resolutionMode: sharedConfig.resolutionMode,
         },
       },
       true

@@ -30,6 +30,8 @@ public class SurfacePacket implements DataPacket {
     public CostWeights costConfig;
     public List<Obstacle> obstacles;
 
+    public String resolutionMode;
+
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
         System.out.println("Simulating Surface...");
@@ -134,7 +136,8 @@ public class SurfacePacket implements DataPacket {
                 this.minHitAngle,
                 this.maxHitAngle,
                 this.costConfig,
-                this.obstacles
+                this.obstacles,
+                this.resolutionMode
         );
 
         Trajectory best = chooser.getBestTrajectory();

@@ -51,6 +51,7 @@ export default function DistanceSweepView({
         },
         costConfig: sharedConfig.cost,
         obstacles: sharedConfig.obstacles, 
+        resolutionMode: sharedConfig.resolutionMode,
       },
     };
 

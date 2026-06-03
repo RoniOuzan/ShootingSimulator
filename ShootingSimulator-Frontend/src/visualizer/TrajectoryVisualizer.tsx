@@ -67,6 +67,7 @@ export default function TrajectoryVisualizer({
         },
         costConfig: sharedConfig.cost,
         obstacles: sharedConfig.obstacles, 
+        resolutionMode: sharedConfig.resolutionMode,
       },
     };
 

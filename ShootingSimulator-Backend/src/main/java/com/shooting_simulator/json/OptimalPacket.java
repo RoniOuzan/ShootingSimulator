@@ -5,6 +5,7 @@ import com.shooting_simulator.simulation.*;
 import com.shooting_simulator.simulation.optimal.TrajectoryCouple;
 import com.shooting_simulator.simulation.optimal.TrajectoryOptimalChooser;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.resolution.OptimalResolution;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
@@ -29,6 +30,8 @@ public class OptimalPacket implements DataPacket {
     public double minHitAngle;
     public double maxHitAngle;
 
+    public String resolutionMode;
+
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
         Translation2d initialPos = new Translation2d(this.initialX, this.initialY);
@@ -48,7 +51,8 @@ public class OptimalPacket implements DataPacket {
                 this.minHitAngle,
                 this.maxHitAngle,
                 this.costConfig,
-                this.obstacles
+                this.obstacles,
+                OptimalResolution.valueOf(this.resolutionMode)
         );
 
         List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();

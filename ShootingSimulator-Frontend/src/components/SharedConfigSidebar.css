@@ -532,3 +532,96 @@
   color: #fca5a5;
   border-color: rgba(239, 68, 68, 0.6);
 }
+
+/* --- Simulation Fidelity Card --- */
+.config-card.simulation .icon-badge { 
+  background: rgba(59, 130, 246, 0.15); 
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2); 
+  border: 1px solid rgba(59, 130, 246, 0.3); 
+}
+
+.resolution-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px; 
+  margin-bottom: 4px;
+}
+
+.preset-btn.active-res {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+/* --- Pure CSS Tooltips --- */
+.tooltip-container {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.tooltip-container .preset-btn {
+  width: 100%; /* Ensures the button fills the grid cell */
+}
+
+.tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: 115%; /* Positions it right above the button */
+  left: 50%;
+  transform: translateX(-50%) translateY(5px);
+  background: rgba(15, 15, 20, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  width: 180px; 
+  z-index: 100;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  pointer-events: none; /* Prevents the tooltip itself from triggering hover glitches */
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* The little triangle pointer at the bottom of the tooltip */
+.tooltip-text::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.1) transparent transparent transparent;
+}
+
+/* Hover trigger */
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0); /* Slides up into place */
+}
+
+/* --- Resolution Global Explanation --- */
+.resolution-explanation {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  border-left: 2px solid rgba(59, 130, 246, 0.4); /* Subtle blue accent line */
+  font-size: 0.7rem;
+  color: #aaa;
+  line-height: 1.4;
+}
+
+.resolution-explanation strong {
+  color: #e2e8f0;
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.75rem;
+}

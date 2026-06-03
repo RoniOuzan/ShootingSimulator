@@ -2,6 +2,7 @@ package com.shooting_simulator.simulation.optimal;
 
 import com.shooting_simulator.simulation.*;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.resolution.OptimalResolution;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;
 
@@ -12,9 +13,7 @@ import java.util.List;
 @Getter
 public class TrajectoryOptimalChooser implements Chooser {
 
-    private static final double ANGLE_DT = 0.000_01;
-
-    private static final double ANGLE_DT_DIVIDER = 50;
+    private static final double ANGLE_DT_DIVIDER = 200;
 
     public static final double MISS_TARGET_COST = 100;
 
@@ -31,22 +30,26 @@ public class TrajectoryOptimalChooser implements Chooser {
     private final TargetAxis targetAxis;
     private final List<Obstacle> obstacles;
 
+    private final OptimalResolution resolution;
+
     private final List<TrajectoryChooser.RobustnessPoint> robustnessSweep = new ArrayList<>();
     private final List<Translation2d> costSweep = new ArrayList<>();
     private final List<Translation2d> velocityGapSweep = new ArrayList<>();
     private final List<Translation2d> gapDerivativeSweep = new ArrayList<>();
 
-    public TrajectoryOptimalChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles) {
+    public TrajectoryOptimalChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles, OptimalResolution resolution) {
         this.physicalValues = physicalValues;
         this.costWeights = costWeights;
 
         this.target = new Translation2d(0, targetY);
         this.targetRadius = targetRadius;
-        this.centerBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target, targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
-        this.closeBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.minus(new Translation2d(targetRadius, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
-        this.farBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.plus(new Translation2d(targetRadius, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles);
+        this.centerBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target, targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles, resolution);
+        this.closeBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.minus(new Translation2d(targetRadius, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles, resolution);
+        this.farBuilder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target.plus(new Translation2d(targetRadius, 0)), targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles, resolution);
         this.targetAxis = targetAxis;
         this.obstacles = obstacles;
+
+        this.resolution = resolution;
     }
 
     @Override
@@ -108,7 +111,7 @@ public class TrajectoryOptimalChooser implements Chooser {
         Trajectory farTrajectory = this.farBuilder.findTrajectoryForAngle(bestAngle, isFlat);
         Trajectory closeTrajectory = this.closeBuilder.findTrajectoryForAngle(bestAngle, isFlat);
         if (farTrajectory != null && farTrajectory.isHitTarget() && closeTrajectory != null && closeTrajectory.isHitTarget()) {
-            return new TrajectoryCouple(closeTrajectory, farTrajectory, this.centerBuilder, this.closeBuilder, this.farBuilder, this.physicalValues);
+            return new TrajectoryCouple(closeTrajectory, farTrajectory, this.centerBuilder, this.closeBuilder, this.farBuilder, this.physicalValues, this.resolution);
         }
         return null;
     }
@@ -147,7 +150,7 @@ public class TrajectoryOptimalChooser implements Chooser {
         double bestAngle = (a + b) / 2.0;
         double bestCost = Double.MAX_VALUE;
 
-        while (Math.abs(b - a) > ANGLE_DT) {
+        while (Math.abs(b - a) > this.resolution.getAngle()) {
             double cost1 = getCostAtAngle(x1, isFlat);
             double cost2 = getCostAtAngle(x2, isFlat);
 
@@ -190,7 +193,8 @@ public class TrajectoryOptimalChooser implements Chooser {
                 this.centerBuilder,
                 this.closeBuilder,
                 this.farBuilder,
-                this.physicalValues
+                this.physicalValues,
+                this.resolution
         );
 
         double cost = couple.getCost(this.costWeights);
@@ -211,7 +215,7 @@ public class TrajectoryOptimalChooser implements Chooser {
                 Trajectory farTrajectory = this.farBuilder.findTrajectoryForAngle(angle, isFlat);
 
                 if (closeTrajectory.isHitTarget() && farTrajectory.isHitTarget()) {
-                    TrajectoryCouple couple = new TrajectoryCouple(closeTrajectory, farTrajectory, this.centerBuilder, this.closeBuilder, this.farBuilder, this.physicalValues);
+                    TrajectoryCouple couple = new TrajectoryCouple(closeTrajectory, farTrajectory, this.centerBuilder, this.closeBuilder, this.farBuilder, this.physicalValues, this.resolution);
                     trajectories.add(couple);
 
                     double vReq = couple.getOptimalTrajectory().getInitialShootingVelocity().getNorm();

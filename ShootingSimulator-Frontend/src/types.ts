@@ -42,6 +42,7 @@ export interface SharedConfig {
   hardware: HardwareLimits;
   cost: CostConfig;
   obstacles: ObstacleConfig[];
+  resolutionMode: ResolutionMode;
 }
 
 export type CostPreset =
@@ -121,3 +122,5 @@ export const parseVelocityVector = (vector: Translation2d | null | undefined) =>
 };
 
 export type SimulationType = "CENTER" | "OPTIMAL";
+
+export type ResolutionMode = "FAST" | "BALANCED" | "ACCURATE" | "ORBIT";

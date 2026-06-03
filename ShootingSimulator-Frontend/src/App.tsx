@@ -45,6 +45,7 @@ const DEFAULT_CONFIG: SharedConfig = {
     targetImpactAngle: -50,
   },
   obstacles: [],
+  resolutionMode: "BALANCED",
 };
 
 export default function App() {
@@ -83,6 +84,8 @@ export default function App() {
     bestTrajectory: null,
     robustnessData: [],
     costData: [],
+    velocityGapData: [],
+    gapDerivativeData: [],
   });
 
   // Calculation state
@@ -165,25 +168,30 @@ export default function App() {
 
   // Update shared config helper
   const updateConfig = useCallback(
-  <K extends keyof SharedConfig>(
-    section: K,
-    updates: Partial<SharedConfig[K]> | SharedConfig[K], // Allow direct assignment
-  ) => {
-    setSharedConfig((prev) => {
-      if (section === "obstacles") {
+    <K extends keyof SharedConfig>(
+      section: K,
+      updates: Partial<SharedConfig[K]> | SharedConfig[K], 
+    ) => {
+      setSharedConfig((prev) => {
+        const prevValue = prev[section];
+
+        // Check if the value is an array (obstacles) or a primitive (resolutionMode string)
+        if (typeof prevValue !== "object" || prevValue === null || Array.isArray(prevValue)) {
+          return {
+            ...prev,
+            [section]: updates,
+          };
+        }
+
+        // Otherwise, it's a nested config object (origin, target, etc.), so merge it
         return {
           ...prev,
-          [section]: updates,
+          [section]: { ...prevValue, ...(updates as any) }, 
         };
-      }
-      return {
-        ...prev,
-        [section]: { ...(prev[section] as any), ...updates },
-      };
-    });
-  },
-  [setSharedConfig],
-);
+      });
+    },
+    [setSharedConfig],
+  );
 
   return (
     <div className="app-container">

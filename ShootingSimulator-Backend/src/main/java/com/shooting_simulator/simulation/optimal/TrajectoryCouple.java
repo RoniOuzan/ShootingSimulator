@@ -1,6 +1,7 @@
 package com.shooting_simulator.simulation.optimal;
 
 import com.shooting_simulator.simulation.*;
+import com.shooting_simulator.simulation.resolution.OptimalResolution;
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
@@ -9,16 +10,14 @@ import lombok.Getter;
 @Getter
 public class TrajectoryCouple {
 
-    private static final double ANGLE_DX = 0.5; // its big so it will be less noisy
-
     // Scale constants
     private static final double SCALE_VELOCITY = 0.1;
     private static final double SCALE_TIME = 1.0;
-    private static final double SCALE_ANGLE = 0.04;
+    private static final double SCALE_ANGLE = 0.01;
 
     // Calibrated Robustness Constants
-    private static final double SCALE_ROBUSTNESS_VELOCITY = 0.1;
-    private static final double SCALE_ROBUSTNESS_ANGLE = 1;
+    private static final double VELOCITY_SIGMA = 0.3;
+    private static final double ANGLE_SIGMA = 1.5;
 
     private static final double VELOCITY_BIAS = 0.5;
 
@@ -33,13 +32,17 @@ public class TrajectoryCouple {
     private final double velocityGap;
     private final double gapDerivative;
 
-    public TrajectoryCouple(Trajectory closeTrajectory, Trajectory farTrajectory, TrajectoryBuilder centerBuilder, TrajectoryBuilder closeBuilder, TrajectoryBuilder farBuilder, PhysicalValues physicalValues) {
+    private final OptimalResolution resolution;
+
+    public TrajectoryCouple(Trajectory closeTrajectory, Trajectory farTrajectory, TrajectoryBuilder centerBuilder, TrajectoryBuilder closeBuilder, TrajectoryBuilder farBuilder, PhysicalValues physicalValues, OptimalResolution resolution) {
         this.closeTrajectory = closeTrajectory;
         this.farTrajectory = farTrajectory;
         this.physicalValues = physicalValues;
 
         this.closeBuilder = closeBuilder;
         this.farBuilder = farBuilder;
+
+        this.resolution = resolution;
 
         Translation2d closeVelocity = closeTrajectory.getInitialShootingVelocity();
         Translation2d farVelocity = farTrajectory.getInitialShootingVelocity();
@@ -67,7 +70,7 @@ public class TrajectoryCouple {
             return 1000.0;
         }
 
-        double robustnessPenalty = this.getAngleRobustnessCost() - this.getVelocityRobustnessCost();
+        double robustnessPenalty = 1.0 / (Math.hypot(this.getVelocityRobustnessCost(), this.getAngleRobustnessCost()) + 1e-6);
         double initialVelPenalty = this.optimalTrajectory.getInitialShootingVelocity().getNorm() * SCALE_VELOCITY;
         double impactVelPenalty = this.optimalTrajectory.getHitSample().getVelocity().getNorm() * SCALE_VELOCITY;
         double timeOfFlightPenalty = this.optimalTrajectory.getHitSample().getTime() * SCALE_TIME;
@@ -204,16 +207,16 @@ public class TrajectoryCouple {
     }
 
     public double calculateOptimalDerivative(double angle, boolean isFlat) {
-        double highWindow = getWindowAtAngle(angle + ANGLE_DX, isFlat);
+        double highWindow = getWindowAtAngle(angle + this.resolution.getAngleDX(), isFlat);
 
-        return (highWindow - this.optimalTrajectory.getInitialShootingVelocity().getNorm()) / ANGLE_DX;
+        return (highWindow - this.optimalTrajectory.getInitialShootingVelocity().getNorm()) / this.resolution.getAngleDX();
     }
 
     public double calculateGapDerivative(double angle, boolean isFlat) {
-        double highGap = calculateVelocityGap(angle + ANGLE_DX, isFlat);
+        double highGap = calculateVelocityGap(angle + this.resolution.getAngleDX(), isFlat);
 
         // Returns how many m/s the gap shrinks/grows per degree of pivot
-        return (highGap - this.velocityGap) / ANGLE_DX;
+        return (highGap - this.velocityGap) / this.resolution.getAngleDX();
     }
 
     /**
@@ -234,10 +237,10 @@ public class TrajectoryCouple {
     }
 
     public double getVelocityRobustnessCost() {
-        return this.velocityGap * SCALE_ROBUSTNESS_VELOCITY;
+        return this.velocityGap / VELOCITY_SIGMA;
     }
 
     public double getAngleRobustnessCost() {
-        return Math.abs(this.gapDerivative) * SCALE_ROBUSTNESS_ANGLE;
+        return Math.abs(this.velocityGap / (this.gapDerivative + 1e-6)) / ANGLE_SIGMA;
     }
 }

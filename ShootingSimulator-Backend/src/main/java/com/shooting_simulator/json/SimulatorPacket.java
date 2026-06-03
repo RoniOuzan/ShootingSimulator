@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.shooting_simulator.simulation.*;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.resolution.CenterResolution;
 import org.java_websocket.WebSocket;
 
 import com.shooting_simulator.SimulatorServer;
@@ -25,6 +26,8 @@ public class SimulatorPacket implements DataPacket {
     public PhysicalValues physicalValues;
     public CostWeights costConfig;
     public List<Obstacle> obstacles;
+
+    public String resolutionMode;
 
     public double minHitAngle;
     public double maxHitAngle;
@@ -50,7 +53,8 @@ public class SimulatorPacket implements DataPacket {
                 this.minHitAngle,
                 this.maxHitAngle,
                 this.costConfig,
-                this.obstacles
+                this.obstacles,
+                CenterResolution.valueOf(this.resolutionMode)
         );
 
         List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
