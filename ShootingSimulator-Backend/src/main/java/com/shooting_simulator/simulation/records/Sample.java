@@ -1,4 +1,4 @@
-package com.shooting_simulator.simulation;
+package com.shooting_simulator.simulation.records;
 
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;

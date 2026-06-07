@@ -3,6 +3,11 @@ package com.shooting_simulator.simulation;
 import java.util.*;
 
 import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.physics.TrajectorySolver;
+import com.shooting_simulator.simulation.records.CostWeights;
+import com.shooting_simulator.simulation.records.PhysicalValues;
+import com.shooting_simulator.simulation.records.ShooterState;
+import com.shooting_simulator.simulation.records.TargetConfig;
 import com.shooting_simulator.simulation.resolution.CenterResolution;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
 import com.shooting_simulator.util.math.geometry.Translation2d;
@@ -10,45 +15,28 @@ import com.shooting_simulator.util.math.geometry.Translation2d;
 import lombok.Getter;
 
 @Getter
-public class TrajectoryChooser implements Chooser {
+public class TrajectoryCenterChooser extends Chooser {
 
     private static final double ANGLE_DT_DIVIDER = 50;
 
     private static final double MISS_TARGET_COST = 100;
     private static final double SCALE_ROBUSTNESS = 200;
-    private static final double SCALE_VELOCITY = 0.1;
+    private static final double SCALE_VELOCITY = 0.2;
     private static final double SCALE_TIME = 1.0;
     private static final double SCALE_ANGLE = 0.04;
 
     private static final boolean[] SHOT_PHASES = {true, false};
 
-    private final PhysicalValues physicalValues;
-    private final CostWeights costWeights;
-
-    private final TrajectoryBuilder builder;
-    private final Translation2d target;
-    private final double targetRadius;
-    private final TargetAxis targetAxis;
-    private final List<Obstacle> obstacles;
-
-    private final CenterResolution resolution;
+    private final TrajectorySolver builder;
 
     private final List<RobustnessPoint> robustnessSweep = new ArrayList<>();
     private final List<Translation2d> costSweep = new ArrayList<>();
     private List<Trajectory> trajectories = null;
     private Trajectory bestTrajectory = null;
 
-    public TrajectoryChooser(PhysicalValues physicalValues, Translation2d initialPosition, double radialVelocity, double targetY, double targetRadius, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, CostWeights costWeights, List<Obstacle> obstacles, CenterResolution resolution) {
-        this.physicalValues = physicalValues;
-        this.costWeights = costWeights;
-
-        this.target = new Translation2d(0, targetY);
-        this.targetRadius = targetRadius;
-        this.builder = new TrajectoryBuilder(initialPosition, radialVelocity, this.target, targetAxis, minHitAngle, maxHitAngle, physicalValues, obstacles, resolution);
-        this.targetAxis = targetAxis;
-        this.obstacles = obstacles;
-
-        this.resolution = resolution;
+    public TrajectoryCenterChooser(ShooterState state, TargetConfig target, PhysicalValues physicalValues, CostWeights costWeights, List<Obstacle> obstacles, CenterResolution resolution) {
+        super(target, physicalValues, costWeights, obstacles, resolution);
+        this.builder = new TrajectorySolver(state, target, physicalValues, obstacles, resolution);
     }
 
     public List<Translation2d> getCostSweep() {
@@ -95,8 +83,9 @@ public class TrajectoryChooser implements Chooser {
         double angle = trajectory.getInitialShootingVelocity().getAngle().getDegrees();
         double velocity = trajectory.getInitialShootingVelocity().getNorm();
         boolean isFlat = trajectory.isFlat();
-        TrajectoryBuilder farBuilder = this.builder.moveTarget(new Translation2d(this.targetRadius, 0));
-        TrajectoryBuilder closeBuilder = this.builder.moveTarget(new Translation2d(-this.targetRadius, 0));
+
+        TrajectorySolver farBuilder = this.builder.moveTarget(this.target.radius());
+        TrajectorySolver closeBuilder = this.builder.moveTarget(-this.target.radius());
 
         double farVelocity = farBuilder.findTrajectoryForAngle(angle, isFlat).getInitialShootingVelocity().getNorm();
         double closeVelocity = closeBuilder.findTrajectoryForAngle(angle, isFlat).getInitialShootingVelocity().getNorm();
@@ -104,14 +93,24 @@ public class TrajectoryChooser implements Chooser {
         double farAngle = farBuilder.findTrajectoryForVelocity(velocity, isFlat).getInitialShootingVelocity().getAngle().getDegrees();
         double closeAngle = closeBuilder.findTrajectoryForVelocity(velocity, isFlat).getInitialShootingVelocity().getAngle().getDegrees();
 
+        // Calculate the slope (dV/dAngle) of the sweet spot band
+        double deltaV = farVelocity - closeVelocity;
+        double deltaA = farAngle - closeAngle;
+
+        // The negative sign ensures the correct tilt direction based on trajectory phase (flat vs lob)
+        double slope = (deltaA != 0) ? -(deltaV / deltaA) : 0;
+
+        // Convert the slope into degrees for your JS dashboard and isWithinTolerance method
+        double ellipseAngleDegrees = Math.toDegrees(Math.atan(slope));
+
+        // Pass your 4 original limits + the new tilt angle
         trajectory.setTolerance(new Tolerance(
                 Math.abs(farVelocity - velocity),
                 Math.abs(closeVelocity - velocity),
+                Math.abs(closeAngle - angle),
                 Math.abs(farAngle - angle),
-                Math.abs(closeAngle - angle)
+                ellipseAngleDegrees
         ));
-
-        System.out.println(trajectory.getTolerance());
     }
 
     private Trajectory findBestTrajectoryForPhase(boolean isFlat) {
@@ -155,46 +154,8 @@ public class TrajectoryChooser implements Chooser {
         };
     }
 
-    private double goldenSectionSearch(double min, double max, boolean isFlat) {
-        double phi = (Math.sqrt(5) - 1) / 2;
-        double a = min;
-        double b = max;
-
-        double x1 = b - phi * (b - a);
-        double x2 = a + phi * (b - a);
-
-        double bestAngle = (a + b) / 2.0;
-        double bestCost = Double.MAX_VALUE;
-
-        while (Math.abs(b - a) > this.resolution.getAngle()) {
-            double cost1 = getCostAtAngle(x1, isFlat);
-            double cost2 = getCostAtAngle(x2, isFlat);
-
-            if (cost1 < bestCost) {
-                bestCost = cost1;
-                bestAngle = x1;
-            }
-
-            if (cost2 < bestCost) {
-                bestCost = cost2;
-                bestAngle = x2;
-            }
-
-            if (cost1 < cost2) {
-                b = x2;
-                x2 = x1;
-                x1 = b - phi * (b - a);
-            } else {
-                a = x1;
-                x1 = x2;
-                x2 = a + phi * (b - a);
-            }
-        }
-
-        return bestAngle;
-    }
-
-    private double getCostAtAngle(double angle, boolean isFlat) {
+    @Override
+    protected double getCostAtAngle(double angle, boolean isFlat) {
         Trajectory trajectory = this.builder.findTrajectoryForAngle(angle, isFlat);
 
         double cost;
@@ -241,7 +202,7 @@ public class TrajectoryChooser implements Chooser {
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, true, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
-        return SCALE_ROBUSTNESS * (this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition()));
+        return SCALE_ROBUSTNESS * (this.target.axis().getErrorAxis(after.getHitSample().getPosition()) - this.target.axis().getErrorAxis(before.getHitSample().getPosition()));
     }
 
     private double calculateMaxErrorForAngle(Trajectory trajectory) {
@@ -251,7 +212,7 @@ public class TrajectoryChooser implements Chooser {
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, true, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
-        return SCALE_ROBUSTNESS * (this.targetAxis.getErrorAxis(after.getHitSample().getPosition()) - this.targetAxis.getErrorAxis(before.getHitSample().getPosition()));
+        return SCALE_ROBUSTNESS * (this.target.axis().getErrorAxis(after.getHitSample().getPosition()) - this.target.axis().getErrorAxis(before.getHitSample().getPosition()));
     }
 
     private List<Trajectory> calculateTrajectories() {

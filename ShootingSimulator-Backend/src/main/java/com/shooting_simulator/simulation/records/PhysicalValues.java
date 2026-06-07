@@ -1,4 +1,4 @@
-package com.shooting_simulator.simulation;
+package com.shooting_simulator.simulation.records;
 
 import lombok.AllArgsConstructor;
 import lombok.ToString;
@@ -15,7 +15,7 @@ public class PhysicalValues {
     public double estimatedAngleError;
 
     public double mass;
-    public double diameter;
+    public double radius;
     public double dragCoeff;
     public double spinRPSPerMS;
     public double magnusCoeff;

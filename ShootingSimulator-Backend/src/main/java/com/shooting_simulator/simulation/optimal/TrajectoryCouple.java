@@ -1,6 +1,9 @@
 package com.shooting_simulator.simulation.optimal;
 
 import com.shooting_simulator.simulation.*;
+import com.shooting_simulator.simulation.physics.TrajectorySolver;
+import com.shooting_simulator.simulation.records.CostWeights;
+import com.shooting_simulator.simulation.records.PhysicalValues;
 import com.shooting_simulator.simulation.resolution.OptimalResolution;
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
@@ -25,8 +28,8 @@ public class TrajectoryCouple {
     private final Trajectory farTrajectory;
     private final Trajectory optimalTrajectory;
 
-    private final TrajectoryBuilder closeBuilder;
-    private final TrajectoryBuilder farBuilder;
+    private final TrajectorySolver closeBuilder;
+    private final TrajectorySolver farBuilder;
 
     private final PhysicalValues physicalValues;
     private final double velocityGap;
@@ -34,7 +37,7 @@ public class TrajectoryCouple {
 
     private final OptimalResolution resolution;
 
-    public TrajectoryCouple(Trajectory closeTrajectory, Trajectory farTrajectory, TrajectoryBuilder centerBuilder, TrajectoryBuilder closeBuilder, TrajectoryBuilder farBuilder, PhysicalValues physicalValues, OptimalResolution resolution) {
+    public TrajectoryCouple(Trajectory closeTrajectory, Trajectory farTrajectory, TrajectorySolver centerBuilder, TrajectorySolver closeBuilder, TrajectorySolver farBuilder, PhysicalValues physicalValues, OptimalResolution resolution) {
         this.closeTrajectory = closeTrajectory;
         this.farTrajectory = farTrajectory;
         this.physicalValues = physicalValues;
@@ -54,7 +57,7 @@ public class TrajectoryCouple {
         this.optimalTrajectory = getOptimalTrajectory(centerBuilder);
     }
 
-    private Trajectory getOptimalTrajectory(TrajectoryBuilder centerBuilder) {
+    private Trajectory getOptimalTrajectory(TrajectorySolver centerBuilder) {
         Translation2d closeVelocity = this.closeTrajectory.getInitialShootingVelocity();
         double targetVelocity = closeVelocity.getNorm() + (this.velocityGap * VELOCITY_BIAS);
 

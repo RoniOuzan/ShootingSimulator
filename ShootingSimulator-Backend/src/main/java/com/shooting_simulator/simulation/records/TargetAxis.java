@@ -1,11 +1,14 @@
-package com.shooting_simulator.simulation;
+package com.shooting_simulator.simulation.records;
 
+import com.google.gson.annotations.SerializedName;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 
 import java.util.function.Function;
 
 public enum TargetAxis {
+    @SerializedName("HORIZONTAL")
     HORIZONTAL(Translation2d::getY, Translation2d::getX, v -> new Translation2d(v, 0)),
+    @SerializedName("VERTICAL")
     VERTICAL(Translation2d::getX, Translation2d::getY, v -> new Translation2d(0, v));
 
     private final Function<Translation2d, Double> targetAxis;

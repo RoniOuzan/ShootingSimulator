@@ -3,28 +3,24 @@ package com.shooting_simulator.json;
 import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.simulation.*;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
-import com.shooting_simulator.util.math.geometry.Translation2d;
+import com.shooting_simulator.simulation.records.CostWeights;
+import com.shooting_simulator.simulation.records.PhysicalValues;
+import com.shooting_simulator.simulation.records.ShooterState;
+import com.shooting_simulator.simulation.records.TargetConfig;
 import org.java_websocket.WebSocket;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class SweepPacket implements DataPacket {
-    public double initialY;
-    public double radialVelocity;
-
-    public double targetY;
-    public double targetRadius;
-    public String targetAxis;
-
-    public double minHitAngle;
-    public double maxHitAngle;
+    public OriginParams origin;
+    public TargetConfig target;
 
     public String simulationType;
 
     public SweepBounds sweepBounds;
     public PhysicalValues physicalValues;
-    public CostWeights costConfig;
+    public CostWeights cost;
     public List<Obstacle> obstacles;
 
     public String resolutionMode;
@@ -48,18 +44,13 @@ public class SweepPacket implements DataPacket {
         Double prevVel = null;
 
         for (double x = minDistance; x <= maxDistance; x += distanceStep) {
-            Translation2d initialPos = new Translation2d(-x, this.initialY);
+            ShooterState state = this.origin.getState(-x);
 
             Chooser chooser = SimulationType.valueOf(this.simulationType).create(
+                    state,
+                    this.target,
                     this.physicalValues,
-                    initialPos,
-                    this.radialVelocity,
-                    this.targetY,
-                    this.targetRadius,
-                    TargetAxis.valueOf(this.targetAxis),
-                    this.minHitAngle,
-                    this.maxHitAngle,
-                    this.costConfig,
+                    this.cost,
                     this.obstacles,
                     this.resolutionMode
             );

@@ -3,6 +3,7 @@ package com.shooting_simulator.json;
 import com.shooting_simulator.SimulatorServer;
 import com.shooting_simulator.simulation.*;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.records.*;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
 
@@ -16,18 +17,13 @@ public class SurfacePacket implements DataPacket {
 
     public double initialY;
 
-    public double targetY;
-    public double targetRadius;
-    public String targetAxis;
-
-    public double minHitAngle;
-    public double maxHitAngle;
+    public TargetConfig target;
 
     public String simulationType;
 
     public SweepBounds sweepBounds;
     public PhysicalValues physicalValues;
-    public CostWeights costConfig;
+    public CostWeights cost;
     public List<Obstacle> obstacles;
 
     public String resolutionMode;
@@ -62,7 +58,7 @@ public class SurfacePacket implements DataPacket {
         Double[][] velTolNegData = new Double[numDistances][numRadialVels];
         Double[][] ellipseAngleData = new Double[numDistances][numRadialVels];
 
-        TargetAxis axis = TargetAxis.valueOf(this.targetAxis);
+        TargetAxis axis = target.axis();
         int totalSteps = numDistances * numRadialVels;
         AtomicInteger currentStep = new AtomicInteger(0);
         AtomicInteger lastReportedProgress = new AtomicInteger(-1);
@@ -77,7 +73,7 @@ public class SurfacePacket implements DataPacket {
             double radialVelocity = radialVels.get(rIdx);
             Translation2d initialPos = new Translation2d(-x, this.initialY);
 
-            calculatePoint(initialPos, radialVelocity, targetY, axis,
+            calculatePoint(initialPos, radialVelocity,
                     angleData, velocityData,
                     angTolPosData, angTolNegData, velTolPosData, velTolNegData, ellipseAngleData,
                     dIdx, rIdx, successCount);
@@ -120,22 +116,16 @@ public class SurfacePacket implements DataPacket {
         server.sendPacket(conn, "surfaceResults", payload);
     }
 
-    private void calculatePoint(Translation2d initialPos, double radialVelocity, double targetY,
-                                TargetAxis axis,
+    private void calculatePoint(Translation2d initialPos, double radialVelocity,
                                 Double[][] angleData, Double[][] velocityData,
                                 Double[][] angTolPosData, Double[][] angTolNegData,
                                 Double[][] velTolPosData, Double[][] velTolNegData, Double[][] ellipseAngleData,
                                 int dIdx, int rIdx, AtomicInteger successCount) {
         Chooser chooser = SimulationType.valueOf(this.simulationType).create(
+                new ShooterState(initialPos, radialVelocity),
+                this.target,
                 this.physicalValues,
-                initialPos,
-                radialVelocity,
-                targetY,
-                this.targetRadius,
-                axis,
-                this.minHitAngle,
-                this.maxHitAngle,
-                this.costConfig,
+                this.cost,
                 this.obstacles,
                 this.resolutionMode
         );

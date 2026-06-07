@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import type { CostPreset, SharedConfig, ObstacleConfig, ResolutionMode } from "../types";
+import type {
+  CostPreset,
+  SharedConfig,
+  ObstacleConfig,
+  ResolutionMode,
+} from "../types";
 import ControlSlider from "./ControlSlider";
 import "./SharedConfigSidebar.css";
 import ObstacleManagingModel from "./ObstacleManagingModel";
@@ -80,9 +85,12 @@ export default function SharedConfigSidebar({
 
   const RES_DESCRIPTIONS: Record<ResolutionMode, string> = {
     FAST: "Highest performance. Uses standard curve estimation to save calculation time.",
-    BALANCED: "Good balance of computing time and mathematical precision. (Recommended)",
-    ACCURATE: "High detail for exact trajectory mapping. Takes slightly more time to compute.",
-    ORBIT: "Extreme temporal precision for complex motion. Heaviest on engine performance.",
+    BALANCED:
+      "Good balance of computing time and mathematical precision. (Recommended)",
+    ACCURATE:
+      "High detail for exact trajectory mapping. Takes slightly more time to compute.",
+    ORBIT:
+      "Extreme temporal precision for complex motion. Heaviest on engine performance.",
   };
 
   const handlePresetChange = (preset: CostPreset) => {
@@ -123,7 +131,11 @@ export default function SharedConfigSidebar({
         />
       )}
       <div className={`shared-sidebar ${isCollapsed ? "collapsed" : ""}`}>
-        <button className="collapse-toggle" onClick={onToggleCollapse} title={isCollapsed ? "Expand Config" : "Collapse Config"}>
+        <button
+          className="collapse-toggle"
+          onClick={onToggleCollapse}
+          title={isCollapsed ? "Expand Config" : "Collapse Config"}
+        >
           {isCollapsed ? "▶" : "◀"}
         </button>
 
@@ -131,7 +143,9 @@ export default function SharedConfigSidebar({
           <div className="sidebar-content">
             <div className="sidebar-header">
               <h2 className="sidebar-title">Configuration</h2>
-              <span className="sidebar-subtitle">Global Simulation Parameters</span>
+              <span className="sidebar-subtitle">
+                Global Simulation Parameters
+              </span>
             </div>
 
             {/* Simulation Engine (Resolution) */}
@@ -142,25 +156,37 @@ export default function SharedConfigSidebar({
               </div>
 
               <div className="preset-grid resolution-grid">
-                {(["FAST", "BALANCED", "ACCURATE", "ORBIT"] as const).map((res) => {
-                  const icons = { FAST: "⚡ Fast", BALANCED: "⚖️ Balanced", ACCURATE: "🎯 Accurate", ORBIT: "🪐 Orbit" };
-                  return (
-                    <div key={res} className="tooltip-container">
-                      <button
-                        className={`preset-btn ${resolutionMode === res ? "active-res" : ""}`}
-                        onClick={() => updateConfig("resolutionMode", res)}
-                      >
-                        {icons[res]}
-                      </button>
-                      <div className="tooltip-text">{RES_DESCRIPTIONS[res]}</div>
-                    </div>
-                  );
-                })}
+                {(["FAST", "BALANCED", "ACCURATE", "ORBIT"] as const).map(
+                  (res) => {
+                    const icons = {
+                      FAST: "⚡ Fast",
+                      BALANCED: "⚖️ Balanced",
+                      ACCURATE: "🎯 Accurate",
+                      ORBIT: "🪐 Orbit",
+                    };
+                    return (
+                      <div key={res} className="tooltip-container">
+                        <button
+                          className={`preset-btn ${resolutionMode === res ? "active-res" : ""}`}
+                          onClick={() => updateConfig("resolutionMode", res)}
+                        >
+                          {icons[res]}
+                        </button>
+                        <div className="tooltip-text">
+                          {RES_DESCRIPTIONS[res]}
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
               </div>
 
               <div className="resolution-explanation">
                 <strong>Simulation Resolution</strong>
-                Determines how frequently the physics engine updates the trajectory over time and the parameters accuracy. Higher resolutions create mathematically perfect curves but require more processing power.
+                Determines how frequently the physics engine updates the
+                trajectory over time and the parameters accuracy. Higher
+                resolutions create mathematically perfect curves but require
+                more processing power.
               </div>
             </div>
 
@@ -170,8 +196,24 @@ export default function SharedConfigSidebar({
                 <div className="icon-badge">📍</div>
                 <h3>Initial Position</h3>
               </div>
-              <ControlSlider label="Y Height" value={origin.initialY} min={0} max={5} step={0.1} unit="m" onChange={(v) => updateConfig("origin", { initialY: v })} />
-              <ControlSlider label="Radial Velocity" value={origin.radialVelocity} min={-4} max={4} step={0.1} unit="m/s" onChange={(v) => updateConfig("origin", { radialVelocity: v })} />
+              <ControlSlider
+                label="Y Height"
+                value={origin.initialY}
+                min={0}
+                max={5}
+                step={0.1}
+                unit="m"
+                onChange={(v) => updateConfig("origin", { initialY: v })}
+              />
+              <ControlSlider
+                label="Radial Velocity"
+                value={origin.radialVelocity}
+                min={-4}
+                max={4}
+                step={0.1}
+                unit="m/s"
+                onChange={(v) => updateConfig("origin", { radialVelocity: v })}
+              />
             </div>
 
             {/* Target Parameters */}
@@ -180,18 +222,72 @@ export default function SharedConfigSidebar({
                 <div className="icon-badge">🎯</div>
                 <h3>Target Bounds</h3>
               </div>
-              <ControlSlider label="Target Height (Y)" value={target.targetY} min={0} max={5} step={0.05} unit="m" onChange={(v) => updateConfig("target", { targetY: v })} />
-              <ControlSlider label="Target Radius" value={target.targetRadius} min={0.05} max={1} step={0.05} unit="m" onChange={(v) => updateConfig("target", { targetRadius: v })} />
+              <ControlSlider
+                label="Target Height (Y)"
+                value={target.center.y}
+                min={0}
+                max={5}
+                step={0.05}
+                unit="m"
+                onChange={(v) => updateConfig("target", { center: {...target.center, y: v } })}
+              />
+              <ControlSlider
+                label="Target Radius"
+                value={target.radius}
+                min={0.05}
+                max={1}
+                step={0.05}
+                unit="m"
+                onChange={(v) => updateConfig("target", { radius: v })}
+              />
               <div className="card-row">
-                <ControlSlider label="Min Hit Angle" value={target.minHitAngle} min={-90} max={target.maxHitAngle} step={1} unit="°" onChange={(v) => updateConfig("target", { minHitAngle: v })} />
-                <ControlSlider label="Max Hit Angle" value={target.maxHitAngle} min={target.minHitAngle} max={90} step={1} unit="°" onChange={(v) => updateConfig("target", { maxHitAngle: v })} />
+                <ControlSlider
+                  label="Min Hit Angle"
+                  value={target.minHitAngle}
+                  min={-90}
+                  max={target.maxHitAngle}
+                  step={1}
+                  unit="°"
+                  onChange={(v) => updateConfig("target", { minHitAngle: v })}
+                />
+                <ControlSlider
+                  label="Max Hit Angle"
+                  value={target.maxHitAngle}
+                  min={target.minHitAngle}
+                  max={90}
+                  step={1}
+                  unit="°"
+                  onChange={(v) => updateConfig("target", { maxHitAngle: v })}
+                />
               </div>
               <div className="target-mode-container">
                 <span className="mode-label">Target Axis</span>
                 <div className="mode-toggle">
-                  <div className="mode-toggle-slider" style={{ transform: config.target.targetAxis === "VERTICAL" ? "translateX(100%)" : "translateX(0%)" }} />
-                  <button onClick={() => updateConfig("target", { targetAxis: "HORIZONTAL" })} className={`btn-toggle ${config.target.targetAxis === "HORIZONTAL" ? "active-mode" : ""}`}>Horizontal</button>
-                  <button onClick={() => updateConfig("target", { targetAxis: "VERTICAL" })} className={`btn-toggle ${config.target.targetAxis === "VERTICAL" ? "active-mode" : ""}`}>Vertical</button>
+                  <div
+                    className="mode-toggle-slider"
+                    style={{
+                      transform:
+                        config.target.axis === "VERTICAL"
+                          ? "translateX(100%)"
+                          : "translateX(0%)",
+                    }}
+                  />
+                  <button
+                    onClick={() =>
+                      updateConfig("target", { axis: "HORIZONTAL" })
+                    }
+                    className={`btn-toggle ${config.target.axis === "HORIZONTAL" ? "active-mode" : ""}`}
+                  >
+                    Horizontal
+                  </button>
+                  <button
+                    onClick={() =>
+                      updateConfig("target", { axis: "VERTICAL" })
+                    }
+                    className={`btn-toggle ${config.target.axis === "VERTICAL" ? "active-mode" : ""}`}
+                  >
+                    Vertical
+                  </button>
                 </div>
               </div>
             </div>
@@ -203,14 +299,58 @@ export default function SharedConfigSidebar({
                 <h3>Aerodynamics</h3>
               </div>
               <div className="card-row">
-                <ControlSlider label="Mass" value={aerodynamics.mass} min={0.05} max={1} step={0.01} unit="kg" onChange={(v) => updateConfig("aerodynamics", { mass: v })} />
-                <ControlSlider label="Diameter" value={aerodynamics.diameter} min={0.02} max={0.3} step={0.005} unit="m" onChange={(v) => updateConfig("aerodynamics", { diameter: v })} />
+                <ControlSlider
+                  label="Mass"
+                  value={aerodynamics.mass}
+                  min={0.05}
+                  max={1}
+                  step={0.01}
+                  unit="kg"
+                  onChange={(v) => updateConfig("aerodynamics", { mass: v })}
+                />
+                <ControlSlider
+                  label="Radius"
+                  value={aerodynamics.radius}
+                  min={0.02}
+                  max={0.3}
+                  step={0.02}
+                  unit="m"
+                  onChange={(v) => updateConfig("aerodynamics", { radius: v })}
+                />
               </div>
-              <ControlSlider label="Drag Coefficient" value={aerodynamics.dragCoeff} min={0.1} max={1.5} step={0.01} unit=" Cd" onChange={(v) => updateConfig("aerodynamics", { dragCoeff: v })} />
+              <ControlSlider
+                label="Drag Coefficient"
+                value={aerodynamics.dragCoeff}
+                min={0.1}
+                max={1.5}
+                step={0.01}
+                unit=" Cd"
+                onChange={(v) => updateConfig("aerodynamics", { dragCoeff: v })}
+              />
               <div className="card-divider" />
               <div className="card-row">
-                <ControlSlider label="Spin Rate" value={aerodynamics.spinRPSPerMS} min={-2} max={2} step={0.1} unit=" rps/ms" onChange={(v) => updateConfig("aerodynamics", { spinRPSPerMS: v })} />
-                <ControlSlider label="Magnus Coeff" value={aerodynamics.magnusCoeff} min={0} max={1} step={0.01} unit=" Cm" onChange={(v) => updateConfig("aerodynamics", { magnusCoeff: v })} />
+                <ControlSlider
+                  label="Spin Rate"
+                  value={aerodynamics.spinRPSPerMS}
+                  min={-2}
+                  max={2}
+                  step={0.1}
+                  unit=" rps/ms"
+                  onChange={(v) =>
+                    updateConfig("aerodynamics", { spinRPSPerMS: v })
+                  }
+                />
+                <ControlSlider
+                  label="Magnus Coeff"
+                  value={aerodynamics.magnusCoeff}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  unit=" Cm"
+                  onChange={(v) =>
+                    updateConfig("aerodynamics", { magnusCoeff: v })
+                  }
+                />
               </div>
             </div>
 
@@ -221,17 +361,71 @@ export default function SharedConfigSidebar({
                 <h3>Hardware Limits</h3>
               </div>
               <div className="card-row">
-                <ControlSlider label="Min Angle" value={hardware.minAngle} min={0} max={hardware.maxAngle} step={1} unit="°" onChange={(v) => updateConfig("hardware", { minAngle: v })} />
-                <ControlSlider label="Max Angle" value={hardware.maxAngle} min={hardware.minAngle} max={90} step={1} unit="°" onChange={(v) => updateConfig("hardware", { maxAngle: v })} />
+                <ControlSlider
+                  label="Min Angle"
+                  value={hardware.minAngle}
+                  min={0}
+                  max={hardware.maxAngle}
+                  step={1}
+                  unit="°"
+                  onChange={(v) => updateConfig("hardware", { minAngle: v })}
+                />
+                <ControlSlider
+                  label="Max Angle"
+                  value={hardware.maxAngle}
+                  min={hardware.minAngle}
+                  max={90}
+                  step={1}
+                  unit="°"
+                  onChange={(v) => updateConfig("hardware", { maxAngle: v })}
+                />
               </div>
               <div className="card-row">
-                <ControlSlider label="Min Velocity" value={hardware.minVel} min={0} max={hardware.maxVel} step={0.5} unit="m/s" onChange={(v) => updateConfig("hardware", { minVel: v })} />
-                <ControlSlider label="Max Velocity" value={hardware.maxVel} min={hardware.minVel} max={30} step={0.5} unit="m/s" onChange={(v) => updateConfig("hardware", { maxVel: v })} />
+                <ControlSlider
+                  label="Min Velocity"
+                  value={hardware.minVel}
+                  min={0}
+                  max={hardware.maxVel}
+                  step={0.5}
+                  unit="m/s"
+                  onChange={(v) => updateConfig("hardware", { minVel: v })}
+                />
+                <ControlSlider
+                  label="Max Velocity"
+                  value={hardware.maxVel}
+                  min={hardware.minVel}
+                  max={30}
+                  step={0.5}
+                  unit="m/s"
+                  onChange={(v) => updateConfig("hardware", { maxVel: v })}
+                />
               </div>
               <div className="card-divider" />
               <div className="card-row">
-                <ControlSlider label="Angle Error" value={hardware.estimatedAngleError} min={0.01} max={0.5} step={0.01} unit="°" precision={2} onChange={(v) => updateConfig("hardware", { estimatedAngleError: v })} />
-                <ControlSlider label="Velocity Error" value={hardware.estimatedVelocityError} min={0.001} max={0.5} step={0.001} unit="m/s" precision={3} onChange={(v) => updateConfig("hardware", { estimatedVelocityError: v })} />
+                <ControlSlider
+                  label="Angle Error"
+                  value={hardware.estimatedAngleError}
+                  min={0.01}
+                  max={0.5}
+                  step={0.01}
+                  unit="°"
+                  precision={2}
+                  onChange={(v) =>
+                    updateConfig("hardware", { estimatedAngleError: v })
+                  }
+                />
+                <ControlSlider
+                  label="Velocity Error"
+                  value={hardware.estimatedVelocityError}
+                  min={0.001}
+                  max={0.5}
+                  step={0.001}
+                  unit="m/s"
+                  precision={3}
+                  onChange={(v) =>
+                    updateConfig("hardware", { estimatedVelocityError: v })
+                  }
+                />
               </div>
             </div>
 
@@ -242,25 +436,113 @@ export default function SharedConfigSidebar({
                 <h3>Evaluation Cost Function</h3>
               </div>
               <div className="preset-grid">
-                <button className={`preset-btn ${cost.preset === "ROBUST" ? "active" : ""}`} onClick={() => handlePresetChange("ROBUST")}>🛡️ Robust</button>
-                <button className={`preset-btn ${cost.preset === "SWISH" ? "active" : ""}`} onClick={() => handlePresetChange("SWISH")}>🎯 Swish</button>
-                <button className={`preset-btn ${cost.preset === "FAST_ARRIVAL" ? "active" : ""}`} onClick={() => handlePresetChange("FAST_ARRIVAL")}>⚡ Fast</button>
-                <button className={`preset-btn ${cost.preset === "SLOW_SHOT" ? "active" : ""}`} onClick={() => handlePresetChange("SLOW_SHOT")}>🐢 Slow</button>
-                <button className={`preset-btn ${cost.preset === "BALANCED" ? "active" : ""}`} onClick={() => handlePresetChange("BALANCED")}>⚖️ Balanced</button>
-                <button className={`preset-btn ${cost.preset === "CUSTOM" ? "active" : ""}`} onClick={() => handlePresetChange("CUSTOM")}>⚙️ Custom</button>
+                <button
+                  className={`preset-btn ${cost.preset === "ROBUST" ? "active" : ""}`}
+                  onClick={() => handlePresetChange("ROBUST")}
+                >
+                  🛡️ Robust
+                </button>
+                <button
+                  className={`preset-btn ${cost.preset === "SWISH" ? "active" : ""}`}
+                  onClick={() => handlePresetChange("SWISH")}
+                >
+                  🎯 Swish
+                </button>
+                <button
+                  className={`preset-btn ${cost.preset === "FAST_ARRIVAL" ? "active" : ""}`}
+                  onClick={() => handlePresetChange("FAST_ARRIVAL")}
+                >
+                  ⚡ Fast
+                </button>
+                <button
+                  className={`preset-btn ${cost.preset === "SLOW_SHOT" ? "active" : ""}`}
+                  onClick={() => handlePresetChange("SLOW_SHOT")}
+                >
+                  🐢 Slow
+                </button>
+                <button
+                  className={`preset-btn ${cost.preset === "BALANCED" ? "active" : ""}`}
+                  onClick={() => handlePresetChange("BALANCED")}
+                >
+                  ⚖️ Balanced
+                </button>
+                <button
+                  className={`preset-btn ${cost.preset === "CUSTOM" ? "active" : ""}`}
+                  onClick={() => handlePresetChange("CUSTOM")}
+                >
+                  ⚙️ Custom
+                </button>
               </div>
 
               <div className="weights-status-header">
-                {isCustom ? <span className="status-custom">Active Custom Multipliers</span> : <span className="status-locked">🔒 Preset Multipliers (Read-Only)</span>}
+                {isCustom ? (
+                  <span className="status-custom">
+                    Active Custom Multipliers
+                  </span>
+                ) : (
+                  <span className="status-locked">
+                    🔒 Preset Multipliers (Read-Only)
+                  </span>
+                )}
               </div>
 
               <div className={`weights-container ${!isCustom ? "locked" : ""}`}>
-                <WeightControl icon="🛡️" label="Robustness" value={cost.robustnessWeight} step={0.1} onChange={(v) => updateConfig("cost", { robustnessWeight: v })} />
-                <WeightControl icon="🚀" label="Initial Velocity" value={cost.initialVelocityWeight} step={0.05} onChange={(v) => updateConfig("cost", { initialVelocityWeight: v })} />
-                <WeightControl icon="💥" label="Impact Velocity" value={cost.impactVelocityWeight} step={0.05} onChange={(v) => updateConfig("cost", { impactVelocityWeight: v })} />
-                <WeightControl icon="⏱️" label="Flight Time" value={cost.timeOfFlightWeight} step={0.1} onChange={(v) => updateConfig("cost", { timeOfFlightWeight: v })} />
-                <WeightControl icon="📐" label="Angle Error" value={cost.entryAngleWeight} step={0.1} onChange={(v) => updateConfig("cost", { entryAngleWeight: v })} />
-                <ControlSlider label="Desired Impact Angle" value={cost.targetImpactAngle} min={target.minHitAngle} max={target.maxHitAngle} step={1} unit="°" onChange={(v) => updateConfig("cost", { targetImpactAngle: v })} />
+                <WeightControl
+                  icon="🛡️"
+                  label="Robustness"
+                  value={cost.robustnessWeight}
+                  step={0.1}
+                  onChange={(v) =>
+                    updateConfig("cost", { robustnessWeight: v })
+                  }
+                />
+                <WeightControl
+                  icon="🚀"
+                  label="Initial Velocity"
+                  value={cost.initialVelocityWeight}
+                  step={0.05}
+                  onChange={(v) =>
+                    updateConfig("cost", { initialVelocityWeight: v })
+                  }
+                />
+                <WeightControl
+                  icon="💥"
+                  label="Impact Velocity"
+                  value={cost.impactVelocityWeight}
+                  step={0.05}
+                  onChange={(v) =>
+                    updateConfig("cost", { impactVelocityWeight: v })
+                  }
+                />
+                <WeightControl
+                  icon="⏱️"
+                  label="Flight Time"
+                  value={cost.timeOfFlightWeight}
+                  step={0.1}
+                  onChange={(v) =>
+                    updateConfig("cost", { timeOfFlightWeight: v })
+                  }
+                />
+                <WeightControl
+                  icon="📐"
+                  label="Angle Error"
+                  value={cost.entryAngleWeight}
+                  step={0.1}
+                  onChange={(v) =>
+                    updateConfig("cost", { entryAngleWeight: v })
+                  }
+                />
+                <ControlSlider
+                  label="Desired Impact Angle"
+                  value={cost.targetImpactAngle}
+                  min={target.minHitAngle}
+                  max={target.maxHitAngle}
+                  step={1}
+                  unit="°"
+                  onChange={(v) =>
+                    updateConfig("cost", { targetImpactAngle: v })
+                  }
+                />
               </div>
             </div>
 
@@ -270,38 +552,67 @@ export default function SharedConfigSidebar({
                 <div className="icon-badge">🧱</div>
                 <h3>Environment Obstacles</h3>
               </div>
-              
-              <button className="open-editor-btn" onClick={() => setIsEditorOpen(true)}>
+
+              <button
+                className="open-editor-btn"
+                onClick={() => setIsEditorOpen(true)}
+              >
                 <span className="btn-icon">🗺️</span> Open Visual Editor
               </button>
 
               <div className="obstacles-list">
                 {obstacles.length === 0 && (
-                  <div className="no-obstacles">No obstacles. Add one below.</div>
+                  <div className="no-obstacles">
+                    No obstacles. Add one below.
+                  </div>
                 )}
                 {obstacles.map((obs, index) => (
                   <div key={obs.id} className="obstacle-item">
                     <div className="obstacle-header">
                       <div className="obstacle-title-group">
-                        <span className="obstacle-type">{obs.type === "CIRCLE" ? "🔴" : "🛑"}</span>
+                        <span className="obstacle-type">
+                          {obs.type === "CIRCLE" ? "🔴" : "🛑"}
+                        </span>
                         <input
                           type="text"
                           value={obs.name}
-                          onChange={(e) => handleUpdateObstacle(index, { name: e.target.value })}
+                          onChange={(e) =>
+                            handleUpdateObstacle(index, {
+                              name: e.target.value,
+                            })
+                          }
                           className="obstacle-name-input"
                           placeholder="Obstacle Name"
                         />
                       </div>
-                      <button className="delete-btn" onClick={() => handleRemoveObstacle(index)} title="Delete Obstacle">✕</button>
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleRemoveObstacle(index)}
+                        title="Delete Obstacle"
+                      >
+                        ✕
+                      </button>
                     </div>
 
                     {obs.type === "CIRCLE" && (
                       <div className="obstacle-controls">
-                        <ControlSlider label="Radius" value={obs.radius} min={0.1} max={3} step={0.05} unit="m" onChange={(v) => handleUpdateObstacle(index, { radius: v })} />
+                        <ControlSlider
+                          label="Radius"
+                          value={obs.radius}
+                          min={0.1}
+                          max={3}
+                          step={0.05}
+                          unit="m"
+                          onChange={(v) =>
+                            handleUpdateObstacle(index, { radius: v })
+                          }
+                        />
                       </div>
                     )}
                     {obs.type === "POLYGON" && (
-                      <div className="obstacle-info-text">Poly-Shape ({obs.vertices.length} points)</div>
+                      <div className="obstacle-info-text">
+                        Poly-Shape ({obs.vertices.length} points)
+                      </div>
                     )}
                   </div>
                 ))}
@@ -379,8 +690,10 @@ function WeightControl({
         {label}
       </div>
       <div className="weight-stepper">
-        <button type="button" onClick={handleDecrement}>-</button>
-        
+        <button type="button" onClick={handleDecrement}>
+          -
+        </button>
+
         {/* New input container replacing the static div */}
         <div className="weight-input-container">
           <input
@@ -393,8 +706,10 @@ function WeightControl({
           />
           <span className="weight-suffix">x</span>
         </div>
-        
-        <button type="button" onClick={handleIncrement}>+</button>
+
+        <button type="button" onClick={handleIncrement}>
+          +
+        </button>
       </div>
     </div>
   );

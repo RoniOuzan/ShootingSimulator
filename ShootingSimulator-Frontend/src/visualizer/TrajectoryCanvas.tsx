@@ -11,7 +11,10 @@ interface CanvasProps {
   initialX: number;
   setInitialX: (x: number) => void;
   sharedConfig: SharedConfig;
-  updateConfig: <K extends keyof SharedConfig>(section: K, updates: Partial<SharedConfig[K]>) => void;
+  updateConfig: <K extends keyof SharedConfig>(
+    section: K,
+    updates: Partial<SharedConfig[K]>,
+  ) => void;
   trajectoryGroups: TrajectoryGroup[];
   zoom: number;
   setZoom: (val: number) => void;
@@ -23,12 +26,21 @@ interface CanvasProps {
 }
 
 export function TrajectoryCanvas({
-  initialX, setInitialX, sharedConfig, updateConfig, trajectoryGroups,
-  zoom, setZoom, pan, setPan,
-  isLockedY, isLockedOriginX, isLockedOriginY
+  initialX,
+  setInitialX,
+  sharedConfig,
+  updateConfig,
+  trajectoryGroups,
+  zoom,
+  setZoom,
+  pan,
+  setPan,
+  isLockedY,
+  isLockedOriginX,
+  isLockedOriginY,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   // Interaction State
   const [isDraggingTarget, setIsDraggingTarget] = useState(false);
   const [isDraggingOrigin, setIsDraggingOrigin] = useState(false);
@@ -51,7 +63,10 @@ export function TrajectoryCanvas({
     y: (canvasHeight - pY - pan.y) / zoom,
   });
 
-  const getMouseCoords = (e: React.MouseEvent | React.WheelEvent, canvas: HTMLCanvasElement) => {
+  const getMouseCoords = (
+    e: React.MouseEvent | React.WheelEvent,
+    canvas: HTMLCanvasElement,
+  ) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
@@ -90,7 +105,11 @@ export function TrajectoryCanvas({
   };
 
   // Euclidean distance for circular hitboxes
-  const isHoveringDot = (worldCoords: Translation2d, dotX: number, dotY: number) => {
+  const isHoveringDot = (
+    worldCoords: Translation2d,
+    dotX: number,
+    dotY: number,
+  ) => {
     const hitRadius = Math.max(0.5, 10 / zoom);
     const dx = worldCoords.x - dotX;
     const dy = worldCoords.y - dotY;
@@ -105,13 +124,15 @@ export function TrajectoryCanvas({
     clickStartPos.current = { x: mouseX, y: mouseY };
     const worldCoords = toWorld(mouseX, mouseY, canvas.height);
 
-    if (isHoveringDot(worldCoords, 0, sharedConfig.target.targetY)) {
+    if (isHoveringDot(worldCoords, sharedConfig.target.center.x, sharedConfig.target.center.y)) {
       setIsDraggingTarget(true);
       dragOffset.current = {
-        x: -worldCoords.x,
-        y: sharedConfig.target.targetY - worldCoords.y,
+        x: sharedConfig.target.center.y - worldCoords.x,
+        y: sharedConfig.target.center.y - worldCoords.y,
       };
-    } else if (isHoveringDot(worldCoords, initialX, sharedConfig.origin.initialY)) {
+    } else if (
+      isHoveringDot(worldCoords, initialX, sharedConfig.origin.initialY)
+    ) {
       setIsDraggingOrigin(true);
       dragOffset.current = {
         x: initialX - worldCoords.x,
@@ -130,16 +151,20 @@ export function TrajectoryCanvas({
     const { x: mouseX, y: mouseY } = getMouseCoords(e, canvas);
     const worldCoords = toWorld(mouseX, mouseY, canvas.height);
 
-    setIsHoveringTarget(isHoveringDot(worldCoords, 0, sharedConfig.target.targetY));
-    setIsHoveringOrigin(isHoveringDot(worldCoords, initialX, sharedConfig.origin.initialY));
+    setIsHoveringTarget(
+      isHoveringDot(worldCoords, sharedConfig.target.center.x, sharedConfig.target.center.y),
+    );
+    setIsHoveringOrigin(
+      isHoveringDot(worldCoords, initialX, sharedConfig.origin.initialY),
+    );
 
     if (isDraggingTarget) {
       const newY = !isLockedY
         ? Math.max(0, Number((worldCoords.y + dragOffset.current.y).toFixed(2)))
-        : sharedConfig.target.targetY;
+        : sharedConfig.target.center.y;
 
-      if (newY !== sharedConfig.target.targetY) {
-        updateConfig("target", { targetY: newY });
+      if (newY !== sharedConfig.target.center.y) {
+        updateConfig("target", { center: { ...sharedConfig.target.center, y: newY } });
       }
     } else if (isDraggingOrigin) {
       if (!isLockedOriginX)
@@ -173,12 +198,16 @@ export function TrajectoryCanvas({
         const worldCoords = toWorld(mouseX, mouseY, canvas.height);
         if (isHoveringOrigin && !isDraggingTarget) {
           if (!isLockedOriginX) setInitialX(Number(worldCoords.x.toFixed(2)));
-          const newY = !isLockedOriginY ? Math.max(0, Number(worldCoords.y.toFixed(2))) : sharedConfig.origin.initialY;
-          updateConfig("origin", { initialY: newY });
+          if (!isLockedOriginY) {
+            const newY = Math.max(0, Number(worldCoords.y.toFixed(2)));
+            updateConfig("origin", { initialY: newY });
+          }
         } else if (!isDraggingOrigin && !isDraggingTarget) {
-          const newY = !isLockedY ? Math.max(0, Number(worldCoords.y.toFixed(2))) : sharedConfig.target.targetY;
-          updateConfig("origin", { initialY: newY });
-          setInitialX(Number(worldCoords.x.toFixed(2)));
+          if (!isLockedOriginY) {
+            const newY = Math.max(0, Number(worldCoords.y.toFixed(2)));
+            updateConfig("origin", { initialY: newY });
+          }
+          if (!isLockedOriginX) setInitialX(Number(worldCoords.x.toFixed(2)));
         }
       }
     }
@@ -212,17 +241,28 @@ export function TrajectoryCanvas({
     const endX = Math.ceil((canvas.width - pan.x) / zoom);
     for (let i = startX; i <= endX; i++) {
       const px = i * zoom + pan.x;
-      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, canvas.height);
+      ctx.stroke();
     }
 
     const startY = Math.floor(-pan.y / zoom);
     const endY = Math.ceil((canvas.height - pan.y) / zoom);
     for (let i = startY; i <= endY; i++) {
       const py = canvas.height - (i * zoom + pan.y);
-      ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, py);
+      ctx.lineTo(canvas.width, py);
+      ctx.stroke();
       if (i === 0) {
-        ctx.save(); ctx.strokeStyle = "#555"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();
+        ctx.save();
+        ctx.strokeStyle = "#555";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, py);
+        ctx.lineTo(canvas.width, py);
+        ctx.stroke();
         ctx.restore();
       }
     }
@@ -231,12 +271,16 @@ export function TrajectoryCanvas({
     if (sharedConfig.obstacles) {
       sharedConfig.obstacles.forEach((obs) => {
         if (obs.type === "CIRCLE") {
-          const centerScreen = toScreen(obs.center.x, obs.center.y, canvas.height);
+          const centerScreen = toScreen(
+            obs.center.x,
+            obs.center.y,
+            canvas.height,
+          );
           const screenRadius = obs.radius * zoom;
 
           ctx.beginPath();
           ctx.arc(centerScreen.x, centerScreen.y, screenRadius, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(68, 239, 68, 0.4)"; 
+          ctx.fillStyle = "rgba(68, 239, 68, 0.4)";
           ctx.fill();
           ctx.strokeStyle = "#44ef44";
           ctx.lineWidth = 2;
@@ -252,7 +296,7 @@ export function TrajectoryCanvas({
             }
           });
           ctx.closePath();
-          ctx.fillStyle = "rgba(239, 68, 68, 0.4)"; 
+          ctx.fillStyle = "rgba(239, 68, 68, 0.4)";
           ctx.fill();
           ctx.strokeStyle = "#ef4444";
           ctx.lineWidth = 2;
@@ -262,41 +306,69 @@ export function TrajectoryCanvas({
     }
 
     // Draw Origin
-    const originScreen = toScreen(initialX, sharedConfig.origin.initialY, canvas.height);
+    const originScreen = toScreen(
+      initialX,
+      sharedConfig.origin.initialY,
+      canvas.height,
+    );
     if (isHoveringOrigin || isDraggingOrigin) {
       ctx.shadowColor = "rgba(68, 136, 255, 0.6)";
       ctx.shadowBlur = 15;
     }
     ctx.fillStyle = "#4488ff";
-    ctx.beginPath(); ctx.arc(originScreen.x, originScreen.y, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(originScreen.x, originScreen.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = "#888";
     ctx.font = "14px system-ui, sans-serif";
-    ctx.fillText(`Launcher (${initialX.toFixed(1)}, ${sharedConfig.origin.initialY.toFixed(1)})`, originScreen.x + 12, originScreen.y + 4);
+    ctx.fillText(
+      `Launcher (${initialX.toFixed(1)}, ${sharedConfig.origin.initialY.toFixed(1)})`,
+      originScreen.x + 12,
+      originScreen.y + 4,
+    );
 
     // Draw Target Dot
-    const targetScreen = toScreen(0, sharedConfig.target.targetY, canvas.height);
+    const targetScreen = toScreen(sharedConfig.target.center.x, sharedConfig.target.center.y, canvas.height);
 
     if (isHoveringTarget || isDraggingTarget) {
-      ctx.shadowColor = isLockedY ? "rgba(255, 153, 0, 0.8)" : "rgba(255, 68, 68, 0.8)";
+      ctx.shadowColor = isLockedY
+        ? "rgba(255, 153, 0, 0.8)"
+        : "rgba(255, 68, 68, 0.8)";
       ctx.shadowBlur = 15;
     }
 
     ctx.fillStyle = isLockedY ? "#ff9900" : "#ff4444";
-    ctx.beginPath(); ctx.arc(targetScreen.x, targetScreen.y, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(targetScreen.x, targetScreen.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = "#888";
-    ctx.fillText(`Target (0, ${sharedConfig.target.targetY.toFixed(1)})`, targetScreen.x + 12, targetScreen.y + 4);
+    ctx.fillText(
+      `Target (${sharedConfig.target.center.x.toFixed(1)}, ${sharedConfig.target.center.y.toFixed(1)})`,
+      targetScreen.x + 12,
+      targetScreen.y + 4,
+    );
 
     ctx.strokeStyle = "rgba(255, 68, 68, 0.8)";
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(targetScreen.x - sharedConfig.target.targetRadius * zoom, targetScreen.y);
-    ctx.lineTo(targetScreen.x + sharedConfig.target.targetRadius * zoom, targetScreen.y);
+    ctx.moveTo(
+      targetScreen.x - sharedConfig.target.radius * zoom,
+      targetScreen.y,
+    );
+    ctx.lineTo(
+      targetScreen.x + sharedConfig.target.radius * zoom,
+      targetScreen.y,
+    );
     ctx.stroke();
 
     // --- Draw Trajectories by Group ---
@@ -315,8 +387,20 @@ export function TrajectoryCanvas({
         ctx.stroke();
       });
     });
-
-  }, [initialX, sharedConfig.origin.initialY, sharedConfig.target.targetY, sharedConfig.obstacles, trajectoryGroups, zoom, pan, isHoveringTarget, isDraggingTarget, isLockedY, isHoveringOrigin, isDraggingOrigin]);
+  }, [
+    initialX,
+    sharedConfig.origin.initialY,
+    sharedConfig.target.center,
+    sharedConfig.obstacles,
+    trajectoryGroups,
+    zoom,
+    pan,
+    isHoveringTarget,
+    isDraggingTarget,
+    isLockedY,
+    isHoveringOrigin,
+    isDraggingOrigin,
+  ]);
 
   // Dynamic Cursor
   let cursorStyle = "default";
@@ -331,7 +415,7 @@ export function TrajectoryCanvas({
   } else if (isHoveringTarget) {
     cursorStyle = isLockedY ? "not-allowed" : "grab";
   } else if (isHoveringOrigin) {
-    cursorStyle = (isLockedOriginX && isLockedOriginY) ? "not-allowed" : "grab";
+    cursorStyle = isLockedOriginX && isLockedOriginY ? "not-allowed" : "grab";
   } else if (isPanning) {
     cursorStyle = "move";
   }

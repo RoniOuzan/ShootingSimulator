@@ -1,4 +1,4 @@
-package com.shooting_simulator.simulation;
+package com.shooting_simulator.simulation.records;
 
 public record CostWeights(
         double robustnessWeight,

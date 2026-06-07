@@ -2,6 +2,7 @@ package com.shooting_simulator.simulation;
 
 import java.util.List;
 
+import com.shooting_simulator.simulation.records.Sample;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 
 import lombok.Getter;

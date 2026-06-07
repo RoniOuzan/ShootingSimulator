@@ -353,12 +353,11 @@ export default function SurfaceSweepView({
         type: "surface",
         data: {
           simulationType,
-          targetAxis: sharedConfig.target.targetAxis,
-          targetRadius: sharedConfig.target.targetRadius,
-          initialY: sharedConfig.origin.initialY,
-          targetY: sharedConfig.target.targetY,
-          minHitAngle: sharedConfig.target.minHitAngle,
-          maxHitAngle: sharedConfig.target.maxHitAngle,
+          ...sharedConfig,
+          physicalValues: {
+            ...sharedConfig.hardware,
+            ...sharedConfig.aerodynamics,
+          },
           sweepBounds: {
             minDist,
             maxDist,
@@ -367,13 +366,6 @@ export default function SurfaceSweepView({
             maxRadialVel,
             radialVelStep,
           },
-          physicalValues: {
-            ...sharedConfig.hardware,
-            ...sharedConfig.aerodynamics,
-          },
-          costConfig: sharedConfig.cost,
-          obstacles: sharedConfig.obstacles, 
-          resolutionMode: sharedConfig.resolutionMode,
         },
       },
       true

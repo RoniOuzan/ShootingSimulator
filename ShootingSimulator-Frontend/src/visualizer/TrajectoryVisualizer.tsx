@@ -53,21 +53,12 @@ export default function TrajectoryVisualizer({
     const payload = {
       type: "calculate",
       data: {
-        targetAxis: sharedConfig.target.targetAxis,
-        targetRadius: sharedConfig.target.targetRadius,
-        initialY: sharedConfig.origin.initialY,
+        ...sharedConfig,
         initialX: initialX,
-        radialVelocity: sharedConfig.origin.radialVelocity,
-        targetY: sharedConfig.target.targetY,
-        minHitAngle: sharedConfig.target.minHitAngle,
-        maxHitAngle: sharedConfig.target.maxHitAngle,
         physicalValues: {
           ...sharedConfig.hardware,
           ...sharedConfig.aerodynamics,
         },
-        costConfig: sharedConfig.cost,
-        obstacles: sharedConfig.obstacles, 
-        resolutionMode: sharedConfig.resolutionMode,
       },
     };
 

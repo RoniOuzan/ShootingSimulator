@@ -10,19 +10,19 @@ import OptimalShotView from "./optimal/OptimalShotView";
 
 const DEFAULT_CONFIG: SharedConfig = {
   origin: {
-    initialY: 0,
+    initialY: 0.5,
     radialVelocity: 0,
   },
   target: {
-    targetY: 2.0,
+    center: { x: 0, y: 2.0 },
     minHitAngle: -90,
-    maxHitAngle: -30,
-    targetAxis: "HORIZONTAL",
-    targetRadius: 0.3,
+    maxHitAngle: -10,
+    axis: "HORIZONTAL",
+    radius: 0.3,
   },
   aerodynamics: {
     mass: 0.22,
-    diameter: 0.075,
+    radius: 0.075,
     dragCoeff: 0.5,
     spinRPSPerMS: 1,
     magnusCoeff: 0.5,
@@ -170,13 +170,17 @@ export default function App() {
   const updateConfig = useCallback(
     <K extends keyof SharedConfig>(
       section: K,
-      updates: Partial<SharedConfig[K]> | SharedConfig[K], 
+      updates: Partial<SharedConfig[K]> | SharedConfig[K],
     ) => {
       setSharedConfig((prev) => {
         const prevValue = prev[section];
 
         // Check if the value is an array (obstacles) or a primitive (resolutionMode string)
-        if (typeof prevValue !== "object" || prevValue === null || Array.isArray(prevValue)) {
+        if (
+          typeof prevValue !== "object" ||
+          prevValue === null ||
+          Array.isArray(prevValue)
+        ) {
           return {
             ...prev,
             [section]: updates,
@@ -186,7 +190,7 @@ export default function App() {
         // Otherwise, it's a nested config object (origin, target, etc.), so merge it
         return {
           ...prev,
-          [section]: { ...prevValue, ...(updates as any) }, 
+          [section]: { ...prevValue, ...(updates as any) },
         };
       });
     },

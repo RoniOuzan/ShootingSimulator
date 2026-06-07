@@ -1,8 +1,12 @@
-package com.shooting_simulator.simulation;
+package com.shooting_simulator.simulation.physics;
 
-import com.shooting_simulator.Constants;
+import com.shooting_simulator.simulation.records.PhysicalValues;
+import com.shooting_simulator.simulation.records.Sample;
+import com.shooting_simulator.simulation.records.TargetAxis;
+import com.shooting_simulator.simulation.Trajectory;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
-import com.shooting_simulator.simulation.resolution.CenterResolution;
+import com.shooting_simulator.simulation.records.ShooterState;
+import com.shooting_simulator.simulation.records.TargetConfig;
 import com.shooting_simulator.simulation.resolution.Resolution;
 import com.shooting_simulator.util.math.MathUtil;
 import com.shooting_simulator.util.math.geometry.Rotation2d;
@@ -13,32 +17,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Getter
-public class TrajectoryBuilder {
+public class TrajectorySolver {
 
-    private final Translation2d initialPosition;
-    private final double radialVelocity;
-    private final Translation2d target;
-    private final TargetAxis targetAxis;
+    private final ShooterState state;
+    private final TargetConfig target;
 
     private final Resolution resolution;
-
-    private final double minHitAngle;
-    private final double maxHitAngle;
 
     private final PhysicalValues physicalValues;
     private final List<Obstacle> obstacles;
 
-    public TrajectoryBuilder(Translation2d initialPosition, double radialVelocity, Translation2d target, TargetAxis targetAxis, double minHitAngle, double maxHitAngle, PhysicalValues physicalValues, List<Obstacle> obstacles, Resolution resolution) {
-        this.initialPosition = initialPosition;
-        this.radialVelocity = radialVelocity;
+    private final AerodynamicsModel aerodynamicsModel;
+
+    public TrajectorySolver(ShooterState state, TargetConfig target, PhysicalValues physicalValues, List<Obstacle> obstacles, Resolution resolution) {
+        this.state = state;
         this.target = target;
-        this.targetAxis = targetAxis;
-        this.minHitAngle = minHitAngle;
-        this.maxHitAngle = maxHitAngle;
         this.physicalValues = physicalValues;
         this.obstacles = obstacles == null ? new ArrayList<>() : obstacles;
 
         this.resolution = resolution;
+
+        this.aerodynamicsModel = new AerodynamicsModel(physicalValues);
     }
 
     public boolean isInsideTarget(Sample sample) {
@@ -47,8 +46,8 @@ public class TrajectoryBuilder {
     }
 
     public boolean isInsideTarget(Translation2d position) {
-        boolean withinXBounds = Math.abs(position.getX() - this.target.getX()) <= this.resolution.getTargetTolerance();
-        boolean withinYBounds = Math.abs(position.getY() - this.target.getY()) <= this.resolution.getTargetTolerance();
+        boolean withinXBounds = Math.abs(position.getX() - this.target.center().getX()) <= this.resolution.getTargetTolerance();
+        boolean withinYBounds = Math.abs(position.getY() - this.target.center().getY()) <= this.resolution.getTargetTolerance();
         return withinXBounds && withinYBounds;
     }
 
@@ -68,13 +67,13 @@ public class TrajectoryBuilder {
 
         final Translation2d initialShootingVelocity = new Translation2d(exitVelocity, angle);
 
-        Translation2d position = this.initialPosition;
-        Translation2d velocity = initialShootingVelocity.plus(new Translation2d(-this.radialVelocity, 0));
+        Translation2d position = this.state.initialPosition();
+        Translation2d velocity = initialShootingVelocity.plus(new Translation2d(-this.state.radialVelocity(), 0));
         samples.add(new Sample(position, velocity, new Translation2d(), 0));
 
         double time = 0;
         while (shouldCalculateTrajectory(position)) {
-            Translation2d acceleration = calculateAcceleration(velocity);
+            Translation2d acceleration = this.aerodynamicsModel.calculateAcceleration(velocity);
 
             // Calculate next position using exact kinematics (matches your quadratic solver)
             Translation2d nextPosition = position
@@ -90,7 +89,7 @@ public class TrajectoryBuilder {
                 samples.add(hitSample);
 
                 // Only stops if vertical because in horizontal it can pass the y twice
-                if (this.targetAxis == TargetAxis.VERTICAL)
+                if (this.target.axis() == TargetAxis.VERTICAL)
                     break;
             }
 
@@ -109,14 +108,14 @@ public class TrajectoryBuilder {
     }
 
     private boolean isPassedTarget(Translation2d prev, Translation2d next, Translation2d velocity, boolean isFlat) {
-        if (this.targetAxis == TargetAxis.VERTICAL) {
-            return prev.getX() <= this.target.getX() && next.getX() > this.target.getX();
+        if (this.target.axis() == TargetAxis.VERTICAL) {
+            return prev.getX() <= this.target.center().getX() && next.getX() > this.target.center().getX();
         }
 
         if (isFlat) {
-            return velocity.getY() > 0 && prev.getY() <= this.target.getY() && next.getY() > this.target.getY();
+            return velocity.getY() > 0 && prev.getY() <= this.target.center().getY() && next.getY() > this.target.center().getY();
         } else {
-            return velocity.getY() < 0 && prev.getY() >= this.target.getY() && next.getY() < this.target.getY();
+            return velocity.getY() < 0 && prev.getY() >= this.target.center().getY() && next.getY() < this.target.center().getY();
         }
     }
 
@@ -130,10 +129,10 @@ public class TrajectoryBuilder {
     }
 
     private Sample calculateLastSample(Translation2d position, Translation2d velocity, Translation2d acceleration, double time) {
-        double delta = this.targetAxis.getTargetAxis(this.target) - this.targetAxis.getTargetAxis(position);
+        double delta = this.target.axis().getTargetAxis(this.target.center()) - this.target.axis().getTargetAxis(position);
 
         // Solve: 0.5*a*t^2 + v*t - delta = 0
-        double[] roots = MathUtil.quadraticSolver(0.5 * this.targetAxis.getTargetAxis(acceleration), this.targetAxis.getTargetAxis(velocity), -delta);
+        double[] roots = MathUtil.quadraticSolver(0.5 * this.target.axis().getTargetAxis(acceleration), this.target.axis().getTargetAxis(velocity), -delta);
 
         double exactT = this.resolution.getPeriod(); // fallback
         if (roots.length == 1) {
@@ -156,60 +155,23 @@ public class TrajectoryBuilder {
     }
 
     private boolean isInHitAngleRange(Rotation2d angle) {
-        return angle.getDegrees() >= this.minHitAngle && angle.getDegrees() <= this.maxHitAngle;
+        return angle.getDegrees() >= this.target.minHitAngle() && angle.getDegrees() <= this.target.maxHitAngle();
     }
 
-    private Translation2d calculateAcceleration(Translation2d velocity) {
-        Translation2d totalAcceleration = new Translation2d(0, Constants.GRAVITY); // gravity
-        double vMag = velocity.getNorm();
-
-        if (vMag > 0.001) { // Prevent division by zero
-            double radius = this.physicalValues.diameter;
-            double area = Math.PI * Math.pow(radius, 2);
-
-            Translation2d dragAcceleration = calculateDrag(velocity, area);
-            Translation2d magnusAcceleration = calculateMagnus(velocity, radius, area);
-
-            totalAcceleration = totalAcceleration.plus(dragAcceleration).plus(magnusAcceleration);
-        }
-
-        return totalAcceleration;
+    public TrajectorySolver moveTarget(Translation2d offset) {
+        return new TrajectorySolver(
+                this.state,
+                this.target.moveBy(offset),
+                this.physicalValues,
+                this.obstacles,
+                this.resolution
+        );
     }
 
-    private Translation2d calculateDrag(Translation2d velocity, double area) {
-        double vMag = velocity.getNorm();
-
-        // F_d = 0.5 * rho * v^2 * C_d * A
-        double dragForce = 0.5 * Constants.AIR_DENSITY * (vMag * vMag) * this.physicalValues.dragCoeff * area;
-        // a = F / m
-        double dragAccMag = dragForce / this.physicalValues.mass;
-
-        // Drag always opposes the velocity vector
-        return velocity.div(vMag).times(-dragAccMag);
-    }
-
-    private Translation2d calculateMagnus(Translation2d velocity, double radius, double area) {
-        double omega = this.getBallRPS(velocity.getNorm()) * (2 * Math.PI);
-
-        // Calculate the Magnus scalar (v cancels out with the perpendicular vector normalizer)
-        double magnusScalar = (0.5 * Constants.AIR_DENSITY * this.physicalValues.magnusCoeff * radius * omega * area) / this.physicalValues.mass;
-
-        // The cross product of spin and velocity results in a perpendicular vector: (-Vy, Vx)
-        return new Translation2d(-velocity.getY() * magnusScalar, velocity.getX() * magnusScalar);
-    }
-
-    private double getBallRPS(double velocity) {
-        return this.physicalValues.spinRPSPerMS * velocity;
-    }
-
-    public TrajectoryBuilder moveTarget(Translation2d offset) {
-        return new TrajectoryBuilder(
-                this.initialPosition,
-                this.radialVelocity,
-                this.target.plus(offset),
-                this.targetAxis,
-                this.minHitAngle,
-                this.maxHitAngle,
+    public TrajectorySolver moveTarget(double offset) {
+        return new TrajectorySolver(
+                this.state,
+                this.target.moveBy(this.target.axis().create(offset)),
                 this.physicalValues,
                 this.obstacles,
                 this.resolution
@@ -231,7 +193,7 @@ public class TrajectoryBuilder {
             if (!trajectory.isReachedTargetHeight()) {
                 min = mid;
             } else {
-                boolean overshot = this.targetAxis.getErrorAxis(trajectory.getHitSample().getPosition()) > this.targetAxis.getErrorAxis(this.target);
+                boolean overshot = this.target.axis().getErrorAxis(trajectory.getHitSample().getPosition()) > this.target.axis().getErrorAxis(this.target.center());
 
                 if (isFlat) {
                     if (overshot) min = mid;
@@ -256,7 +218,7 @@ public class TrajectoryBuilder {
             if (!trajectory.isReachedTargetHeight()) {
                 min = mid;
             } else {
-                boolean overshot = this.targetAxis.getErrorAxis(trajectory.getHitSample().getPosition()) > this.targetAxis.getErrorAxis(this.target);
+                boolean overshot = this.target.axis().getErrorAxis(trajectory.getHitSample().getPosition()) > this.target.axis().getErrorAxis(this.target.center());
 
                 if (isFlat) {
                     // Flat arc (usually < 45 deg): Increasing angle INCREASES distance.

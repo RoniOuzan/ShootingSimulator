@@ -25,7 +25,10 @@ export default function DistanceSweepView({
   eta,
 }: Props) {
   // Tab-specific settings with persistence
-  const [simulationType, setSimulationType] = usePersistedState<SimulationType>("sweep_simulationType", "CENTER");
+  const [simulationType, setSimulationType] = usePersistedState<SimulationType>(
+    "sweep_simulationType",
+    "CENTER",
+  );
   const [minDist, setMinDist] = usePersistedState("sweep_minDist", 1);
   const [maxDist, setMaxDist] = usePersistedState("sweep_maxDist", 6);
   const [distStep, setDistStep] = usePersistedState("sweep_distStep", 0.2);
@@ -37,21 +40,12 @@ export default function DistanceSweepView({
       type: "sweep",
       data: {
         simulationType,
-        targetAxis: sharedConfig.target.targetAxis,
-        targetRadius: sharedConfig.target.targetRadius,
-        initialY: sharedConfig.origin.initialY,
-        radialVelocity: sharedConfig.origin.radialVelocity,
-        targetY: sharedConfig.target.targetY,
-        minHitAngle: sharedConfig.target.minHitAngle,
-        maxHitAngle: sharedConfig.target.maxHitAngle,
+        ...sharedConfig,
         sweepBounds: { minDist, maxDist, distStep },
         physicalValues: {
           ...sharedConfig.hardware,
           ...sharedConfig.aerodynamics,
         },
-        costConfig: sharedConfig.cost,
-        obstacles: sharedConfig.obstacles, 
-        resolutionMode: sharedConfig.resolutionMode,
       },
     };
 
@@ -101,9 +95,27 @@ export default function DistanceSweepView({
         <div className="tab-config-card">
           <h3>Simulation Type</h3>
           <div className="mode-toggle" style={{ width: "100%" }}>
-            <div className="mode-toggle-slider" style={{ transform: simulationType === "OPTIMAL" ? "translateX(100%)" : "translateX(0%)" }} />
-            <button onClick={() => setSimulationType("CENTER")} className={`btn-toggle ${simulationType === "CENTER" ? "active-mode" : ""}`}>Center</button>
-            <button onClick={() => setSimulationType("OPTIMAL")} className={`btn-toggle ${simulationType === "OPTIMAL" ? "active-mode" : ""}`}>Optimal</button>
+            <div
+              className="mode-toggle-slider"
+              style={{
+                transform:
+                  simulationType === "OPTIMAL"
+                    ? "translateX(100%)"
+                    : "translateX(0%)",
+              }}
+            />
+            <button
+              onClick={() => setSimulationType("CENTER")}
+              className={`btn-toggle ${simulationType === "CENTER" ? "active-mode" : ""}`}
+            >
+              Center
+            </button>
+            <button
+              onClick={() => setSimulationType("OPTIMAL")}
+              className={`btn-toggle ${simulationType === "OPTIMAL" ? "active-mode" : ""}`}
+            >
+              Optimal
+            </button>
           </div>
         </div>
 

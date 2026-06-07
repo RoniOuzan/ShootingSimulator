@@ -5,6 +5,9 @@ import com.shooting_simulator.simulation.*;
 import com.shooting_simulator.simulation.optimal.TrajectoryCouple;
 import com.shooting_simulator.simulation.optimal.TrajectoryOptimalChooser;
 import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.records.CostWeights;
+import com.shooting_simulator.simulation.records.PhysicalValues;
+import com.shooting_simulator.simulation.records.TargetConfig;
 import com.shooting_simulator.simulation.resolution.OptimalResolution;
 import com.shooting_simulator.util.math.geometry.Translation2d;
 import org.java_websocket.WebSocket;
@@ -14,65 +17,48 @@ import java.util.List;
 public class OptimalPacket implements DataPacket {
 
     public double initialX;
-    public double initialY;
+    public OriginParams origin;
 
-    public double radialVelocity;
-
-    public double targetY;
-    public double targetRadius;
-    public String targetAxis;
+    public TargetConfig target;
 
     // Limits
     public PhysicalValues physicalValues;
-    public CostWeights costConfig;
+    public CostWeights cost;
     public List<Obstacle> obstacles;
-
-    public double minHitAngle;
-    public double maxHitAngle;
 
     public String resolutionMode;
 
     @Override
     public void handle(WebSocket conn, SimulatorServer server) {
-        Translation2d initialPos = new Translation2d(this.initialX, this.initialY);
-        ResultsPayload payload = getResultsPayload(initialPos, this.targetY);
-
-        server.sendPacket(conn, "optimalResults", payload);
-    }
-
-    private ResultsPayload getResultsPayload(Translation2d initialPos, double targetY) {
         TrajectoryOptimalChooser chooser = new TrajectoryOptimalChooser(
+                this.origin.getState(this.initialX),
+                this.target,
                 this.physicalValues,
-                initialPos,
-                this.radialVelocity,
-                targetY,
-                this.targetRadius,
-                TargetAxis.valueOf(this.targetAxis),
-                this.minHitAngle,
-                this.maxHitAngle,
-                this.costConfig,
+                this.cost,
                 this.obstacles,
                 OptimalResolution.valueOf(this.resolutionMode)
         );
 
-        List<TrajectoryChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
-        List<TrajectoryChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 10);
+        List<TrajectoryCenterChooser.RobustnessPoint> rawRobustness = chooser.getRobustnessSweep();
+        List<TrajectoryCenterChooser.RobustnessPoint> downsampledRobustness = decimate(rawRobustness, 10);
 
         List<TrajectoryCouple> trajectories = chooser.calculateTrajectories();
 
-        return new ResultsPayload(trajectories,  chooser.getBestTrajectory(), downsampledRobustness, chooser.getCostSweep(), chooser.getVelocityGapSweep(), chooser.getGapDerivativeSweep());
+        ResultsPayload payload = new ResultsPayload(trajectories,  chooser.getBestTrajectory(), downsampledRobustness, chooser.getCostSweep(), chooser.getVelocityGapSweep(), chooser.getGapDerivativeSweep());
+
+        server.sendPacket(conn, "optimalResults", payload);
     }
 
     @SuppressWarnings("unused")
     private static class ResultsPayload {
         public List<TrajectoryCouple> trajectories;
         public Trajectory bestTrajectory;
-        public List<TrajectoryChooser.RobustnessPoint> robustnessData;
+        public List<TrajectoryCenterChooser.RobustnessPoint> robustnessData;
         public List<Translation2d> costData;
         public List<Translation2d> velocityGapData;
         public List<Translation2d> gapDerivativeData;
 
-        public ResultsPayload(List<TrajectoryCouple> trajectories, Trajectory bestTrajectory, List<TrajectoryChooser.RobustnessPoint> robustnessData, List<Translation2d> costData, List<Translation2d> velocityGapData, List<Translation2d> gapDerivativeData) {
+        public ResultsPayload(List<TrajectoryCouple> trajectories, Trajectory bestTrajectory, List<TrajectoryCenterChooser.RobustnessPoint> robustnessData, List<Translation2d> costData, List<Translation2d> velocityGapData, List<Translation2d> gapDerivativeData) {
             this.trajectories = trajectories;
             this.bestTrajectory = bestTrajectory;
             this.robustnessData = robustnessData;

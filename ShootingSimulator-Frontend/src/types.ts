@@ -7,7 +7,7 @@ export interface Translation2d {
 
 export interface AerodynamicParams {
   mass: number;
-  diameter: number;
+  radius: number;
   dragCoeff: number;
   spinRPSPerMS: number;
   magnusCoeff: number;
@@ -23,11 +23,11 @@ export interface HardwareLimits {
 }
 
 export interface TargetParams {
-  targetY: number;
+  center: Translation2d;
   minHitAngle: number;
   maxHitAngle: number;
-  targetAxis: TargetAxis;
-  targetRadius: number;
+  axis: TargetAxis;
+  radius: number;
 }
 
 export interface OriginParams {
@@ -111,10 +111,18 @@ export interface Translation2d {
 }
 
 export type ObstacleConfig =
-  | { type: "CIRCLE"; id: string; name: string; center: Translation2d; radius: number }
+  | {
+      type: "CIRCLE";
+      id: string;
+      name: string;
+      center: Translation2d;
+      radius: number;
+    }
   | { type: "POLYGON"; id: string; name: string; vertices: Translation2d[] };
 
-export const parseVelocityVector = (vector: Translation2d | null | undefined) => {
+export const parseVelocityVector = (
+  vector: Translation2d | null | undefined,
+) => {
   if (!vector) return { angle: 0, velocity: 0 };
   const velocity = Math.hypot(vector.x, vector.y);
   const angle = Math.atan2(vector.y, vector.x) * (180 / Math.PI);

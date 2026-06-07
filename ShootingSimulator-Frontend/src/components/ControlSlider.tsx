@@ -67,7 +67,7 @@ export default function ControlSlider({
 
   return (
     <div className={`slider-wrapper ${disabled ? 'disabled' : ''}`}>
-      <div className="slider-header">
+    <div className="slider-header">
         <span className="slider-label">{label}</span>
         {isEditing ? (
           <input
