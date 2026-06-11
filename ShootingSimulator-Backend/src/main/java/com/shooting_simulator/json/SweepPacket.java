@@ -58,27 +58,32 @@ public class SweepPacket implements DataPacket {
             Trajectory best = chooser.getBestTrajectory();
 
             if (best != null) {
-                double vReq = best.getInitialShootingVelocity().getNorm();
+                double velocity = best.getInitialShootingVelocity().getNorm();
                 double angle = best.getInitialShootingVelocity().getAngle().getDegrees();
-
-//                double rssError = chooser.calculateTrajectoryCost(best);
+                double tolVelPos = best.getTolerance().getVelocityPositive();
+                double tolVelNeg = best.getTolerance().getVelocityNegative();
+                double tolAnglePos = best.getTolerance().getAnglePositive();
+                double tolAngleNeg = best.getTolerance().getAngleNegative();
 
                 Double angleDerive = (prevAngle != null) ? (angle - prevAngle) / distanceStep : null;
-                Double velDerive = (prevVel != null) ? (vReq - prevVel) / distanceStep : null;
+                Double velDerive = (prevVel != null) ? (velocity - prevVel) / distanceStep : null;
 
                 sweepData.add(new DistancePoint(
                         Math.round(x * 1000.0) / 1000.0,
                         Math.round(angle * 1000.0) / 1000.0,
-                        Math.round(vReq * 1000.0) / 1000.0,
-//                        Math.round(rssError * 1000.0) / 1000.0,
+                        Math.round(velocity * 1000.0) / 1000.0,
+                        Math.round(tolVelPos * 1000.0) / 1000.0,
+                        Math.round(tolVelNeg * 1000.0) / 1000.0,
+                        Math.round(tolAnglePos * 1000.0) / 1000.0,
+                        Math.round(tolAngleNeg * 1000.0) / 1000.0,
                         angleDerive == null ? null : Math.round(angleDerive * 1000.0) / 1000.0,
                         velDerive == null ? null : Math.round(velDerive * 1000.0) / 1000.0
                 ));
 
                 prevAngle = angle;
-                prevVel = vReq;
+                prevVel = velocity;
             } else {
-                sweepData.add(new DistancePoint(Math.round(x * 1000.0) / 1000.0, null, null, null, null));
+                sweepData.add(new DistancePoint(Math.round(x * 1000.0) / 1000.0, null, null, null, null, null, null, null, null));
             }
 
             // --- Progress & ETA Tracking ---
@@ -100,7 +105,7 @@ public class SweepPacket implements DataPacket {
 
     public record DistancePoint(
             double distanceX, Double optimalAngle, Double optimalVelocity,
-//            Double rssError,
+            Double tolVelPos, Double tolVelNeg, Double tolAnglePos, Double tolAngleNeg,
             Double angleDerivative, Double velocityDerivative
     ) {}
 

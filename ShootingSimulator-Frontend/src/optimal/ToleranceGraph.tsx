@@ -11,6 +11,7 @@ export interface CustomGraph {
 interface Props {
   closeTrajectories: Trajectory[];
   farTrajectories: Trajectory[];
+  centerTrajectories?: Trajectory[];
   bestTrajectory: Trajectory | null;
   hardwareConfig: SharedConfig["hardware"];
   customGraphs?: CustomGraph[];
@@ -20,9 +21,10 @@ interface BasinPoint {
   angle: number;
   minVel?: number;
   maxVel?: number;
+  centerVel: number;
 }
 
-export default function ToleranceGraph({ closeTrajectories, farTrajectories, bestTrajectory, hardwareConfig, customGraphs = [] }: Props) {
+export default function ToleranceGraph({ closeTrajectories, farTrajectories, centerTrajectories, bestTrajectory, hardwareConfig, customGraphs = [] }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -58,8 +60,8 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
     if (closeTrajectories) {
       closeTrajectories.forEach((trajectory) => {
         const { angle, velocity } = parseVelocityVector(trajectory.initialShootingVelocity);
-        const key = angle.toFixed(1);
-        if (!dataMap[key]) dataMap[key] = { angle };
+        const key = angle.toFixed(2);
+        if (!dataMap[key]) dataMap[key] = { angle, centerVel: 0 };
         dataMap[key].minVel = velocity;
       });
     }
@@ -67,14 +69,23 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
     if (farTrajectories) {
       farTrajectories.forEach((trajectory) => {
         const { angle, velocity } = parseVelocityVector(trajectory.initialShootingVelocity);
-        const key = angle.toFixed(1);
-        if (!dataMap[key]) dataMap[key] = { angle };
+        const key = angle.toFixed(2);
+        if (!dataMap[key]) dataMap[key] = { angle, centerVel: 0 };
         dataMap[key].maxVel = velocity;
       });
     }
 
+    if (centerTrajectories) {
+      centerTrajectories.forEach((trajectory) => {
+        const { angle, velocity } = parseVelocityVector(trajectory.initialShootingVelocity);
+        const key = angle.toFixed(2);
+        if (!dataMap[key]) dataMap[key] = { angle, centerVel: velocity };
+        else dataMap[key].centerVel = velocity;
+      });
+    }
+
     const basinPoints = Object.values(dataMap)
-      .filter((p) => p.minVel !== undefined && p.maxVel !== undefined)
+      .filter((p) => p.minVel !== undefined || p.maxVel !== undefined || p.centerVel !== undefined)
       .sort((a, b) => a.angle - b.angle);
 
     if (basinPoints.length === 0) {
@@ -86,15 +97,15 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
     }
 
     // --- Coordinate Bounds ---
-    const minVelocities = basinPoints.map((p) => p.minVel!);
-    const maxVelocities = basinPoints.map((p) => p.maxVel!);
+    const minVelocities = basinPoints.filter(p => p.minVel !== undefined).map(p => p.minVel!);
+    // const maxVelocities = basinPoints.filter(p => p.maxVel !== undefined).map(p => p.maxVel!);
 
     // Prevent division by zero if there's only 1 point
     let minAngleBounds = hardwareConfig.minAngle;
     let maxAngleBounds = hardwareConfig.maxAngle;
 
-    let minVelBounds = Math.min(...minVelocities) - 0.5;
-    let maxVelBounds = Math.max(...maxVelocities) + 0.5;
+    let minVelBounds = Math.min(hardwareConfig.maxVel / 2, ...minVelocities);
+    let maxVelBounds = hardwareConfig.maxVel;
     if (minVelBounds === maxVelBounds) {
       minVelBounds -= 1;
       maxVelBounds += 1;
@@ -233,10 +244,20 @@ export default function ToleranceGraph({ closeTrajectories, farTrajectories, bes
     ctx.beginPath();
     ctx.strokeStyle = "#6e6e6e";
     ctx.lineWidth = 1;
-    basinPoints.forEach((p, i) => {
-      if (i === 0) ctx.moveTo(toScreenX(p.angle), toScreenY((p.minVel! + p.maxVel!) / 2));
-      else ctx.lineTo(toScreenX(p.angle), toScreenY((p.minVel! + p.maxVel!) / 2));
-    });
+    if (centerTrajectories) {
+      basinPoints.forEach((p, i) => {
+        if (!p.centerVel) return;
+        if (i === 0) ctx.moveTo(toScreenX(p.angle), toScreenY(p.centerVel!));
+        else ctx.lineTo(toScreenX(p.angle), toScreenY(p.centerVel!));
+      });
+    } else {
+      basinPoints.forEach((p, i) => {
+        console.log(p)
+        if (!p.minVel || !p.maxVel) return;
+        if (i === 0) ctx.moveTo(toScreenX(p.angle), toScreenY((p.minVel! + p.maxVel!) / 2));
+        else ctx.lineTo(toScreenX(p.angle), toScreenY((p.minVel! + p.maxVel!) / 2));
+      });
+    }
     ctx.stroke();
 
     // --- 4. Render Center Point and Tolerances ---

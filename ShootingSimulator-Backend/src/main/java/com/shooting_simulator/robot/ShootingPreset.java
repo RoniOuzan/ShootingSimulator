@@ -12,7 +12,7 @@ public class ShootingPreset {
     private final double velocity;
 
     private final double dPitch; // radians
-    private final double dYaw; // radians
+    private final double dYaw;   // radians
     private final double dVelocity;
 
     private final double flightTime;

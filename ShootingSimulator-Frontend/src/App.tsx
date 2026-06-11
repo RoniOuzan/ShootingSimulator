@@ -72,6 +72,8 @@ export default function App() {
   // Data stores
   const [simulatorResults, setSimulatorResults] = useState<SimulationResults>({
     trajectories: [],
+    closeTrajectories: [],
+    farTrajectories: [],
     bestTrajectory: null,
     bestInfo: null,
     robustnessData: [],
@@ -125,6 +127,8 @@ export default function App() {
         if (message.type === "results") {
           setSimulatorResults({
             trajectories: message.data.trajectories || [],
+            closeTrajectories: message.data.closeTrajectories || [],
+            farTrajectories: message.data.farTrajectories || [],
             bestTrajectory: message.data.bestTrajectory || null,
             bestInfo: message.data.bestInfo || null,
             robustnessData: message.data.robustnessData || [],

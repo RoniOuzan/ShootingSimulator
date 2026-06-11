@@ -420,7 +420,7 @@ export default function SurfaceSweepView({
           <div style={{ marginTop: 20 }}>
             <CodeExporter
               models={models}
-              hardware={sharedConfig.hardware}
+              sharedConfig={sharedConfig}
               datasetCounts={{
                 normal: exportDataset.normal.length,
                 min: exportDataset.min.length,

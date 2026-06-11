@@ -90,6 +90,8 @@ export interface Tolerance {
 
 export interface SimulationResults {
   trajectories: Trajectory[];
+  closeTrajectories: Trajectory[];
+  farTrajectories: Trajectory[];
   bestTrajectory: Trajectory | null;
   bestInfo: { angle: number; velocity: number } | null;
   robustnessData: any[];

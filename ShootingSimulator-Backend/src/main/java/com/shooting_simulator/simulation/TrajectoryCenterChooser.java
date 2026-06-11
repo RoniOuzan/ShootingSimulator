@@ -17,7 +17,8 @@ import lombok.Getter;
 @Getter
 public class TrajectoryCenterChooser extends Chooser {
 
-    private static final double ANGLE_DT_DIVIDER = 50;
+    private static final int ANGLE_DT_DIVIDER = 100;
+    private static final int EDGES_ANGLE_DT_DIVIDER = 100;
 
     private static final double MISS_TARGET_COST = 100;
     private static final double SCALE_ROBUSTNESS = 200;
@@ -25,9 +26,9 @@ public class TrajectoryCenterChooser extends Chooser {
     private static final double SCALE_TIME = 1.0;
     private static final double SCALE_ANGLE = 0.04;
 
-    private static final boolean[] SHOT_PHASES = {true, false};
-
     private final TrajectorySolver builder;
+    private final TrajectorySolver closeBuilder;
+    private final TrajectorySolver farBuilder;
 
     private final List<RobustnessPoint> robustnessSweep = new ArrayList<>();
     private final List<Translation2d> costSweep = new ArrayList<>();
@@ -36,7 +37,10 @@ public class TrajectoryCenterChooser extends Chooser {
 
     public TrajectoryCenterChooser(ShooterState state, TargetConfig target, PhysicalValues physicalValues, CostWeights costWeights, List<Obstacle> obstacles, CenterResolution resolution) {
         super(target, physicalValues, costWeights, obstacles, resolution);
+
         this.builder = new TrajectorySolver(state, target, physicalValues, obstacles, resolution);
+        this.closeBuilder = this.builder.moveTarget(-target.radius());
+        this.farBuilder = this.builder.moveTarget(target.radius());
     }
 
     public List<Translation2d> getCostSweep() {
@@ -80,35 +84,64 @@ public class TrajectoryCenterChooser extends Chooser {
     }
 
     private void evaluateTolerance(Trajectory trajectory) {
-        double angle = trajectory.getInitialShootingVelocity().getAngle().getDegrees();
-        double velocity = trajectory.getInitialShootingVelocity().getNorm();
+        double vNorm = trajectory.getInitialShootingVelocity().getNorm();
+        Rotation2d rotCenter = trajectory.getInitialShootingVelocity().getAngle();
         boolean isFlat = trajectory.isFlat();
 
-        TrajectorySolver farBuilder = this.builder.moveTarget(this.target.radius());
-        TrajectorySolver closeBuilder = this.builder.moveTarget(-this.target.radius());
+        // Use tiny nudges to measure physical sensitivity in BOTH directions
+        double epsAngle = 0.1; // degrees
+        double epsVel = 0.1; // m/s
 
-        double farVelocity = farBuilder.findTrajectoryForAngle(angle, isFlat).getInitialShootingVelocity().getNorm();
-        double closeVelocity = closeBuilder.findTrajectoryForAngle(angle, isFlat).getInitialShootingVelocity().getNorm();
+        double posCenter = this.target.axis().getErrorAxis(trajectory.getHitSample().getPosition());
 
-        double farAngle = farBuilder.findTrajectoryForVelocity(velocity, isFlat).getInitialShootingVelocity().getAngle().getDegrees();
-        double closeAngle = closeBuilder.findTrajectoryForVelocity(velocity, isFlat).getInitialShootingVelocity().getAngle().getDegrees();
+        // --- Measure Angle Sensitivity (+ and -) ---
+        Trajectory tAnglePlus = this.builder.simulateTrajectory(vNorm, rotCenter.plus(Rotation2d.fromDegrees(epsAngle)), false, true, isFlat);
+        double posAnglePlus = (tAnglePlus != null && tAnglePlus.isReachedTargetHeight())
+                ? this.target.axis().getErrorAxis(tAnglePlus.getHitSample().getPosition())
+                : posCenter;
 
-        // Calculate the slope (dV/dAngle) of the sweet spot band
-        double deltaV = farVelocity - closeVelocity;
-        double deltaA = farAngle - closeAngle;
+        Trajectory tAngleMinus = this.builder.simulateTrajectory(vNorm, rotCenter.minus(Rotation2d.fromDegrees(epsAngle)), false, true, isFlat);
+        double posAngleMinus = (tAngleMinus != null && tAngleMinus.isReachedTargetHeight())
+                ? this.target.axis().getErrorAxis(tAngleMinus.getHitSample().getPosition())
+                : posCenter;
 
-        // The negative sign ensures the correct tilt direction based on trajectory phase (flat vs lob)
-        double slope = (deltaA != 0) ? -(deltaV / deltaA) : 0;
+        // --- Measure Velocity Sensitivity (+ and -) ---
+        Trajectory tVelPlus = this.builder.simulateTrajectory(vNorm + epsVel, rotCenter, false, true, isFlat);
+        double posVelPlus = (tVelPlus != null && tVelPlus.isReachedTargetHeight())
+                ? this.target.axis().getErrorAxis(tVelPlus.getHitSample().getPosition())
+                : posCenter;
 
-        // Convert the slope into degrees for your JS dashboard and isWithinTolerance method
+        Trajectory tVelMinus = this.builder.simulateTrajectory(vNorm - epsVel, rotCenter, false, true, isFlat);
+        double posVelMinus = (tVelMinus != null && tVelMinus.isReachedTargetHeight())
+                ? this.target.axis().getErrorAxis(tVelMinus.getHitSample().getPosition())
+                : posCenter;
+
+        // Calculate signed derivatives for both sides (Forward and Backward Difference)
+        double dPos_dAnglePlus = (posAnglePlus - posCenter) / epsAngle;
+        double dPos_dAngleMinus = (posCenter - posAngleMinus) / epsAngle;
+
+        double dPos_dVelPlus = (posVelPlus - posCenter) / epsVel;
+        double dPos_dVelMinus = (posCenter - posVelMinus) / epsVel;
+
+        // Calculate asymmetric tolerance bounds
+        double angleTolerancePlus = (Math.abs(dPos_dAnglePlus) > 0.0001) ? (this.target.radius() / Math.abs(dPos_dAnglePlus)) : 0;
+        double angleToleranceMinus = (Math.abs(dPos_dAngleMinus) > 0.0001) ? (this.target.radius() / Math.abs(dPos_dAngleMinus)) : 0;
+
+        double velTolerancePlus = (Math.abs(dPos_dVelPlus) > 0.0001) ? (this.target.radius() / Math.abs(dPos_dVelPlus)) : 0;
+        double velToleranceMinus = (Math.abs(dPos_dVelMinus) > 0.0001) ? (this.target.radius() / Math.abs(dPos_dVelMinus)) : 0;
+
+        // Calculate exact Ellipse Tilt using Central Difference (Averages the deltas for a better tangent)
+        double dPos_dAngleAvg = (posAnglePlus - posAngleMinus) / (2 * epsAngle);
+        double dPos_dVelAvg = (posVelPlus - posVelMinus) / (2 * epsVel);
+
+        double slope = (dPos_dVelAvg != 0) ? -(dPos_dAngleAvg / dPos_dVelAvg) : 0;
         double ellipseAngleDegrees = Math.toDegrees(Math.atan(slope));
 
-        // Pass your 4 original limits + the new tilt angle
         trajectory.setTolerance(new Tolerance(
-                Math.abs(farVelocity - velocity),
-                Math.abs(closeVelocity - velocity),
-                Math.abs(closeAngle - angle),
-                Math.abs(farAngle - angle),
+                velTolerancePlus,
+                velToleranceMinus,
+                angleToleranceMinus,
+                angleTolerancePlus,
                 ellipseAngleDegrees
         ));
     }
@@ -237,8 +270,8 @@ public class TrajectoryCenterChooser extends Chooser {
         this.bestTrajectory = null;
 
         for (double angle = minAngle; angle <= maxAngle; angle += angleDT) {
-            for (boolean isFlat : SHOT_PHASES) {
-                if (!canReachTarget(this.physicalValues.maxVel, angle, isFlat)) {
+            for (boolean isFlat : TrajectorySolver.SHOT_PHASES) {
+                if (!this.builder.canReachTarget(this.physicalValues.maxVel, angle, isFlat)) {
                     continue;
                 }
 
@@ -280,9 +313,12 @@ public class TrajectoryCenterChooser extends Chooser {
         return trajectories;
     }
 
-    private boolean canReachTarget(double velocity, double angle, boolean isFlat) {
-        Trajectory trajectory = this.builder.simulateTrajectory(velocity, Rotation2d.fromDegrees(angle), false, isFlat);
-        return trajectory.isReachedTargetHeight();
+    public List<Trajectory> getCloseTrajectories() {
+        return this.closeBuilder.getAllTrajectories(EDGES_ANGLE_DT_DIVIDER);
+    }
+
+    public List<Trajectory> getFarTrajectories() {
+        return this.farBuilder.getAllTrajectories(EDGES_ANGLE_DT_DIVIDER);
     }
 
     private double calculateMinAngle() {

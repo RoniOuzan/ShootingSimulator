@@ -13,6 +13,7 @@ export interface TargetVariable {
     excellent: number;
     acceptable: number;
   };
+  derivative: boolean;
 }
 
 export const TARGET_VARIABLES: Record<string, TargetVariable> = {
@@ -24,6 +25,7 @@ export const TARGET_VARIABLES: Record<string, TargetVariable> = {
     isBoundaryAxis: true,
     degrees: { normal: 5, min: null, max: null },
     thresholds: { excellent: 0.15, acceptable: 0.5 },
+    derivative: true,
   },
   velocity: {
     id: "velocity",
@@ -33,43 +35,70 @@ export const TARGET_VARIABLES: Record<string, TargetVariable> = {
     isBoundaryAxis: false,
     degrees: { normal: 5, min: 4, max: 3 },
     thresholds: { excellent: 0.05, acceptable: 0.2 },
+    derivative: true,
   },
   
-  velTolPos: {
-    id: "velTolPos",
-    matrixKey: "velTolPosMatrix",
+  flightTime: {
+    id: "flightTime",
+    matrixKey: "flightTimeMatrix",
+    name: "Flight Time",
+    unit: "s",
+    isBoundaryAxis: false,
+    degrees: { normal: 5, min: 4, max: 3 },
+    thresholds: { excellent: 0.05, acceptable: 0.2 },
+    derivative: false,
+  },
+  
+  toleranceVelPositive: {
+    id: "toleranceVelPositive",
+    matrixKey: "toleranceVelPositiveMatrix",
     name: "Pos Velocity Tolerance",
     unit: "m/s",
     isBoundaryAxis: false,
-    degrees: { normal: 5, min: 3, max: 3 },
-    thresholds: { excellent: 0.05, acceptable: 0.2 },
+    degrees: { normal: 5, min: 3, max: 5 },
+    thresholds: { excellent: 0.2, acceptable: 0.5 },
+    derivative: false,
   },
-  velTolNeg: {
-    id: "velTolNeg",
-    matrixKey: "velTolNegMatrix",
+  toleranceVelNegative: {
+    id: "toleranceVelNegative",
+    matrixKey: "toleranceVelNegativeMatrix",
     name: "Neg Velocity Tolerance",
     unit: "m/s",
     isBoundaryAxis: false,
-    degrees: { normal: 5, min: 3, max: 3 },
-    thresholds: { excellent: 0.05, acceptable: 0.2 },
+    degrees: { normal: 5, min: 3, max: 5 },
+    thresholds: { excellent: 0.2, acceptable: 0.5 },
+    derivative: false,
   },
-  angTolPos: {
-    id: "angTolPos",
-    matrixKey: "angTolPosMatrix",
+  toleranceAnglePositive: {
+    id: "toleranceAnglePositive",
+    matrixKey: "toleranceAnglePositiveMatrix",
     name: "Pos Angle Tolerance",
     unit: "°",
     isBoundaryAxis: false,
-    degrees: { normal: 5, min: 3, max: 3 }, 
-    thresholds: { excellent: 0.2, acceptable: 0.5 },
+    degrees: { normal: 5, min: 3, max: 5 }, 
+    thresholds: { excellent: 0.3, acceptable: 0.8 },
+    derivative: false,
   },
-  angTolNeg: {
-    id: "angTolNeg",
-    matrixKey: "angTolNegMatrix",
+  toleranceAngleNegative: {
+    id: "toleranceAngleNegative",
+    matrixKey: "toleranceAngleNegativeMatrix",
     name: "Neg Angle Tolerance",
     unit: "°",
     isBoundaryAxis: false,
-    degrees: { normal: 5, min: 3, max: 3 },
-    thresholds: { excellent: 0.2, acceptable: 0.5 },
+    degrees: { normal: 5, min: 3, max: 5 },
+    thresholds: { excellent: 0.3, acceptable: 0.8 },
+    derivative: false,
+  },
+
+  toleranceEllipseAngle: {
+    id: "toleranceEllipseAngle",
+    matrixKey: "toleranceEllipseAngleMatrix",
+    name: "Ellipse Angle Tolerance",
+    unit: "°",
+    isBoundaryAxis: false,
+    degrees: { normal: 5, min: 3, max: 4 },
+    thresholds: { excellent: 0.3, acceptable: 1 },
+    derivative: false,
   },
 };
 

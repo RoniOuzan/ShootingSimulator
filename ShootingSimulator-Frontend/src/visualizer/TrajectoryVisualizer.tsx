@@ -204,11 +204,12 @@ export default function TrajectoryVisualizer({
         </div>
 
         {/* Bottom Half: The Velocity vs Angle Tolerance Graph */}
-        <div className="view-panel" style={{ border: "1px solid #2a2a35", borderRadius: "8px", padding: "15px", minHeight: "400px" }}>
+        <div className="view-panel" style={{ border: "1px solid #2a2a35", borderRadius: "8px", padding: "15px", minHeight: "800px" }}>
           <h3 style={{ margin: "0 0 15px 0", color: "#fff", fontSize: "1rem" }}>Tolerance Basin & Ellipse Fit</h3>
           <ToleranceGraph 
-            closeTrajectories={results.trajectories}
-            farTrajectories={results.trajectories}
+            closeTrajectories={results.closeTrajectories}
+            farTrajectories={results.farTrajectories}
+            centerTrajectories={results.trajectories}
             bestTrajectory={results.bestTrajectory}
             hardwareConfig={sharedConfig.hardware}
           />

@@ -2,6 +2,7 @@ import MultivariateLinearRegression from "ml-regression-multivariate-linear";
 import { useMemo, useState } from "react";
 import "./CodeExporter.css"; // IMPORTANT: Import the new CSS file
 import { TARGET_VARIABLES, VAR_KEYS } from "./shooterConfig";
+import type { SharedConfig } from "../types";
 
 export interface DataPoint {
   distance: number;
@@ -26,7 +27,7 @@ interface Props {
     min: ModelState | null;
     max: ModelState | null;
   };
-  hardware: { minAngle: number; maxAngle: number };
+  sharedConfig: SharedConfig;
   datasetCounts?: { normal: number; min: number; max: number };
 }
 
@@ -145,6 +146,13 @@ public class ShootingPreset {
 
     private final double flightTime;
 
+    // --- Tolerance Sweet Spot ---
+    private final double velToleranceMinus;
+    private final double velTolerancePlus;
+    private final double angleToleranceMinus;
+    private final double angleTolerancePlus;
+    private final double ellipseAngleDegrees;
+
     public Translation3d getTranslation3d() {
         return new Translation3d(this.velocity,
                 new Rotation3d(0, -this.pitch.getRadians(), this.yaw.getRadians()));
@@ -153,7 +161,70 @@ public class ShootingPreset {
 }
 
 function buildAbstractModelCode(): string {
-  return `${BASE_PACKAGE}
+  // Dynamically generate standard getters and optional derivative methods
+  let abstractMethods = "";
+
+  for (const key of VAR_KEYS) {
+    const config = TARGET_VARIABLES[key];
+    const Name = key.charAt(0).toUpperCase() + key.slice(1);
+    const hasDerivatives = !!config.derivative;
+
+    abstractMethods += `
+    // =========================================================================
+    // ${config.name.toUpperCase()} TARGETS
+    // =========================================================================
+`;
+
+    if (config.isBoundaryAxis) {
+      abstractMethods += `
+    public abstract double get${Name}(double distanceMeters, double radialVelocityMps);`;
+      
+      if (hasDerivatives) {
+        abstractMethods += `
+    public abstract double get${Name}DerivativeDistance(double distanceMeters, double radialVelocityMps);
+    public abstract double get${Name}DerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);`;
+      }
+      abstractMethods += `\n`;
+    } else {
+      abstractMethods += `
+    public abstract double get${Name}Normal(double distanceMeters, double radialVelocityMps);
+    public abstract double get${Name}MinAngle(double distanceMeters, double radialVelocityMps);
+    public abstract double get${Name}MaxAngle(double distanceMeters, double radialVelocityMps);
+
+    public double get${Name}(double angle, double distanceMeters, double radialVelocityMps) {
+        if (angle <= getMinAngle()) return get${Name}MinAngle(distanceMeters, radialVelocityMps);
+        if (angle >= getMaxAngle()) return get${Name}MaxAngle(distanceMeters, radialVelocityMps);
+        return get${Name}Normal(distanceMeters, radialVelocityMps);
+    }`;
+
+      if (hasDerivatives) {
+        abstractMethods += `
+
+    public abstract double get${Name}NormalDerivativeDistance(double distanceMeters, double radialVelocityMps);
+    public abstract double get${Name}MinAngleDerivativeDistance(double distanceMeters, double radialVelocityMps);
+    public abstract double get${Name}MaxAngleDerivativeDistance(double distanceMeters, double radialVelocityMps);
+
+    public double get${Name}DerivativeDistance(double angle, double distanceMeters, double radialVelocityMps) {
+        if (angle <= getMinAngle()) return get${Name}MinAngleDerivativeDistance(distanceMeters, radialVelocityMps);
+        if (angle >= getMaxAngle()) return get${Name}MaxAngleDerivativeDistance(distanceMeters, radialVelocityMps);
+        return get${Name}NormalDerivativeDistance(distanceMeters, radialVelocityMps);
+    }
+
+    public abstract double get${Name}NormalDerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);
+    public abstract double get${Name}MinAngleDerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);
+    public abstract double get${Name}MaxAngleDerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);
+
+    public double get${Name}DerivativeRadialVelocity(double angle, double distanceMeters, double radialVelocityMps) {
+        if (angle <= getMinAngle()) return get${Name}MinAngleDerivativeRadialVelocity(distanceMeters, radialVelocityMps);
+        if (angle >= getMaxAngle()) return get${Name}MaxAngleDerivativeRadialVelocity(distanceMeters, radialVelocityMps);
+        return get${Name}NormalDerivativeRadialVelocity(distanceMeters, radialVelocityMps);
+    }`;
+      }
+      abstractMethods += `\n`;
+    }
+  }
+
+  let code = `${BASE_PACKAGE}
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -161,10 +232,6 @@ import edu.wpi.first.math.geometry.Translation2d;
 /**
  * Abstract base class for auto-generated shooter kinematics models.
  * Calculates positional targets and feedforward time-derivatives for shooting on the move.
- * <p>
- * Note on Coordinate System:
- * Radial Velocity is NEGATIVE when driving towards the target (distance is decreasing).
- * Radial Velocity is POSITIVE when driving away from the target (distance is increasing).
  */
 public abstract class ShootingModel {
 
@@ -174,78 +241,9 @@ public abstract class ShootingModel {
     /** @return The minimum physical pitch angle of the shooter pivot. */
     protected abstract double getMinAngle();
 
-    // =========================================================================
-    // BASE POSITIONAL TARGETS
-    // =========================================================================
-
-    /**
-     * Calculates the required shooter pitch angle.
-     * @param distanceMeters Distance from the robot to the target in meters.
-     * @param radialVelocityMps Radial velocity in meters/sec (negative = closing distance).
-     * @return The target pitch in degrees.
-     */
-    public abstract double getAngle(double distanceMeters, double radialVelocityMps);
-
-    /** Partial derivative of Pitch with respect to Distance (deg / m). */
-    public abstract double getAngleDerivativeDistance(double distanceMeters, double radialVelocityMps);
-
-    /** Partial derivative of Pitch with respect to Radial Velocity (deg / (m/s)). */
-    public abstract double getAngleDerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);
-
-    /**
-     * Calculates the estimated time the ball will be in the air.
-     * @return Flight time in seconds.
-     */
-    public abstract double getFlightTime(double distanceMeters, double radialVelocityMps);
-
-    // =========================================================================
-    // FLYWHEEL VELOCITY TARGETS
-    // =========================================================================
-
-    public abstract double getVelocityNormal(double distanceMeters, double radialVelocityMps);
-    public abstract double getVelocityMinAngle(double distanceMeters, double radialVelocityMps);
-    public abstract double getVelocityMaxAngle(double distanceMeters, double radialVelocityMps);
-
-    /**
-     * Safely gets the flywheel velocity, clamping to boundary equations if the target
-     * angle exceeds the physical capabilities of the pivot.
-     */
-    public double getVelocity(double angle, double distanceMeters, double radialVelocityMps) {
-        if (angle <= getMinAngle())
-            return getVelocityMinAngle(distanceMeters, radialVelocityMps);
-        if (angle >= getMaxAngle())
-            return getVelocityMaxAngle(distanceMeters, radialVelocityMps);
-
-        return getVelocityNormal(distanceMeters, radialVelocityMps);
-    }
-
-    // Partial derivatives for Flywheel Velocity
-    public abstract double getVelocityNormalDerivativeDistance(double distanceMeters, double radialVelocityMps);
-    public abstract double getVelocityMinAngleDerivativeDistance(double distanceMeters, double radialVelocityMps);
-    public abstract double getVelocityMaxAngleDerivativeDistance(double distanceMeters, double radialVelocityMps);
-
-    public double getVelocityDerivativeDistance(double angle, double distanceMeters, double radialVelocityMps) {
-        if (angle <= getMinAngle())
-            return getVelocityMinAngleDerivativeDistance(distanceMeters, radialVelocityMps);
-        if (angle >= getMaxAngle())
-            return getVelocityMaxAngleDerivativeDistance(distanceMeters, radialVelocityMps);
-
-        return getVelocityNormalDerivativeDistance(distanceMeters, radialVelocityMps);
-    }
-
-    public abstract double getVelocityNormalDerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);
-    public abstract double getVelocityMinAngleDerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);
-    public abstract double getVelocityMaxAngleDerivativeRadialVelocity(double distanceMeters, double radialVelocityMps);
-
-    public double getVelocityDerivativeRadialVelocity(double angle, double distanceMeters, double radialVelocityMps) {
-        if (angle <= getMinAngle())
-            return getVelocityMinAngleDerivativeRadialVelocity(distanceMeters, radialVelocityMps);
-        if (angle >= getMaxAngle())
-            return getVelocityMaxAngleDerivativeRadialVelocity(distanceMeters, radialVelocityMps);
-
-        return getVelocityNormalDerivativeRadialVelocity(distanceMeters, radialVelocityMps);
-    }
-
+    /** @return The target radius in meters. */
+    protected abstract double getTargetRadius();
+${abstractMethods}
     // =========================================================================
     // STATE GENERATOR (THE MANAGER)
     // =========================================================================
@@ -254,12 +252,18 @@ public abstract class ShootingModel {
      * Packages the generated equations into a single preset.
      * Applies the Multivariable Chain Rule to convert spatial/velocity partial derivatives
      * into true time derivatives for feedforward controllers.
+     *
+     * @param origin Current field-relative position of the robot (meters).
+     * @param target Field-relative position of the target (meters).
+     * @param originVelocity Current field-relative velocity vector of the robot (m/s).
+     * @param originAcceleration Current field-relative acceleration vector of the robot (m/s^2).
+     * @return A complete ShootingPreset containing targets and time-derivatives.
      */
     public ShootingPreset getPreset(
             Translation2d origin,
-            Translation2d target,
             Translation2d originVelocity,
-            Translation2d originAcceleration
+            Translation2d originAcceleration,
+            Translation2d target
     ) {
         double distanceMeters = origin.getDistance(target);
 
@@ -275,7 +279,7 @@ public abstract class ShootingModel {
         // Calculate Base Targets
         double pitchDegrees = getAngle(distanceMeters, radialVelocityMps);
         double flywheelVelocityMps = getVelocity(pitchDegrees, distanceMeters, radialVelocityMps);
-        double flightTimeSeconds = getFlightTime(distanceMeters, radialVelocityMps);
+        double flightTimeSeconds = getFlightTime(pitchDegrees, distanceMeters, radialVelocityMps);
 
         // Multivariable Chain Rule for Time Derivatives (d/dt)
         double pitchVelRadPerSec = getPitchVelocity(distanceMeters, radialVelocityMps, radialAccelerationMpsSq);
@@ -302,12 +306,113 @@ public abstract class ShootingModel {
         );
     }
 
+    
+
+    // =========================================================================
+    // TOLERANCE
+    // =========================================================================
+    
+    /**
+     * Evaluates if the current physical shooter state will hit the target based on the generated kinematics.
+     * * @param pitch The current physical pitch of the pivot.
+     * @param yaw The current physical yaw of the robot/turret.
+     * @param velocity The current physical velocity of the flywheels.
+     * @param origin The current global position of the robot.
+     * @param target The global position of the target.
+     * @param originVelocity The current global velocity vector of the robot.
+     * @param targetRadiusMeters The physical radius of the target minus the game piece radius.
+     * @return True if the shot falls within all mathematical tolerance bounds.
+     */
+    public boolean willHitTarget(
+            Rotation2d pitch,
+            Rotation2d yaw,
+            double velocity,
+            Translation2d origin,
+            Translation2d originVelocity,
+            Translation2d target,
+            double targetRadiusMeters
+    ) {
+        // Calculate Base Spatial State
+        double distanceMeters = origin.getDistance(target);
+        Translation2d decomposedVelocity = decomposeVelocity(origin, target, originVelocity);
+
+        double radialVelocityMps = decomposedVelocity.getX();
+        double tangentialVelocityMps = decomposedVelocity.getY();
+
+        // Evaluate both sub-tolerances
+        return isPitchAndVelocityInTolerance(pitch, velocity, distanceMeters, radialVelocityMps) &&
+                isYawInTolerance(pitch, yaw, origin, target, distanceMeters, radialVelocityMps, tangentialVelocityMps, targetRadiusMeters);
+    }
+
+    private boolean isYawInTolerance(
+            Rotation2d pitch,
+            Rotation2d yaw,
+            Translation2d origin,
+            Translation2d target,
+            double distanceMeters,
+            double radialVelocityMps,
+            double tangentialVelocityMps,
+            double targetRadiusMeters
+    ) {
+        // Get flight time to calculate expected lateral drift
+        double flightTimeSeconds = getFlightTime(pitch.getDegrees(), distanceMeters, radialVelocityMps);
+
+        // Calculate ideal upstream yaw to cancel tangential momentum
+        Rotation2d angleToTarget = target.minus(origin).getAngle();
+        Translation2d lateralDrift = new Translation2d(0, tangentialVelocityMps * flightTimeSeconds).rotateBy(angleToTarget);
+
+        Translation2d effectiveTarget = target.minus(lateralDrift);
+        Rotation2d idealYaw = effectiveTarget.minus(origin).getAngle();
+
+        // Calculate how much angular error is allowed by the physical target width
+        // Using atan2 effectively builds a cone originating from the robot's lens to the edges of the target.
+        double allowedYawErrorRad = Math.atan2(targetRadiusMeters, distanceMeters);
+
+        // Compare actual vs ideal
+        return Math.abs(yaw.minus(idealYaw).getRadians()) <= allowedYawErrorRad;
+    }
+
+    private boolean isPitchAndVelocityInTolerance(Rotation2d pitch, double velocity, double distanceMeters, double radialVelocityMps) {
+        // Calculate the exact center of the sweet spot for this distance
+        double idealPitchDeg = getAngle(distanceMeters, radialVelocityMps);
+        double idealVelocity = getVelocity(idealPitchDeg, distanceMeters, radialVelocityMps);
+
+        // Fetch the tolerance bounds (the size and tilt of the ellipse)
+        double velTolMinus = getToleranceVelNegative(idealPitchDeg, distanceMeters, radialVelocityMps);
+        double velTolPlus = getToleranceVelPositive(idealPitchDeg, distanceMeters, radialVelocityMps);
+        double angleTolMinus = getToleranceAngleNegative(idealPitchDeg, distanceMeters, radialVelocityMps);
+        double angleTolPlus = getToleranceAnglePositive(idealPitchDeg, distanceMeters, radialVelocityMps);
+        double ellipseAngleRad = Math.toRadians(getToleranceEllipseAngle(idealPitchDeg, distanceMeters, radialVelocityMps));
+
+        // Calculate how far off we are from the ideal center
+        double deltaVel = velocity - idealVelocity;
+        double deltaPitch = pitch.getDegrees() - idealPitchDeg;
+
+        // Rotate our deltas to align with the tilted axes of the ellipse
+        double cosA = Math.cos(ellipseAngleRad);
+        double sinA = Math.sin(ellipseAngleRad);
+
+        double xAligned = (deltaVel * cosA) + (deltaPitch * sinA);
+        double yAligned = -(deltaVel * sinA) + (deltaPitch * cosA);
+
+        // Select the correct asymmetric bounds depending on which quadrant we are in
+        double rx = (xAligned > 0) ? velTolPlus : velTolMinus;
+        double ry = (yAligned > 0) ? angleTolPlus : angleTolMinus;
+
+        // Prevent division by zero if bounds are perfectly zero
+        if (rx <= 0.0001 || ry <= 0.0001) {
+            return false;
+        }
+
+        // Evaluate the core ellipse equation
+        return Math.pow(xAligned / rx, 2) + Math.pow(yAligned / ry, 2) <= 1.0;
+    }
+
     // =========================================================================
     // INTERNAL KINEMATICS HELPERS
     // =========================================================================
 
     private double getPitchVelocity(double distanceMeters, double radialVelocityMps, double radialAccelerationMpsSq) {
-        // Convert the degree-based derivatives into Radians for the WPILib feedforward
         double dAngleDistanceRad = Math.toRadians(getAngleDerivativeDistance(distanceMeters, radialVelocityMps));
         double dAngleRadialVelocityRad = Math.toRadians(getAngleDerivativeRadialVelocity(distanceMeters, radialVelocityMps));
 
@@ -322,8 +427,11 @@ public abstract class ShootingModel {
     }
 
     private double getYawVelocity(double distanceMeters, double radialVelocityMps, double tangentialVelocityMps, double tangentialAccelerationMpsSq, double flightTimeSeconds) {
+        // Component 1: Base tracking (rotating to track stationary target while strafing)
+        // If we strafe Left (positive), we must rotate Right (negative)
         double baseTrackingRate = -tangentialVelocityMps / distanceMeters;
 
+        // Component 2: The rate of change of our lead angle offset via the quotient rule
         double driftMeters = tangentialVelocityMps * flightTimeSeconds;
         double driftDerivativeMps = tangentialAccelerationMpsSq * flightTimeSeconds;
 
@@ -333,6 +441,13 @@ public abstract class ShootingModel {
         return baseTrackingRate + leadAdjustmentRate;
     }
 
+    /**
+     * Decomposes a global field-relative vector into target-relative radial and tangential components.
+     *
+     * @return A Translation2d where:
+     *         X = Radial component (Negative = towards target, Positive = away).
+     *         Y = Tangential component (Positive = strafing left, Negative = strafing right).
+     */
     private static Translation2d decomposeVelocity(
             Translation2d origin,
             Translation2d target,
@@ -350,9 +465,11 @@ public abstract class ShootingModel {
         );
     }
 }`;
+
+  return code;
 }
 
-function buildGeneratedCode(models: any, hardware: any): string {
+function buildGeneratedCode(models: any, sharedConfig: SharedConfig): string {
   const hasData = !!models.normal;
   const getEq = (m: any, d: number | null) => hasData ? generateEquation(m, d) : "0.0";
   const getD1 = (m: any, d: number | null, v: 'd' | 'vr') => hasData ? generateDerivativeEquation(m, d, v) : "0.0";
@@ -363,26 +480,32 @@ function buildGeneratedCode(models: any, hardware: any): string {
 public class GeneratedShooterModel extends ShootingModel {
 
     @Override
-    protected double getMinAngle() { return ${hardware.minAngle.toFixed(2)}; }
+    protected double getMinAngle() { return ${sharedConfig.hardware.minAngle}; }
 
     @Override
-    protected double getMaxAngle() { return ${hardware.maxAngle.toFixed(2)}; }
+    protected double getMaxAngle() { return ${sharedConfig.hardware.maxAngle}; }
+
+    @Override
+    protected double getTargetRadius() { return ${sharedConfig.target.radius}; }
 `;
 
-  // Dynamically generate all kinematic equations
+  // Dynamically generate all kinematic equations based on VAR_KEYS
   for (const key of VAR_KEYS) {
     const config = TARGET_VARIABLES[key];
     const Name = key.charAt(0).toUpperCase() + key.slice(1);
+    const hasDerivatives = !!config.derivative;
     
     javaCode += `\n    // === ${config.name.toUpperCase()} TARGETS ===\n`;
 
     if (config.isBoundaryAxis) {
-      // Boundary variables (like Angle) just need base equations
       javaCode += `
     @Override
     public double get${Name}(double d, double vr) {
         return ${getEq(models.normal?.models[key], models.normal?.degrees[key])};
-    }
+    }`;
+
+      if (hasDerivatives) {
+        javaCode += `
     @Override
     public double get${Name}DerivativeDistance(double d, double vr) {
         return ${getD1(models.normal?.models[key], models.normal?.degrees[key], 'd')};
@@ -390,9 +513,10 @@ public class GeneratedShooterModel extends ShootingModel {
     @Override
     public double get${Name}DerivativeRadialVelocity(double d, double vr) {
         return ${getD1(models.normal?.models[key], models.normal?.degrees[key], 'vr')};
-    }\n`;
+    }`;
+      }
+      javaCode += `\n`;
     } else {
-      // Dependent variables (like Velocity, Spin) need bounds equations
       const regimes = ['Normal', 'MinAngle', 'MaxAngle'] as const;
       const modelKeys = ['normal', 'min', 'max'] as const;
 
@@ -403,7 +527,10 @@ public class GeneratedShooterModel extends ShootingModel {
     @Override
     public double get${Name}${r}(double d, double vr) {
         return ${getEq(models[mk]?.models[key], models[mk]?.degrees[key])};
-    }
+    }`;
+
+        if (hasDerivatives) {
+          javaCode += `
     @Override
     public double get${Name}${r}DerivativeDistance(double d, double vr) {
         return ${getD1(models[mk]?.models[key], models[mk]?.degrees[key], 'd')};
@@ -411,7 +538,9 @@ public class GeneratedShooterModel extends ShootingModel {
     @Override
     public double get${Name}${r}DerivativeRadialVelocity(double d, double vr) {
         return ${getD1(models[mk]?.models[key], models[mk]?.degrees[key], 'vr')};
-    }\n`;
+    }`;
+        }
+        javaCode += `\n`;
       }
     }
   }
@@ -432,7 +561,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 export default function CodeExporter({
   models,
-  hardware,
+  sharedConfig,
   datasetCounts,
 }: Props) {
   const [tab, setTab] = useState<Tab>("generated");
@@ -443,8 +572,8 @@ export default function CodeExporter({
   const codes = useMemo(() => ({
     preset: buildPresetCode(),
     model: buildAbstractModelCode(),
-    generated: buildGeneratedCode(models, hardware),
-  }), [models, hardware]);
+    generated: buildGeneratedCode(models, sharedConfig),
+  }), [models, sharedConfig]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(codes[tab]);

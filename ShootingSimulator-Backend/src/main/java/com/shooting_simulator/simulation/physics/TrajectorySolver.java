@@ -19,6 +19,8 @@ import java.util.List;
 @Getter
 public class TrajectorySolver {
 
+    public static final boolean[] SHOT_PHASES = {true, false};
+
     private final ShooterState state;
     private final TargetConfig target;
 
@@ -234,5 +236,31 @@ public class TrajectorySolver {
             }
         }
         return this.simulateTrajectory(velocity, Rotation2d.fromDegrees((max + min) / 2.0), true, isFlat);
+    }
+
+    public List<Trajectory> getAllTrajectories(int samples) {
+        List<Trajectory> trajectories = new ArrayList<>();
+
+        double angleDT = (this.physicalValues.maxAngle - this.physicalValues.minAngle) / samples;
+        for (double angle = this.physicalValues.minAngle; angle <= this.physicalValues.maxAngle; angle += angleDT) {
+            for (boolean isFlat : SHOT_PHASES) {
+                if (!canReachTarget(this.physicalValues.maxVel, angle, isFlat)) {
+                    continue;
+                }
+
+                Trajectory trajectory = this.findTrajectoryForAngle(angle, isFlat);
+
+                if (trajectory.isHitTarget()) {
+                    trajectories.add(trajectory);
+                }
+            }
+        }
+
+        return trajectories;
+    }
+
+    public boolean canReachTarget(double velocity, double angle, boolean isFlat) {
+        Trajectory trajectory = this.simulateTrajectory(velocity, Rotation2d.fromDegrees(angle), false, isFlat);
+        return trajectory.isReachedTargetHeight();
     }
 }

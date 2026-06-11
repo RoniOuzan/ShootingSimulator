@@ -51,6 +51,7 @@ public class SurfacePacket implements DataPacket {
 
         Double[][] angleData = new Double[numDistances][numRadialVels];
         Double[][] velocityData = new Double[numDistances][numRadialVels];
+        Double[][] flightTimeData = new Double[numDistances][numRadialVels];
 
         Double[][] angTolPosData = new Double[numDistances][numRadialVels];
         Double[][] angTolNegData = new Double[numDistances][numRadialVels];
@@ -74,7 +75,7 @@ public class SurfacePacket implements DataPacket {
             Translation2d initialPos = new Translation2d(-x, this.initialY);
 
             calculatePoint(initialPos, radialVelocity,
-                    angleData, velocityData,
+                    angleData, velocityData, flightTimeData,
                     angTolPosData, angTolNegData, velTolPosData, velTolNegData, ellipseAngleData,
                     dIdx, rIdx, successCount);
 
@@ -100,6 +101,7 @@ public class SurfacePacket implements DataPacket {
         // Convert arrays to List<List<Double>> for payload
         List<List<Double>> angleMatrix = Arrays.stream(angleData).map(Arrays::asList).collect(Collectors.toList());
         List<List<Double>> velocityMatrix = Arrays.stream(velocityData).map(Arrays::asList).collect(Collectors.toList());
+        List<List<Double>> flightTimeMatrix = Arrays.stream(flightTimeData).map(Arrays::asList).collect(Collectors.toList());
         List<List<Double>> angTolPosMatrix = Arrays.stream(angTolPosData).map(Arrays::asList).collect(Collectors.toList());
         List<List<Double>> angTolNegMatrix = Arrays.stream(angTolNegData).map(Arrays::asList).collect(Collectors.toList());
         List<List<Double>> velTolPosMatrix = Arrays.stream(velTolPosData).map(Arrays::asList).collect(Collectors.toList());
@@ -108,7 +110,7 @@ public class SurfacePacket implements DataPacket {
 
         SurfacePayload payload = new SurfacePayload(
                 distances, radialVels,
-                angleMatrix, velocityMatrix,
+                angleMatrix, velocityMatrix, flightTimeMatrix,
                 angTolPosMatrix, angTolNegMatrix,
                 velTolPosMatrix, velTolNegMatrix,
                 ellipseAngleMatrix
@@ -117,7 +119,7 @@ public class SurfacePacket implements DataPacket {
     }
 
     private void calculatePoint(Translation2d initialPos, double radialVelocity,
-                                Double[][] angleData, Double[][] velocityData,
+                                Double[][] angleData, Double[][] velocityData, Double[][] flightTimeData,
                                 Double[][] angTolPosData, Double[][] angTolNegData,
                                 Double[][] velTolPosData, Double[][] velTolNegData, Double[][] ellipseAngleData,
                                 int dIdx, int rIdx, AtomicInteger successCount) {
@@ -134,6 +136,7 @@ public class SurfacePacket implements DataPacket {
         if (best != null) {
             angleData[dIdx][rIdx] = Math.round(best.getInitialShootingVelocity().getAngle().getDegrees() * 1000.0) / 1000.0;
             velocityData[dIdx][rIdx] = Math.round(best.getInitialShootingVelocity().getNorm() * 1000.0) / 1000.0;
+            flightTimeData[dIdx][rIdx] = Math.round(best.getHitSample().getTime() * 1000.0) / 1000.0;
 
             Tolerance tol = best.getTolerance();
             if (tol != null) {
@@ -150,10 +153,10 @@ public class SurfacePacket implements DataPacket {
 
     public record SurfacePayload(
             List<Double> distances, List<Double> radialVels,
-            List<List<Double>> angleMatrix, List<List<Double>> velocityMatrix,
-            List<List<Double>> angTolPosMatrix, List<List<Double>> angTolNegMatrix,
-            List<List<Double>> velTolPosMatrix, List<List<Double>> velTolNegMatrix,
-            List<List<Double>> ellipseAngleMatrix
+            List<List<Double>> angleMatrix, List<List<Double>> velocityMatrix, List<List<Double>> flightTimeMatrix,
+            List<List<Double>> toleranceAnglePositiveMatrix, List<List<Double>> toleranceAngleNegativeMatrix,
+            List<List<Double>> toleranceVelPositiveMatrix, List<List<Double>> toleranceVelNegativeMatrix,
+            List<List<Double>> toleranceEllipseAngleMatrix
     ) {}
 
     public record SweepBounds(double minDist, double maxDist, double distStep, double minRadialVel, double maxRadialVel, double radialVelStep) {}

@@ -9,6 +9,7 @@ import com.shooting_simulator.simulation.records.CostWeights;
 import com.shooting_simulator.simulation.records.PhysicalValues;
 import com.shooting_simulator.simulation.records.TargetConfig;
 import com.shooting_simulator.simulation.resolution.CenterResolution;
+import lombok.AllArgsConstructor;
 import org.java_websocket.WebSocket;
 
 import com.shooting_simulator.SimulatorServer;
@@ -49,24 +50,20 @@ public class SimulatorPacket implements DataPacket {
             downsampledTrajectories.add(new Trajectory(decimate(t.getSamples(), 10), t.getHitSample(), t.isHitTarget(), t.getInitialShootingVelocity(), t.isFlat()));
         }
 
-        ResultsPayload payload = new ResultsPayload(downsampledTrajectories, chooser.findBestTrajectory(), downsampledRobustness, chooser.getCostSweep());
+        ResultsPayload payload = new ResultsPayload(downsampledTrajectories, chooser.getCloseTrajectories(), chooser.getFarTrajectories(), chooser.findBestTrajectory(), downsampledRobustness, chooser.getCostSweep());
 
         // Send the results back to the React client that requested it!
         server.sendPacket(conn, "results", payload);
     }
 
     @SuppressWarnings("unused")
+    @AllArgsConstructor
     private static class ResultsPayload {
         public List<Trajectory> trajectories;
+        public List<Trajectory> closeTrajectories;
+        public List<Trajectory> farTrajectories;
         public Trajectory bestTrajectory;
         public List<TrajectoryCenterChooser.RobustnessPoint> robustnessData;
         public List<Translation2d> costData;
-
-        public ResultsPayload(List<Trajectory> valid, Trajectory best, List<TrajectoryCenterChooser.RobustnessPoint> robustnessData, List<Translation2d> costData) {
-            this.trajectories = valid;
-            this.bestTrajectory = best;
-            this.robustnessData = robustnessData;
-            this.costData = costData;
-        }
     }
 }

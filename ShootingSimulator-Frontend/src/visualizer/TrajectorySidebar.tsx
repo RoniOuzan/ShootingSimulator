@@ -110,7 +110,7 @@ export default function TrajectorySidebar({
         <div className="sidebar-section">
           <h4>Shot Tolerance</h4>
           <div className="metric-row">
-            <span>Velocity Range:</span>
+            <span>Velocity Range: </span>
             <span style={{ color: "#4ade80" }}>
               +{tolerance.velocityPositive.toFixed(2)}
             </span>
@@ -119,12 +119,18 @@ export default function TrajectorySidebar({
             </span>
           </div>
           <div className="metric-row">
-            <span>Angle Range:</span>
+            <span>Angle Range: </span>
             <span style={{ color: "#4ade80" }}>
               +{tolerance.anglePositive.toFixed(2)}°
             </span>
             <span style={{ color: "#f87171" }}>
               -{tolerance.angleNegative.toFixed(2)}°
+            </span>
+          </div>
+          <div className="metric-row">
+            <span>Ellipse Angle: </span>
+            <span style={{ color: "#4acade", fontWeight: "bold" }}>
+              {tolerance.ellipseAngle.toFixed(3)}°
             </span>
           </div>
         </div>
