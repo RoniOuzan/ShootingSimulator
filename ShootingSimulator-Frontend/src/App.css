@@ -1,184 +1,480 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+/* =========================================
+   REBUILT DESIGN SYSTEM - TEAM COLOR EDITION
+   ========================================= */
+:root {
+  /* Richer, deeper backgrounds for a "sleek" feel */
+  --bg-base: #050507;       
+  --bg-panel: #111114;      
+  --bg-card: #18181c;       
+  --bg-input: #222228;      
 
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+  /* Translucent borders for a cleaner look */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-strong: rgba(255, 255, 255, 0.1);
+
+  /* Text */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-value: #cbd5e1;
+
+  /* TEAM ACCENT COLOR (#F5D409) */
+  --accent-team: #F5D409;
+  --accent-team-darker: #d9bb05; /* For gradients */
+  --accent-team-glow: rgba(245, 212, 9, 0.25);
+  --accent-team-faint: rgba(245, 212, 9, 0.1);
+  
+  --accent-cyan: #00e5ff;
+  --accent-cyan-glow: rgba(0, 229, 255, 0.2);
+
+  --status-good: #10b981;
+  --status-bad: #ef4444;
+
+  /* Softer, more modern border radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
 }
 
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+/* =========================================
+   GLOBAL RESET
+   ========================================= */
+* {
+  box-sizing: border-box;
 }
 
-#center {
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  overflow: hidden; 
+}
+
+/* =========================================
+   LAYOUT UTILITIES
+   ========================================= */
+.app-container {
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+  height: 100vh;
+  width: 100vw;
+  background: radial-gradient(circle at 50% -20%, #1a1a24 0%, var(--bg-base) 60%);
 }
 
-#next-steps {
+.main-content {
   display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
+  flex-grow: 1;
+  width: 100%;
+  overflow: hidden;
 }
 
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+/* =========================================
+   HEADER & NAVIGATION
+   ========================================= */
+.app-header {
+  background-color: rgba(17, 17, 20, 0.7);
+  backdrop-filter: blur(12px); 
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 50;
 }
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
+.header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(90deg, #fff, #94a3b8);
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.app-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--accent-team);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* --- Main Navigation Tabs --- */
+.tab-container {
   display: flex;
   gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
+  background-color: var(--bg-base);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
 }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
+.btn {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
-.ticks {
+.btn:hover:not(.active-orange) {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+}
+
+/* Note: Left as .active-orange so you don't have to rewrite your React code, 
+   but it will now render your team's yellow/gold! */
+.btn.active-orange {
+  background-color: var(--accent-team-faint);
+  color: var(--accent-team);
+  border: 1px solid rgba(245, 212, 9, 0.3);
+  box-shadow: 0 0 15px var(--accent-team-glow);
+}
+
+/* =========================================
+   PANELS & CARDS 
+   ========================================= */
+.sidebar {
+  width: 380px;
+  flex-shrink: 0;
+  background-color: rgba(17, 17, 20, 0.6);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid var(--border-subtle);
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.content-wrapper {
   position: relative;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.charts-area {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+  gap: 24px; 
+}
+
+.view-panel {
+  flex-shrink: 0; 
+  background-color: var(--bg-panel);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  padding: 20px;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); 
+}
+
+.card {
+  background-color: var(--bg-card);
+  padding: 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 20px;
+  transition: border-color 0.3s ease;
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+}
+
+.card-title {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-row {
+  display: flex;
+  gap: 15px;
+}
+
+.card-divider {
+  border-top: 1px solid var(--border-strong);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+/* =========================================
+   CONTROLS & STATUS
+   ========================================= */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  background: var(--bg-input);
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  width: fit-content;
+  border: 1px solid var(--border-subtle);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 10px;
+  box-shadow: 0 0 8px currentColor; 
+}
+
+.status-dot.connected { color: var(--status-good); background-color: var(--status-good); }
+.status-dot.disconnected { color: var(--status-bad); background-color: var(--status-bad); }
+
+.status-text {
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.slider-wrapper {
+  flex: 1;
+  margin-bottom: 16px;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.slider-value {
+  color: var(--accent-team); /* Emphasize values with your team color */
+  font-weight: 700;
+  font-family: monospace;
+  font-size: 0.95rem;
+}
+
+input[type=range] {
   width: 100%;
+  cursor: pointer;
+  accent-color: var(--accent-team);
+  height: 6px;
+  background: var(--bg-input);
+  border-radius: var(--radius-pill);
+  outline: none;
+}
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
+/* =========================================
+   CUSTOM SCROLLBARS
+   ========================================= */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+::-webkit-scrollbar {
+  width: 8px; 
+  height: 8px; 
+}
+
+::-webkit-scrollbar-track {
+  background: transparent; 
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-input); 
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--bg-base); 
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary); 
+}
+
+/* =========================================
+   OVERLAYS & STATS
+   ========================================= */
+.calc-stats {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(16, 185, 129, 0.1); 
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--status-good);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 600;
+  z-index: 10;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+  animation: fadeOut 3s forwards;
+  animation-delay: 2s; 
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; pointer-events: none; }
+}
+
+.calc-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(5, 5, 7, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.spinner {
+  width: 45px;
+  height: 45px;
+  border: 3px solid var(--accent-team-faint);
+  border-top: 3px solid var(--accent-team);
+  border-radius: 50%;
+  animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+  margin-bottom: 20px;
+}
+
+.calc-overlay p {
+  color: var(--accent-team);
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Calculate Button */
+.calculate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--accent-team), var(--accent-team-darker));
+  color: #111;
+  border: none;
+  padding: 14px 28px;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px var(--accent-team-glow);
+}
+
+.calculate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--accent-team-glow);
+}
+
+.calculate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.calculate-btn .icon {
+  font-size: 1.2rem;
+}
+
+/* Tab-specific config card */
+.tab-config-card {
+  background: var(--bg-card);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  margin-bottom: 16px;
+}
+
+.tab-config-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+/* View Layouts */
+.sweep-view,
+.surface-view {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  gap: 0;
+}
+
+.charts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.charts-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.tab-sidebar {
+  width: 340px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-subtle);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.tab-sidebar .sidebar-title {
+  font-size: 1.3rem;
+  font-weight: 750;
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+}
+
+.sweep-info {
+  background: var(--bg-input);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-top: 16px;
+}
+
+.sweep-info p {
+  margin: 0 0 6px 0;
+  font-size: 0.9rem;
+}
+
+.sweep-info .hint {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin: 0;
 }

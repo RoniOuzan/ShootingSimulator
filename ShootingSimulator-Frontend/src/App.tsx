@@ -1,121 +1,343 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useCallback, useEffect, useRef, useState } from "react";
+import "./App.css";
+import DistanceSweepView from "./sweep/DistanceSweepView";
+import TrajectoryVisualizer from "./visualizer/TrajectoryVisualizer";
+import SurfaceSweepView from "./surface/SurfaceSweepView";
+import SharedConfigSidebar from "./components/SharedConfigSidebar";
+import { usePersistedState } from "./hooks/usePersistedState";
+import type { OptimalResults, SharedConfig, SimulationResults } from "./types";
+import OptimalShotView from "./optimal/OptimalShotView";
 
-function App() {
-  const [count, setCount] = useState(0)
+const DEFAULT_CONFIG: SharedConfig = {
+  origin: {
+    initialY: 0.5,
+    radialVelocity: 0,
+  },
+  target: {
+    center: { x: 0, y: 2.0 },
+    minHitAngle: -90,
+    maxHitAngle: -10,
+    axis: "HORIZONTAL",
+    radius: 0.3,
+  },
+  aerodynamics: {
+    mass: 0.22,
+    radius: 0.075,
+    dragCoeff: 0.5,
+    spinRPSPerMS: 1,
+    shape: "BALL",
+  },
+  hardware: {
+    minAngle: 50,
+    maxAngle: 90,
+    minVel: 6,
+    maxVel: 12,
+    angleRobustness: 0.01,
+    velocityRobustness: 0.002,
+    angleError: 0.2,
+    velocityError: 0.1,
+  },
+  cost: {
+    preset: "BALANCED",
+    robustnessWeight: 1.0,
+    initialVelocityWeight: 0.05,
+    impactVelocityWeight: 0.1,
+    timeOfFlightWeight: 0.5,
+    entryAngleWeight: 0.2,
+    targetImpactAngle: -50,
+  },
+  obstacles: [],
+  resolutionMode: "BALANCED",
+};
+
+export default function App() {
+  const WS_URL = "ws://localhost:8080";
+
+  const [activeTab, setActiveTab] = usePersistedState<
+    "simulator" | "optimal" | "sweep" | "surface"
+  >("activeTab", "simulator");
+  const [sidebarCollapsed, setSidebarCollapsed] = usePersistedState(
+    "sidebarCollapsed",
+    false,
+  );
+
+  // Shared configuration with persistence
+  const [sharedConfig, setSharedConfig] = usePersistedState<SharedConfig>(
+    "sharedConfig",
+    DEFAULT_CONFIG,
+  );
+
+  // Connection state
+  const [isConnected, setIsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Data stores
+  const [simulatorResults, setSimulatorResults] = useState<SimulationResults>({
+    trajectories: [],
+    closeTrajectories: [],
+    farTrajectories: [],
+    bestTrajectory: null,
+    bestInfo: null,
+    robustnessData: [],
+    costData: [],
+  });
+  const [sweepResults, setSweepResults] = useState<any[]>([]);
+  const [surfaceResults, setSurfaceResults] = useState<any>({});
+  const [optimalResults, setOptimalResults] = useState<OptimalResults>({
+    trajectories: [],
+    bestTrajectory: null,
+    robustnessData: [],
+    costData: [],
+    velocityGapData: [],
+    gapDerivativeData: [],
+  });
+
+  // Calculation state
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [calcProgress, setCalcProgress] = useState(0);
+  const [eta, setEta] = useState(0);
+  const [calcTime, setCalcTime] = useState<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+
+  // WebSocket management
+  useEffect(() => {
+    let isMounted = true; // Prevents state updates if component unmounts
+
+    const connect = () => {
+      // Don't open a new connection if one is already open
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+      console.log("Attempting to connect to WebSocket...");
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (isMounted && wsRef.current?.readyState === WebSocket.OPEN) {
+          console.log("WebSocket Connected!");
+          setIsConnected(true);
+          // Clear any pending reconnects just in case
+          if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+
+          // Handle progress updates
+          if (message.type === "progress") {
+            setCalcProgress(message.data.progress || 0);
+            setEta(message.data.eta);
+            return;
+          }
+
+          const duration = Math.round(performance.now() - startTimeRef.current);
+          setIsCalculating(false);
+          setCalcProgress(0);
+          setCalcTime(duration);
+
+          if (message.type === "results") {
+            setSimulatorResults({
+              trajectories: message.data.trajectories || [],
+              closeTrajectories: message.data.closeTrajectories || [],
+              farTrajectories: message.data.farTrajectories || [],
+              bestTrajectory: message.data.bestTrajectory || null,
+              bestInfo: message.data.bestInfo || null,
+              robustnessData: message.data.robustnessData || [],
+              costData: message.data.costData || [],
+            });
+          } else if (message.type === "sweepResults") {
+            setSweepResults(message.data || []);
+          } else if (message.type === "surfaceResults") {
+            setSurfaceResults(message.data || {});
+          } else if (message.type === "optimalResults") {
+            setOptimalResults(message.data || {});
+          }
+        } catch (e) {
+          console.error("Failed to parse backend response", e);
+          setIsCalculating(false);
+        }
+      };
+
+      ws.onclose = () => {
+        if (isMounted) {
+          setIsConnected(false);
+          setIsCalculating(false); // Stop any loading spinners if backend dies
+          console.log("WebSocket Disconnected. Reconnecting in 3 seconds...");
+          
+          // Try to reconnect after 3 seconds
+          reconnectTimeoutRef.current = setTimeout(connect, 3000);
+        }
+      };
+
+      ws.onerror = () => {
+        if (isMounted) setIsCalculating(false);
+        // We don't reconnect here because 'onclose' will immediately fire after 'onerror'
+      };
+    };
+
+    // Kick off the initial connection
+    connect();
+
+    // Cleanup function when the component unmounts
+    return () => {
+      isMounted = false;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, []);
+
+  const sendMessage = useCallback((payload: any, showTime = false) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(payload));
+
+      if (showTime) {
+        setIsCalculating(true);
+        setCalcProgress(0);
+        startTimeRef.current = performance.now();
+      }
+    }
+  }, []);
+
+  // Update shared config helper
+  const updateConfig = useCallback(
+    <K extends keyof SharedConfig>(
+      section: K,
+      updates: Partial<SharedConfig[K]> | SharedConfig[K],
+    ) => {
+      setSharedConfig((prev) => {
+        const prevValue = prev[section];
+
+        // Check if the value is an array (obstacles) or a primitive (resolutionMode string)
+        if (
+          typeof prevValue !== "object" ||
+          prevValue === null ||
+          Array.isArray(prevValue)
+        ) {
+          return {
+            ...prev,
+            [section]: updates,
+          };
+        }
+
+        // Otherwise, it's a nested config object (origin, target, etc.), so merge it
+        return {
+          ...prev,
+          [section]: { ...prevValue, ...(updates as any) },
+        };
+      });
+    },
+    [setSharedConfig],
+  );
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+    <div className="app-container">
+      <header className="app-header">
+        <div className="header-left">
+          <h1 className="app-title">Shooting Simulator</h1>
+          <p className="app-subtitle">
+            Live trajectory calculation and hardware constraint mapping
           </p>
         </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
+        {/* Target Mode Toggle */}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        {/* Tab Navigation */}
+        <div className="tab-container">
+          <button
+            onClick={() => setActiveTab("simulator")}
+            className={`btn ${activeTab === "simulator" ? "active-orange" : ""}`}
+          >
+            Live Simulator
+          </button>
+          <button
+            onClick={() => setActiveTab("optimal")}
+            className={`btn ${activeTab === "optimal" ? "active-orange" : ""}`}
+          >
+            Optimal Shot
+          </button>
+          <button
+            onClick={() => setActiveTab("sweep")}
+            className={`btn ${activeTab === "sweep" ? "active-orange" : ""}`}
+          >
+            Sweep Graphs
+          </button>
+          <button
+            onClick={() => setActiveTab("surface")}
+            className={`btn ${activeTab === "surface" ? "active-orange" : ""}`}
+          >
+            3D Surface Maps
+          </button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <div className="app-body">
+        {/* Shared Configuration Sidebar */}
+        <SharedConfigSidebar
+          config={sharedConfig}
+          updateConfig={updateConfig}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
+
+        {/* Main Content */}
+        <main className="main-content">
+          <div className="content-wrapper">
+            {!isCalculating && calcTime !== null && (
+              <div className="calc-stats">
+                Finished in <strong>{calcTime}ms</strong>
+              </div>
+            )}
+
+            {activeTab === "simulator" && (
+              <TrajectoryVisualizer
+                isConnected={isConnected}
+                results={simulatorResults}
+                sendMessage={sendMessage}
+                sharedConfig={sharedConfig}
+                updateConfig={updateConfig}
+              />
+            )}
+            {activeTab === "sweep" && (
+              <DistanceSweepView
+                isConnected={isConnected}
+                sweepData={sweepResults}
+                sendMessage={sendMessage}
+                sharedConfig={sharedConfig}
+                isCalculating={isCalculating}
+                calcProgress={calcProgress}
+                eta={eta}
+              />
+            )}
+            {activeTab === "surface" && (
+              <SurfaceSweepView
+                isConnected={isConnected}
+                surfaceData={surfaceResults}
+                sendMessage={sendMessage}
+                sharedConfig={sharedConfig}
+                isCalculating={isCalculating}
+                calcProgress={calcProgress}
+                eta={eta}
+              />
+            )}
+            {activeTab === "optimal" && (
+              <OptimalShotView
+                isConnected={isConnected}
+                results={optimalResults}
+                sendMessage={sendMessage}
+                sharedConfig={sharedConfig}
+                updateConfig={updateConfig}
+              />
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 }
-
-export default App

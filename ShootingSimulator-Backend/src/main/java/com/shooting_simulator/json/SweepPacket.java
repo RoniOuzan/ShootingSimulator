@@ -1,0 +1,117 @@
+package com.shooting_simulator.json;
+
+import com.shooting_simulator.SimulatorServer;
+import com.shooting_simulator.simulation.*;
+import com.shooting_simulator.simulation.obstacles.Obstacle;
+import com.shooting_simulator.simulation.records.CostWeights;
+import com.shooting_simulator.simulation.records.PhysicalValues;
+import com.shooting_simulator.simulation.records.ShooterState;
+import com.shooting_simulator.simulation.records.TargetConfig;
+import org.java_websocket.WebSocket;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class SweepPacket implements DataPacket {
+    public OriginParams origin;
+    public TargetConfig target;
+
+    public String simulationType;
+
+    public SweepBounds sweepBounds;
+    public PhysicalValues physicalValues;
+    public CostWeights cost;
+    public List<Obstacle> obstacles;
+
+    public String resolutionMode;
+
+    @Override
+    public void handle(WebSocket conn, SimulatorServer server) {
+        List<DistancePoint> sweepData = new ArrayList<>();
+
+        double minDistance = (sweepBounds != null) ? sweepBounds.minDist() : 1.0;
+        double maxDistance = (sweepBounds != null) ? sweepBounds.maxDist() : 8.0;
+        double distanceStep = (sweepBounds != null) ? sweepBounds.distStep() : 0.05;
+
+        int totalSteps = (int) Math.ceil((maxDistance - minDistance) / distanceStep) + 1;
+        int currentStep = 0;
+        int lastReportedProgress = -1;
+
+        // Track time for ETA calculation
+        long startTimeMs = System.currentTimeMillis();
+
+        Double prevAngle = null;
+        Double prevVel = null;
+
+        for (double x = minDistance; x <= maxDistance; x += distanceStep) {
+            ShooterState state = this.origin.getState(-x);
+
+            Chooser chooser = SimulationType.valueOf(this.simulationType).create(
+                    state,
+                    this.target,
+                    this.physicalValues,
+                    this.cost,
+                    this.obstacles,
+                    this.resolutionMode
+            );
+
+            Trajectory best = chooser.getBestTrajectory();
+
+            if (best != null) {
+                double velocity = best.getInitialShootingVelocity().getNorm();
+                double angle = best.getInitialShootingVelocity().getAngle().getDegrees();
+                double tolVelPos = best.getTolerance().getVelocityPositive();
+                double tolVelNeg = best.getTolerance().getVelocityNegative();
+                double tolAnglePos = best.getTolerance().getAnglePositive();
+                double tolAngleNeg = best.getTolerance().getAngleNegative();
+
+                Double angleDerive = (prevAngle != null) ? (angle - prevAngle) / distanceStep : null;
+                Double velDerive = (prevVel != null) ? (velocity - prevVel) / distanceStep : null;
+
+                sweepData.add(new DistancePoint(
+                        Math.round(x * 1000.0) / 1000.0,
+                        Math.round(angle * 1000.0) / 1000.0,
+                        Math.round(velocity * 1000.0) / 1000.0,
+                        Math.round(tolVelPos * 1000.0) / 1000.0,
+                        Math.round(tolVelNeg * 1000.0) / 1000.0,
+                        Math.round(tolAnglePos * 1000.0) / 1000.0,
+                        Math.round(tolAngleNeg * 1000.0) / 1000.0,
+                        angleDerive == null ? null : Math.round(angleDerive * 1000.0) / 1000.0,
+                        velDerive == null ? null : Math.round(velDerive * 1000.0) / 1000.0
+                ));
+
+                prevAngle = angle;
+                prevVel = velocity;
+            } else {
+                sweepData.add(new DistancePoint(Math.round(x * 1000.0) / 1000.0, null, null, null, null, null, null, null, null));
+            }
+
+            // --- Progress & ETA Tracking ---
+            currentStep++;
+            int progress = (int) (((double) currentStep / totalSteps) * 100);
+
+            if (progress > lastReportedProgress) {
+                long elapsedTimeMs = System.currentTimeMillis() - startTimeMs;
+                long estimatedTotalTimeMs = (long) (((double) elapsedTimeMs / currentStep) * totalSteps);
+                long eta = estimatedTotalTimeMs - elapsedTimeMs;
+
+                server.sendPacket(conn, "progress", new ProgressPayload(progress, eta));
+                lastReportedProgress = progress;
+            }
+        }
+
+        server.sendPacket(conn, "sweepResults", new SweepPayload(sweepData));
+    }
+
+    public record DistancePoint(
+            double distanceX, Double optimalAngle, Double optimalVelocity,
+            Double tolVelPos, Double tolVelNeg, Double tolAnglePos, Double tolAngleNeg,
+            Double angleDerivative, Double velocityDerivative
+    ) {}
+
+    public record SweepPayload(List<DistancePoint> data) {}
+    public record SweepBounds(double minDist, double maxDist, double distStep) {}
+
+    // Updated Record
+    public record ProgressPayload(int progress, long eta) {}
+}

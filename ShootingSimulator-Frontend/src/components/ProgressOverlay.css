@@ -1,0 +1,81 @@
+.progress-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(5, 5, 7, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.progress-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 240px; /* Give it a fixed width so the stats spread out nicely */
+}
+
+.progress-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid var(--accent-team-faint);
+  border-top: 3px solid var(--accent-team);
+  border-radius: 50%;
+  animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+}
+
+.progress-message {
+  color: var(--accent-team);
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.progress-bar-container {
+  width: 100%; /* Stretch to parent */
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-team), var(--accent-team-darker));
+  transition: width 0.3s ease;
+}
+
+/* --- New Layout for Stats --- */
+.progress-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: -8px; /* Pull it slightly closer to the progress bar */
+}
+
+.progress-percentage {
+  color: var(--text-primary);
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.progress-eta {
+  color: #aaa;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

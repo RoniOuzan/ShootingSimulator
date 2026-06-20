@@ -4,14 +4,21 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "start": "vite",
     "build": "tsc -b && vite build",
+    "start:backend": "nodemon --watch ../ShootingSimulator-Backend/src/main/java -e java --exec \"cd ../ShootingSimulator-Backend && mvnw.cmd compile exec:java -Dexec.mainClass=com.shooting_simulator.SimulatorServer\"",
+    "launch:app": "node -e \"setTimeout(()=>{}, 3000)\" && start chrome --app=http://localhost:5173",
+    "dev": "concurrently \"npm run start:backend\" \"npm start\" \"npm run launch:app\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "ml-regression-multivariate-linear": "^2.0.4",
+    "plotly.js": "^3.5.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "react-plotly.js": "^2.6.0",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
@@ -21,6 +28,7 @@
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/react-plotly.js": "^2.6.4",
     "@vitejs/plugin-react": "^6.0.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.39.4",
