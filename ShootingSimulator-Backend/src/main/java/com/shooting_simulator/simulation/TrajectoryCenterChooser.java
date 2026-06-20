@@ -138,10 +138,10 @@ public class TrajectoryCenterChooser extends Chooser {
         double ellipseAngleDegrees = Math.toDegrees(Math.atan(slope));
 
         trajectory.setTolerance(new Tolerance(
-                velTolerancePlus,
-                velToleranceMinus,
-                angleToleranceMinus,
-                angleTolerancePlus,
+                Math.max(0, velTolerancePlus - this.physicalValues.velocityError),
+                Math.max(0, velToleranceMinus - this.physicalValues.velocityError),
+                Math.max(0, angleToleranceMinus - this.physicalValues.angleRobustness),
+                Math.max(0, angleTolerancePlus - this.physicalValues.angleRobustness),
                 ellipseAngleDegrees
         ));
     }
@@ -231,8 +231,8 @@ public class TrajectoryCenterChooser extends Chooser {
 
     private double calculateMaxErrorForExitVelocity(Trajectory trajectory) {
         Translation2d velocity = trajectory.getInitialShootingVelocity();
-        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, true, trajectory.isFlat());
-        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.estimatedVelocityError, velocity.getAngle(), false, true, trajectory.isFlat());
+        Trajectory before = this.builder.simulateTrajectory(velocity.getNorm() - this.physicalValues.velocityRobustness, velocity.getAngle(), false, true, trajectory.isFlat());
+        Trajectory after = this.builder.simulateTrajectory(velocity.getNorm() + this.physicalValues.velocityRobustness, velocity.getAngle(), false, true, trajectory.isFlat());
 
         if (!after.isReachedTargetHeight() || !before.isReachedTargetHeight()) return MISS_TARGET_COST;
         return SCALE_ROBUSTNESS * (this.target.axis().getErrorAxis(after.getHitSample().getPosition()) - this.target.axis().getErrorAxis(before.getHitSample().getPosition()));
@@ -240,7 +240,7 @@ public class TrajectoryCenterChooser extends Chooser {
 
     private double calculateMaxErrorForAngle(Trajectory trajectory) {
         Translation2d velocity = trajectory.getInitialShootingVelocity();
-        Rotation2d estimatedAngleError = Rotation2d.fromDegrees(this.physicalValues.estimatedAngleError);
+        Rotation2d estimatedAngleError = Rotation2d.fromDegrees(this.physicalValues.angleRobustness);
         Trajectory before = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().minus(estimatedAngleError), false, true, trajectory.isFlat());
         Trajectory after = this.builder.simulateTrajectory(velocity.getNorm(), velocity.getAngle().plus(estimatedAngleError), false, true, trajectory.isFlat());
 

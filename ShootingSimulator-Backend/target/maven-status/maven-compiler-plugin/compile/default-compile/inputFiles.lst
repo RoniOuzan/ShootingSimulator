@@ -19,6 +19,7 @@ D:\First\FRC\Programming\2026\ShootingSimulator\ShootingSimulator-Backend\src\ma
 D:\First\FRC\Programming\2026\ShootingSimulator\ShootingSimulator-Backend\src\main\java\com\shooting_simulator\simulation\optimal\TrajectoryCouple.java
 D:\First\FRC\Programming\2026\ShootingSimulator\ShootingSimulator-Backend\src\main\java\com\shooting_simulator\simulation\optimal\TrajectoryOptimalChooser.java
 D:\First\FRC\Programming\2026\ShootingSimulator\ShootingSimulator-Backend\src\main\java\com\shooting_simulator\simulation\physics\AerodynamicsModel.java
+D:\First\FRC\Programming\2026\ShootingSimulator\ShootingSimulator-Backend\src\main\java\com\shooting_simulator\simulation\physics\ProjectileShape.java
 D:\First\FRC\Programming\2026\ShootingSimulator\ShootingSimulator-Backend\src\main\java\com\shooting_simulator\simulation\physics\TrajectorySolver.java
 D:\First\FRC\Programming\2026\ShootingSimulator\ShootingSimulator-Backend\src\main\java\com\shooting_simulator\simulation\records\CostWeights.java
 D:\First\FRC\Programming\2026\ShootingSimulator\ShootingSimulator-Backend\src\main\java\com\shooting_simulator\simulation\records\PhysicalValues.java

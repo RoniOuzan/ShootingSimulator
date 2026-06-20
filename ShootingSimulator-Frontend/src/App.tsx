@@ -25,15 +25,17 @@ const DEFAULT_CONFIG: SharedConfig = {
     radius: 0.075,
     dragCoeff: 0.5,
     spinRPSPerMS: 1,
-    magnusCoeff: 0.5,
+    shape: "BALL",
   },
   hardware: {
     minAngle: 50,
     maxAngle: 90,
     minVel: 6,
     maxVel: 12,
-    estimatedAngleError: 0.01,
-    estimatedVelocityError: 0.002,
+    angleRobustness: 0.01,
+    velocityRobustness: 0.002,
+    angleError: 0.2,
+    velocityError: 0.1,
   },
   cost: {
     preset: "BALANCED",
@@ -68,6 +70,7 @@ export default function App() {
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Data stores
   const [simulatorResults, setSimulatorResults] = useState<SimulationResults>({
@@ -99,58 +102,90 @@ export default function App() {
 
   // WebSocket management
   useEffect(() => {
-    if (wsRef.current) return;
+    let isMounted = true; // Prevents state updates if component unmounts
 
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
+    const connect = () => {
+      // Don't open a new connection if one is already open
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    ws.onopen = () => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) setIsConnected(true);
+      console.log("Attempting to connect to WebSocket...");
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (isMounted && wsRef.current?.readyState === WebSocket.OPEN) {
+          console.log("WebSocket Connected!");
+          setIsConnected(true);
+          // Clear any pending reconnects just in case
+          if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+
+          // Handle progress updates
+          if (message.type === "progress") {
+            setCalcProgress(message.data.progress || 0);
+            setEta(message.data.eta);
+            return;
+          }
+
+          const duration = Math.round(performance.now() - startTimeRef.current);
+          setIsCalculating(false);
+          setCalcProgress(0);
+          setCalcTime(duration);
+
+          if (message.type === "results") {
+            setSimulatorResults({
+              trajectories: message.data.trajectories || [],
+              closeTrajectories: message.data.closeTrajectories || [],
+              farTrajectories: message.data.farTrajectories || [],
+              bestTrajectory: message.data.bestTrajectory || null,
+              bestInfo: message.data.bestInfo || null,
+              robustnessData: message.data.robustnessData || [],
+              costData: message.data.costData || [],
+            });
+          } else if (message.type === "sweepResults") {
+            setSweepResults(message.data || []);
+          } else if (message.type === "surfaceResults") {
+            setSurfaceResults(message.data || {});
+          } else if (message.type === "optimalResults") {
+            setOptimalResults(message.data || {});
+          }
+        } catch (e) {
+          console.error("Failed to parse backend response", e);
+          setIsCalculating(false);
+        }
+      };
+
+      ws.onclose = () => {
+        if (isMounted) {
+          setIsConnected(false);
+          setIsCalculating(false); // Stop any loading spinners if backend dies
+          console.log("WebSocket Disconnected. Reconnecting in 3 seconds...");
+          
+          // Try to reconnect after 3 seconds
+          reconnectTimeoutRef.current = setTimeout(connect, 3000);
+        }
+      };
+
+      ws.onerror = () => {
+        if (isMounted) setIsCalculating(false);
+        // We don't reconnect here because 'onclose' will immediately fire after 'onerror'
+      };
     };
 
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
+    // Kick off the initial connection
+    connect();
 
-        // Handle progress updates
-        if (message.type === "progress") {
-          setCalcProgress(message.data.progress || 0);
-          setEta(message.data.eta);
-          return;
-        }
-
-        const duration = Math.round(performance.now() - startTimeRef.current);
-        setIsCalculating(false);
-        setCalcProgress(0);
-        setCalcTime(duration);
-
-        if (message.type === "results") {
-          setSimulatorResults({
-            trajectories: message.data.trajectories || [],
-            closeTrajectories: message.data.closeTrajectories || [],
-            farTrajectories: message.data.farTrajectories || [],
-            bestTrajectory: message.data.bestTrajectory || null,
-            bestInfo: message.data.bestInfo || null,
-            robustnessData: message.data.robustnessData || [],
-            costData: message.data.costData || [],
-          });
-        } else if (message.type === "sweepResults") {
-          setSweepResults(message.data || []);
-        } else if (message.type === "surfaceResults") {
-          setSurfaceResults(message.data || {});
-        } else if (message.type === "optimalResults") {
-          setOptimalResults(message.data || {});
-        }
-      } catch (e) {
-        console.error("Failed to parse backend response", e);
-        setIsCalculating(false);
-      }
-    };
-
-    ws.onclose = () => setIsConnected(false);
-    ws.onerror = () => setIsCalculating(false);
-
+    // Cleanup function when the component unmounts
     return () => {
+      isMounted = false;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

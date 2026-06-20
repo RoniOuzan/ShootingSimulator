@@ -5,12 +5,15 @@ export interface Translation2d {
   y: number;
 }
 
+export type ProjectileShape = "BALL" | "RING" | "DISK" | "FRISBEE" | "FOOTBALL";
+
 export interface AerodynamicParams {
   mass: number;
   radius: number;
+  innerRadius?: number;
   dragCoeff: number;
   spinRPSPerMS: number;
-  magnusCoeff: number;
+  shape: ProjectileShape;
 }
 
 export interface HardwareLimits {
@@ -18,8 +21,10 @@ export interface HardwareLimits {
   maxAngle: number;
   minVel: number;
   maxVel: number;
-  estimatedAngleError: number;
-  estimatedVelocityError: number;
+  angleRobustness: number;
+  velocityRobustness: number;
+  angleError: number;
+  velocityError: number;
 }
 
 export interface TargetParams {

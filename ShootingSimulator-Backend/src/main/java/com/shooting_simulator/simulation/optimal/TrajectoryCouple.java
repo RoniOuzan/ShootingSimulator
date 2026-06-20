@@ -112,10 +112,10 @@ public class TrajectoryCouple {
         }
 
         this.optimalTrajectory.setTolerance(new Tolerance(
-                velPos,
-                velNeg,
-                maxPosAngle * safeScale,
-                maxNegAngle * safeScale,
+                Math.max(0, velPos - this.physicalValues.velocityError),
+                Math.max(0, velNeg - this.physicalValues.velocityError),
+                        Math.max(0, maxPosAngle * safeScale - this.physicalValues.angleError),
+                Math.max(0, maxNegAngle * safeScale - this.physicalValues.angleError),
                 ellipseAngleDeg));
     }
 

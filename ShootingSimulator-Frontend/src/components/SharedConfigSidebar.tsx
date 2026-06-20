@@ -4,6 +4,7 @@ import type {
   SharedConfig,
   ObstacleConfig,
   ResolutionMode,
+  ProjectileShape,
 } from "../types";
 import ControlSlider from "./ControlSlider";
 import "./SharedConfigSidebar.css";
@@ -64,6 +65,14 @@ const PRESETS: Record<
     targetImpactAngle: -45,
   },
 };
+
+const SHAPE_OPTIONS: { value: ProjectileShape; label: string; icon: string }[] = [
+  { value: "BALL", label: "Ball", icon: "⚽" },
+  { value: "RING", label: "Ring", icon: "⭕" },
+  { value: "DISK", label: "Disk", icon: "💿" },
+  { value: "FRISBEE", label: "Frisbee", icon: "🛸" },
+  { value: "FOOTBALL", label: "Football", icon: "🏈" },
+];
 
 export default function SharedConfigSidebar({
   config,
@@ -227,16 +236,18 @@ export default function SharedConfigSidebar({
                 value={target.center.y}
                 min={0}
                 max={5}
-                step={0.05}
+                step={0.001}
+                precision={3}
                 unit="m"
                 onChange={(v) => updateConfig("target", { center: {...target.center, y: v } })}
               />
               <ControlSlider
                 label="Target Radius"
                 value={target.radius}
-                min={0.05}
+                min={0.005}
                 max={1}
-                step={0.05}
+                step={0.005}
+                precision={3}
                 unit="m"
                 onChange={(v) => updateConfig("target", { radius: v })}
               />
@@ -298,22 +309,54 @@ export default function SharedConfigSidebar({
                 <div className="icon-badge">💨</div>
                 <h3>Aerodynamics</h3>
               </div>
+
+              {/* Shape Selector */}
+              <div className="preset-grid" style={{ marginBottom: "1rem" }}>
+                {SHAPE_OPTIONS.map((s) => (
+                  <button
+                    key={s.value}
+                    className={`preset-btn ${aerodynamics.shape === s.value ? "active" : ""}`}
+                    onClick={() => {
+                      updateConfig("aerodynamics", { shape: s.value });
+                    }}
+                    title={`Auto-fill defaults for ${s.label}`}
+                  >
+                    {s.icon} {s.label}
+                  </button>
+                ))}
+              </div>
+
+              {aerodynamics.shape === "RING" && (
+                <ControlSlider
+                  label="Inner Radius"
+                  value={aerodynamics.innerRadius || 0.127}
+                  min={0.001}
+                  max={aerodynamics.radius - 0.001} // Prevent inner hole from being bigger than the ring!
+                  step={0.001}
+                  precision={3}
+                  unit="m"
+                  onChange={(v) => updateConfig("aerodynamics", { innerRadius: v })}
+                />
+              )}
+
               <div className="card-row">
                 <ControlSlider
                   label="Mass"
                   value={aerodynamics.mass}
                   min={0.05}
                   max={1}
-                  step={0.01}
+                  step={0.001}
+                  precision={3}
                   unit="kg"
                   onChange={(v) => updateConfig("aerodynamics", { mass: v })}
                 />
                 <ControlSlider
                   label="Radius"
                   value={aerodynamics.radius}
-                  min={0.02}
+                  min={0.001}
                   max={0.3}
-                  step={0.02}
+                  step={0.001}
+                  precision={3}
                   unit="m"
                   onChange={(v) => updateConfig("aerodynamics", { radius: v })}
                 />
@@ -328,30 +371,17 @@ export default function SharedConfigSidebar({
                 onChange={(v) => updateConfig("aerodynamics", { dragCoeff: v })}
               />
               <div className="card-divider" />
-              <div className="card-row">
-                <ControlSlider
-                  label="Spin Rate"
-                  value={aerodynamics.spinRPSPerMS}
-                  min={-2}
-                  max={2}
-                  step={0.1}
-                  unit=" rps/ms"
-                  onChange={(v) =>
-                    updateConfig("aerodynamics", { spinRPSPerMS: v })
-                  }
-                />
-                <ControlSlider
-                  label="Magnus Coeff"
-                  value={aerodynamics.magnusCoeff}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  unit=" Cm"
-                  onChange={(v) =>
-                    updateConfig("aerodynamics", { magnusCoeff: v })
-                  }
-                />
-              </div>
+              <ControlSlider
+                label="Spin Rate"
+                value={aerodynamics.spinRPSPerMS}
+                min={-10}
+                max={10}
+                step={0.1}
+                unit=" rps/ms"
+                onChange={(v) =>
+                  updateConfig("aerodynamics", { spinRPSPerMS: v })
+                }
+              />
             </div>
 
             {/* Hardware Limits */}
@@ -404,26 +434,53 @@ export default function SharedConfigSidebar({
               <div className="card-row">
                 <ControlSlider
                   label="Angle Error"
-                  value={hardware.estimatedAngleError}
+                  value={hardware.angleError}
                   min={0.01}
                   max={0.5}
                   step={0.01}
                   unit="°"
                   precision={2}
                   onChange={(v) =>
-                    updateConfig("hardware", { estimatedAngleError: v })
+                    updateConfig("hardware", { angleError: v })
                   }
                 />
                 <ControlSlider
                   label="Velocity Error"
-                  value={hardware.estimatedVelocityError}
+                  value={hardware.velocityError}
+                  min={0.01}
+                  max={0.5}
+                  step={0.01}
+                  unit="m/s"
+                  precision={2}
+                  onChange={(v) =>
+                    updateConfig("hardware", { velocityError: v })
+                  }
+                />
+              </div>
+              <div className="card-divider" />
+              <div className="card-row">
+                <ControlSlider
+                  label="Angle Robust"
+                  value={hardware.angleRobustness}
+                  min={0.01}
+                  max={0.5}
+                  step={0.01}
+                  unit="°"
+                  precision={2}
+                  onChange={(v) =>
+                    updateConfig("hardware", { angleRobustness: v })
+                  }
+                />
+                <ControlSlider
+                  label="Vel Robust"
+                  value={hardware.velocityRobustness}
                   min={0.001}
                   max={0.5}
                   step={0.001}
                   unit="m/s"
                   precision={3}
                   onChange={(v) =>
-                    updateConfig("hardware", { estimatedVelocityError: v })
+                    updateConfig("hardware", { velocityRobustness: v })
                   }
                 />
               </div>

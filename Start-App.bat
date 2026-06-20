@@ -6,6 +6,10 @@ echo   Booting up Shooting Simulator...
 echo =========================================
 echo.
 
+:: CLEANUP: Kill any ghost Java servers holding the port hostage
+echo Cleaning up old processes...
+taskkill /F /IM java.exe >nul 2>&1
+
 :: Navigate into the React frontend folder first
 cd shootingsimulator-frontend
 

@@ -173,6 +173,7 @@ public abstract class ShootingModel {
         double radialVelocityMps = decomposedVelocity.getX();
         double tangentialVelocityMps = decomposedVelocity.getY();
 
+
         double radialAccelerationMpsSq = decomposedAcceleration.getX();
         double tangentialAccelerationMpsSq = decomposedAcceleration.getY();
 

@@ -8,9 +8,11 @@ public class AerodynamicsModel {
     private static final double AIR_DENSITY = 1.225;
 
     private final PhysicalValues physicalValues;
+    private final ProjectileShape shape;
 
     public AerodynamicsModel(PhysicalValues physicalValues) {
         this.physicalValues = physicalValues;
+        this.shape = ProjectileShape.valueOf(physicalValues.shape);
     }
 
     public Translation2d calculateAcceleration(Translation2d velocity) {
@@ -35,16 +37,28 @@ public class AerodynamicsModel {
     }
 
     private Translation2d calculateMagnus(Translation2d velocity, double radius, double area) {
-        double omega = this.getBallRPS(velocity.getNorm()) * (2 * Math.PI);
+        double vMag = velocity.getNorm();
+        if (vMag <= 0.001) return new Translation2d(0, 0);
 
-        // Calculate the Magnus scalar (v cancels out with the perpendicular vector normalizer)
-        double magnusScalar = (0.5 * AIR_DENSITY * this.physicalValues.magnusCoeff * radius * omega * area) / this.physicalValues.mass;
+        // ω (rad/s) = (spinRPSPerMS * v) * 2π
+        double omega = (this.physicalValues.spinRPSPerMS * vMag) * (2 * Math.PI);
 
-        // The cross product of spin and velocity results in a perpendicular vector: (-Vy, Vx)
-        return new Translation2d(-velocity.getY() * magnusScalar, velocity.getX() * magnusScalar);
-    }
+        // Fetch the inner radius (defaults to 0.0 if not set or not applicable)
+        double innerRadius = this.physicalValues.innerRadius;
 
-    private double getBallRPS(double velocity) {
-        return this.physicalValues.spinRPSPerMS * velocity;
+        // Delegate to the Enum!
+        double forceMag = this.shape.calculateMagnusForce(
+                vMag,
+                omega,
+                radius,
+                innerRadius,
+                area,
+                AIR_DENSITY
+        );
+
+        double accMag = forceMag / this.physicalValues.mass;
+
+        // Standard Magnus force acts perpendicular to the velocity vector
+        return new Translation2d(-velocity.getY(), velocity.getX()).div(vMag).times(accMag);
     }
 }
