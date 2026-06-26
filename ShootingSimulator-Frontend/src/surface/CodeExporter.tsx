@@ -146,17 +146,20 @@ public class ShootingPreset {
 
     private final double flightTime;
 
-    // --- Tolerance Sweet Spot ---
-    private final double velToleranceMinus;
-    private final double velTolerancePlus;
-    private final double angleToleranceMinus;
-    private final double angleTolerancePlus;
-    private final double ellipseAngleDegrees;
+    private final double timestamp;
 
-    public Translation3d getTranslation3d() {
-        return new Translation3d(this.velocity,
-                new Rotation3d(0, -this.pitch.getRadians(), this.yaw.getRadians()));
+    public ShootingPreset() {
+        this(Rotation2d.kZero, Rotation2d.kZero, 0, 0, 0, 0, 0, 0);
     }
+
+    public ShootingPreset(Rotation2d pitch, Rotation2d yaw, double velocity, double timestamp) {
+        this(pitch, yaw, velocity, 0, 0, 0, 0, timestamp);
+    }
+
+   public Translation3d getTranslation3d() {
+       return new Translation3d(this.velocity,
+               new Rotation3d(0, -this.pitch.getRadians(), this.yaw.getRadians()));
+   }
 }`;
 }
 
@@ -263,7 +266,8 @@ ${abstractMethods}
             Translation2d origin,
             Translation2d originVelocity,
             Translation2d originAcceleration,
-            Translation2d target
+            Translation2d target,
+            double timestamp
     ) {
         double distanceMeters = origin.getDistance(target);
 
@@ -272,6 +276,7 @@ ${abstractMethods}
 
         double radialVelocityMps = decomposedVelocity.getX();
         double tangentialVelocityMps = decomposedVelocity.getY();
+
 
         double radialAccelerationMpsSq = decomposedAcceleration.getX();
         double tangentialAccelerationMpsSq = decomposedAcceleration.getY();
@@ -302,16 +307,17 @@ ${abstractMethods}
                 pitchVelRadPerSec,
                 yawVelocityRadPerSec,
                 flywheelAccelerationMpsSq,
-                flightTimeSeconds
+                flightTimeSeconds,
+                timestamp
         );
     }
 
-    
+
 
     // =========================================================================
     // TOLERANCE
     // =========================================================================
-    
+
     /**
      * Evaluates if the current physical shooter state will hit the target based on the generated kinematics.
      * * @param pitch The current physical pitch of the pivot.
@@ -404,6 +410,8 @@ ${abstractMethods}
             return false;
         }
 
+        System.out.println(Math.pow(xAligned / rx, 2) + Math.pow(yAligned / ry, 2));
+
         // Evaluate the core ellipse equation
         return Math.pow(xAligned / rx, 2) + Math.pow(yAligned / ry, 2) <= 1.0;
     }
@@ -445,8 +453,8 @@ ${abstractMethods}
      * Decomposes a global field-relative vector into target-relative radial and tangential components.
      *
      * @return A Translation2d where:
-     * X = Radial component (Negative = towards target, Positive = away).
-     * Y = Tangential component (Positive = strafing left, Negative = strafing right).
+     *         X = Radial component (Positive = away, Negative = towards target).
+     *         Y = Tangential component (Positive = strafing left, Negative = strafing right).
      */
     private static Translation2d decomposeVelocity(
             Translation2d origin,
@@ -458,9 +466,8 @@ ${abstractMethods}
 
         Translation2d standardRelativeVector = globalVector.rotateBy(angleToTarget.unaryMinus());
 
-        // Invert X to enforce the convention that moving towards the target decreases distance (negative velocity)
         return new Translation2d(
-                -standardRelativeVector.getX(),
+                standardRelativeVector.getX(),
                 standardRelativeVector.getY()
         );
     }

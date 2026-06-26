@@ -16,8 +16,11 @@ cd shootingsimulator-frontend
 :: Check if node_modules exists, if not, run npm install automatically
 if not exist "node_modules\" (
     echo [Setup] First time running on this PC. Installing dependencies...
-    npm install
+    call npm install
 )
 
 :: Launch the development servers
-npm run dev
+call npm run dev
+
+:: If the servers crash, this keeps the window open so you can read the error
+pause

@@ -245,7 +245,7 @@ export default function SharedConfigSidebar({
                 label="Target Radius"
                 value={target.radius}
                 min={0.005}
-                max={1}
+                max={5}
                 step={0.005}
                 precision={3}
                 unit="m"

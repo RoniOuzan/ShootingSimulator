@@ -99,7 +99,7 @@ export default function TrajectorySidebar({
         <ControlSlider
           label="Initial X"
           value={initialX}
-          min={-10} max={0} step={0.1}
+          min={-20} max={0} step={0.1}
           unit="m"
           disabled={isLockedOriginX}
           onChange={setInitialX}
